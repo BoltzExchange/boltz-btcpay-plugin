@@ -1,0 +1,39 @@
+@model BTCPayServer.Models.StoreViewModels.LightningNodeViewModel
+@{
+    var storeId = Model.StoreId;
+    if (Model.CryptoCode != "BTC")
+    {
+        return;
+    }
+}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+       
+       const customNodeAccordian = document.getElementById("CustomNodeSupport");
+       const template = document.getElementById("boltz");
+       customNodeAccordian.appendChild(template.content.cloneNode(true));
+        
+    });
+</script>
+
+<template id="boltz">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="CustomBoltzHeader">
+            <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#CustomBoltzContent" aria-controls="CustomBoltzContent" aria-expanded="false">
+                <span><strong>Boltz</strong> via boltz-client</span>
+                <vc:icon symbol="caret-down"/>
+            </button>
+        </h2>
+        <div id="CustomBoltzContent" class="accordion-collapse collapse" aria-labelledby="CustomBoltzHeader" data-bs-parent="#CustomNodeSupport">
+            <div class="accordion-body">
+                <ul class="pb-2">
+                    <li>
+                        <code><b>type=</b>blink;<b>server=</b>https://api.blink.sv/graphql;<b>api-key</b>=blink_...;<b>wallet-id=</b>xyz</code>
+                    </li>
+                </ul>
+                <p class="my-2">Head over to the <a href="https://dashboard.blink.sv" target="_blank" rel="noreferrer noopener" >Boltz dashboard</a> and create an api key. The server is optional and will use the default Boltz instance.The wallet-id is optional and will use the default wallet otherwise.</p>
+            </div>
+        </div>
+    </div>
+</template>

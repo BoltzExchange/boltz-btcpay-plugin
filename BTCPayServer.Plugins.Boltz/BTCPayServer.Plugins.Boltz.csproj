@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+    </PropertyGroup>
+
+    <!-- Plugin specific properties -->
+    <PropertyGroup>
+        <Product>Boltz</Product>
+        <Description>A template for your own BTCPay Server plugin.</Description>
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+    <ItemDefinitionGroup>
+        <ProjectReference>
+            <Properties>StaticWebAssetsEnabled=false</Properties>
+            <Private>false</Private>
+            <ExcludeAssets>runtime;native;build;buildTransitive;contentFiles</ExcludeAssets>
+        </ProjectReference>
+    </ItemDefinitionGroup>
+
+
+    <!-- Plugin development properties -->
+    <PropertyGroup>
+        <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+        <PreserveCompilationContext>false</PreserveCompilationContext>
+        <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="Views\**" />
+    </ItemGroup>
+
+    <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
+
+    <ItemGroup>
+        <ProjectReference Include="..\btcpayserver\BTCPayServer\BTCPayServer.csproj"/>
+        <EmbeddedResource Include="Resources\**"/>
+        <Protobuf Include="Protos\boltzrpc\boltzrpc.proto" GrpcServices="Client"/>
+        <Protobuf Include="Protos\boltzrpc\autoswaprpc\autoswaprpc.proto" ProtoRoot="Protos\boltzrpc" GrpcServices="Client"/>
+        <PackageReference Include="Google.Protobuf" Version="3.18.0"/>
+        <PackageReference Include="Grpc.AspNetCore" Version="2.32.0"/>
+        <PackageReference Include="Grpc.Net.Client" Version="2.52.0"/>
+        <PackageReference Include="Grpc.Tools" Version="2.40.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <UpToDateCheckInput Remove="Views\Boltz\LNPaymentMethodSetupTab.cshtml" />
+    </ItemGroup>
+</Project>
