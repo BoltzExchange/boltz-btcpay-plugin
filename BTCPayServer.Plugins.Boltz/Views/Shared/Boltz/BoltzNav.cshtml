@@ -1,0 +1,23 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Abstractions.TagHelpers
+@using BTCPayServer.Client
+@using BTCPayServer.Plugins.Boltz.Views
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using BTCPayServer.Abstractions.Contracts
+@inject IScopeProvider ScopeProvider
+@{
+    var storeId = ScopeProvider.GetCurrentStoreId();
+}
+
+@if (!string.IsNullOrEmpty(storeId))
+{
+    <li class="nav-item">
+        <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Index" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz")" id="Nav-Boltz">
+
+            <svg role="img" class="icon icon-plugin" viewBox="0 0 24 24" fill="none">
+                <use href="/Resources/img/boltz.svg"></use>
+            </svg>
+            <span>Boltz</span>
+        </a>
+    </li>
+}

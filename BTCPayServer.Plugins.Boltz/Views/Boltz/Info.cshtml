@@ -1,0 +1,57 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.Boltz.Views
+@model BTCPayServer.Plugins.Boltz.Models.BoltzInfo
+@{
+    ViewData.SetActivePage("Boltz", "Info", "Info");
+}
+
+<h3 class="mt-3">Autoswap</h3>
+
+<div class="widget">
+    <div class="d-flex align-items-baseline gap-1">
+        <h3 class="d-inline-block me-1" data-sensitive>
+            @Model.Status.Lightning?.Budget
+        </h3>
+        <span class="text-secondary fw-semibold text-nowrap">
+            Budget (sats)
+        </span>
+    </div>
+</div>
+
+<section class="mt-3">
+    <h5>Reverse Swaps</h5>
+    <div class="invoice-payments table-responsive mt-0">
+        <table class="table table-hover mb-0">
+            <thead>
+            <tr>
+                <th class="w-75px">ID</th>
+                <th class="w-75px">From</th>
+                <th class="w-75px">To</th>
+                <th class="w-175px">State</th>
+                <th class="text-nowrap">Status</th>
+                <th class="w-100px">Amount</th>
+            </tr>
+            </thead>
+            <tbody>
+            @if (Model.Swaps?.ReverseSwaps != null)
+            {
+                @foreach (var payment in Model.Swaps.ReverseSwaps)
+                {
+                    <tr >
+                        <td>@payment.Id</td>
+                        <td>@payment.Pair.From</td>
+                        <td>@payment.Pair.To</td>
+                        <td>@payment.State</td>
+                        <td>@payment.Status</td>
+                        <td>@payment.OnchainAmount</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <p>No reverse swaps avilable</p>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

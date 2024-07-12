@@ -5,6 +5,8 @@ namespace BTCPayServer.Plugins.Boltz.Views;
 
 public enum BoltzNavPages
 {
-    Index
+    Info,
+    Configure,
+    Connect,
 }
 

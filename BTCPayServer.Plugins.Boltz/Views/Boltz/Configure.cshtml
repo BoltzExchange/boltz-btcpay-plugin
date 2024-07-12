@@ -1,0 +1,191 @@
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using Boltzrpc
+@model BTCPayServer.Plugins.Boltz.Models.BoltzConfig
+@{
+    ViewData.SetActivePage("Boltz", "Configure", "Configure");
+
+    var swapTypes = new List<string> { "Reverse", "Normal", "Both" };
+    var liquidWallets = Model.Wallets.FindAll(wallet => wallet.Currency == Currency.Lbtc);
+    var currencies = new List<Currency> { Currency.Lbtc, Currency.Btc };
+}
+
+
+<div class="form-group mt-4">
+    <label asp-for="Ln.Wallet" class="form-label">Liquid Wallet</label>
+    <div class="d-flex flex-row gap-2">
+        <select asp-items="new SelectList(liquidWallets, nameof(Wallet.Name), nameof(Wallet.Name), Model.LiquidWallet)" asp-for="LiquidWallet" class="form-select flex-grow-1">
+        </select>
+        <button type="button" class="btn p-1" data-bs-toggle="modal" data-bs-target="#createWallet">
+            Generate new
+        </button>
+        <button type="button" class="btn p-1" data-bs-toggle="modal" data-bs-target="#createWallet">
+            Import
+        </button>
+    </div>
+</div>
+
+
+<div class="modal" tabindex="-1" id="createWallet">
+    <div class="modal-dialog model-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Wallet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ss-server-errors" class="text-danger"></div>
+
+                <p>This will generate a new wallet. </p>
+
+                <div class="form-group mt-4">
+                    <label asp-for="CreateWallet.Currency" class="form-label"></label>
+                    <select asp-items="new SelectList(currencies)" value="@Currency.Lbtc" asp-for="CreateWallet.Currency" class="form-select">
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="CreateWallet.Name" class="form-label"></label>
+                    <input value="autoswap" asp-for="CreateWallet.Name" class="form-control"></input>
+                    <span asp-validation-for="CreateWallet.Name" class="text-danger"></span>
+                </div>
+
+                <button name="command" type="submit" class="btn btn-success" value="BoltzCreateWallet">
+                    Create
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<form method="post" class="mt-3" id="autoswapForm">
+    <h5 class="my-3">Lightning</h5>
+
+    <div class="form-group d-flex align-items-center">
+        <input asp-for="Ln.Enabled" id="PayJoinEnabled" type="checkbox" class="btcpay-toggle me-2"/>
+        <label asp-for="Ln.Enabled" class="form-label mb-0 me-1"></label>
+    </div>
+
+    <div class="form-group mt-4">
+        <label asp-for="Ln.SwapType" class="form-label">Swap Type</label>
+        <select asp-items="new SelectList(swapTypes, Model.Ln.SwapType)" asp-for="Ln.SwapType" class="form-select" id="swapType">
+        </select>
+    </div>
+    <div class="form-group" id="inboundInput">
+        <label asp-for="Ln.InboundBalancePercent" class="form-label">Inbound Balance Percent</label>
+        <input type="number" min="0" max="100" asp-for="Ln.InboundBalancePercent" class="form-control"></input>
+        <span asp-validation-for="Ln.InboundBalancePercent" class="text-danger"></span>
+    </div>
+
+    <div class="form-group" id="outboundInput">
+        <label asp-for="Ln.OutboundBalancePercent" class="form-label">Outbound Balance Percent</label>
+        <input type="number" min="0" max="100" asp-for="Ln.OutboundBalancePercent" class="form-control"></input>
+        <span asp-validation-for="Ln.OutboundBalancePercent" class="text-danger"></span>
+    </div>
+
+    <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#AdvancedLightningSettings" aria-expanded="false" aria-controls="AdvancedLightningSettings">
+        <vc:icon symbol="caret-down"/>
+        <span class="ms-1">Advanced settings</span>
+    </button>
+
+    <div id="AdvancedLightningSettings" class="collapse">
+
+        <div class="form-group mt-4">
+            <label asp-for="Ln.Wallet" class="form-label"></label>
+            <div class="d-flex flex-row gap-2">
+                <select asp-items="new SelectList(Model.Wallets, nameof(Wallet.Name), nameof(Wallet.Name), Model.Ln.Wallet, nameof(Wallet.Currency))" asp-for="Ln.Wallet" class="form-select flex-grow-1">
+                    @foreach (var wallet in Model.Wallets)
+                    {
+                        <option id="@wallet.Id" value="@wallet.Id" class="text-truncate @(wallet.Readonly ? "readonly" : "")">@wallet.Name (@wallet.Currency.ToString())</option>
+                    }
+                </select>
+                <button type="button" class="btn p-1" data-bs-toggle="modal" data-bs-target="#createWallet">
+                    Generate new
+                </button>
+                <button type="button" class="btn p-1" data-bs-toggle="modal" data-bs-target="#createWallet">
+                    Import
+                </button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Ln.MaxFeePercent" class="form-label">Max Fee Percent</label>
+            <input type="number" min="0" max="100" asp-for="Ln.MaxFeePercent" class="form-control"></input>
+            <span asp-validation-for="Ln.MaxFeePercent" class="text-danger"></span>
+        </div>
+
+    </div>
+
+    <button name="command" type="submit" class="btn btn-success" value="BoltzSetLnConfig">
+        Save
+    </button>
+</form>
+
+
+<form method="post" class="mt-3" id="chainForm">
+    <h5 class="my-3">Chain</h5>
+
+    <div class="form-group d-flex align-items-center">
+        <input asp-for="Chain.Enabled" type="checkbox" class="btcpay-toggle me-2"/>
+        <label asp-for="Chain.Enabled" class="form-label mb-0 me-1"></label>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Chain.MaxBalance" class="form-label">Max Balance (satoshis)</label>
+        <input type="number" asp-for="Chain.MaxBalance" class="form-control"></input>
+        <span asp-validation-for="Chain.MaxBalance" class="text-danger"></span>
+    </div>
+
+    <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#AdvancedChainSettings" aria-expanded="false" aria-controls="AdvancedChainSettings">
+        <vc:icon symbol="caret-down"/>
+        <span class="ms-1">Advanced settings</span>
+    </button>
+
+    <div id="AdvancedChainSettings" class="collapse">
+        <div class="form-group">
+            <label asp-for="Chain.MaxFeePercent" class="form-label">Max Fee Percent</label>
+            <input type="number" min="0" max="100" asp-for="Chain.MaxFeePercent" class="form-control"></input>
+            <span asp-validation-for="Chain.MaxFeePercent" class="text-danger"></span>
+        </div>
+    </div>
+
+    <button name="command" type="submit" class="btn btn-success" value="BoltzSetChainConfig">
+        Save
+    </button>
+</form>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+    const swapType = $('#swapType');
+    
+    const update = () => {
+        const inbound = $('#inboundInput');
+        const outbound = $('#outboundInput');
+        const readonly = $('.readonly');
+        
+        const normalAllowed = swapType.val() !== "reverse";
+        const reverseAllowed = swapType.val() !== "normal";
+        
+        if (reverseAllowed) {
+            inbound.show();
+            inbound.prop('disabled', false);
+        } else {
+            inbound.hide();
+            inbound.prop('disabled', true);
+        }
+        
+        if (normalAllowed) {
+            outbound.show();
+            outbound.prop('disabled', false);
+            readonly.hide()
+        } else {
+            outbound.hide();
+            outbound.prop('disabled', true);
+            readonly.show()
+        }
+    }
+    swapType.change(update);
+    update()
+  })
+</script>

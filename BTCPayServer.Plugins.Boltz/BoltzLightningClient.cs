@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -7,6 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Boltzrpc;
+using BTCPayServer.Client.Models;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using Grpc.Core;
@@ -28,42 +30,74 @@ public class BoltzLightningClient : ILightningClient
     private readonly string _macaroon;
     private readonly Uri _grpcEndpoint;
     private Boltzrpc.Boltz.BoltzClient client;
+    private BoltzClient _client;
     public string? WalletId { get; set; }
 
-    private Metadata headers;
-
-
     private readonly Network _network;
-    public ILogger Logger;
 
-    public class BlinkConnectionInit
-    {
-        [JsonProperty("X-API-KEY")] public string ApiKey { get; set; }
-    }
+    private string _wallet;
+    private ulong _walletId;
 
-    public BoltzLightningClient(string macaroon, Uri grpcEndpoint, ILogger logger)
+    public BoltzLightningClient(Uri grpcEndpoint, string macaroon, string wallet)
     {
+        _client = new BoltzClient(grpcEndpoint, macaroon);
         _macaroon = macaroon;
         _grpcEndpoint = grpcEndpoint;
-        Logger = logger;
-        using var channel = GrpcChannel.ForAddress(grpcEndpoint.AbsoluteUri);
-        client = new Boltzrpc.Boltz.BoltzClient(channel);
-        headers = new Metadata()
-        {
-            { "macaroon", macaroon },
-        };
+        _wallet = wallet;
     }
 
     public override string ToString()
     {
-        return
-            $"type=blink;server={_grpcEndpoint};api-key={_apiKey}{(WalletId is null ? "" : $";wallet-id={WalletId}")}";
+        return $"type=boltz;server={_grpcEndpoint};macaroon={_macaroon};allowinsecure=true";
+    }
+
+    private LightningPayment PaymentFromSwapInfo(SwapInfo info)
+    {
+        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, _network);
+        return new LightningPayment()
+        {
+            Amount = invoice.MinimumAmount,
+            Id = info.Id,
+            Preimage = info.Preimage,
+            PaymentHash = invoice.PaymentHash?.ToString(),
+            BOLT11 = info.Invoice,
+            Status = info.State switch
+            {
+                SwapState.Successful => LightningPaymentStatus.Complete,
+                SwapState.Pending => LightningPaymentStatus.Pending,
+                _ => LightningPaymentStatus.Failed,
+            },
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(info.CreatedAt),
+            Fee = LightMoney.Satoshis(info.OnchainFee) + LightMoney.Satoshis(info.ServiceFee),
+            AmountSent = info.ExpectedAmount,
+        };
+    }
+
+    private LightningInvoice InvoiceFromSwapInfo(ReverseSwapInfo info)
+    {
+        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, _network);
+        return new LightningInvoice
+        {
+            Amount = invoice.MinimumAmount,
+            Id = info.Id,
+            Preimage = info.Preimage,
+            PaymentHash = invoice.PaymentHash?.ToString(),
+            BOLT11 = info.Invoice,
+            ExpiresAt = invoice.ExpiryDate,
+            Status = info.State switch
+            {
+                SwapState.Successful => LightningInvoiceStatus.Paid,
+                SwapState.Pending => LightningInvoiceStatus.Unpaid,
+                _ => LightningInvoiceStatus.Expired,
+            },
+        };
     }
 
     public async Task<LightningInvoice> GetInvoice(string invoiceId,
         CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var info = await client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = invoiceId });
+        return InvoiceFromSwapInfo(info.ReverseSwap);
     }
 
     public async Task<LightningInvoice> GetInvoice(uint256 paymentHash,
@@ -74,13 +108,14 @@ public class BoltzLightningClient : ILightningClient
 
     public async Task<LightningInvoice[]> ListInvoices(CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        return await ListInvoices(new ListInvoicesParams(), cancellation);
     }
 
     public async Task<LightningInvoice[]> ListInvoices(ListInvoicesParams request,
         CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var swaps = await client.ListSwapsAsync(new ListSwapsRequest());
+        return swaps.ReverseSwaps.ToList().Select(InvoiceFromSwapInfo).ToArray();
     }
 
     public async Task<LightningPayment> GetPayment(string paymentHash,
@@ -91,27 +126,37 @@ public class BoltzLightningClient : ILightningClient
 
     public async Task<LightningPayment[]> ListPayments(CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        return await ListPayments(new ListPaymentsParams(), cancellation);
     }
 
     public async Task<LightningPayment[]> ListPayments(ListPaymentsParams request,
         CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var listSwapsRequest = new ListSwapsRequest();
+        if (request.OffsetIndex.HasValue)
+        {
+            listSwapsRequest.Offset = (ulong) request.OffsetIndex.Value;
+        }
+        if (request.IncludePending.HasValue)
+        {
+            listSwapsRequest.State = SwapState.Pending;
+        }
+        var swaps = await client.ListSwapsAsync(listSwapsRequest);
+        return swaps.Swaps.ToList().Select(PaymentFromSwapInfo).ToArray();
     }
 
     public async Task<LightningInvoice> CreateInvoice(LightMoney amount, string description, TimeSpan expiry,
-        CancellationToken cancellation = new CancellationToken())
-    {
+        CancellationToken cancellation = new CancellationToken()) {
         var response = await client.CreateReverseSwapAsync(new CreateReverseSwapRequest
         {
             AcceptZeroConf = true,
-            Amount = amount.MilliSatoshi / 1000,
-        }, headers, cancellationToken: cancellation);
-        return new LightningInvoice
-        {
-            ExpiresAt = DateTimeOffset.Now.AddHours(1)
-        };
+            Amount = (ulong)amount.MilliSatoshi / 1000,
+            WalletId = _walletId,
+            ExternalPay = true,
+            Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
+        }, cancellationToken: cancellation);
+
+        return await GetInvoice(response.Id, cancellation);
     }
 
     public Task<LightningInvoice> CreateInvoice(CreateInvoiceParams createInvoiceRequest,
@@ -123,17 +168,33 @@ public class BoltzLightningClient : ILightningClient
 
     public async Task<ILightningInvoiceListener> Listen(CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        return new BoltzInvoiceListener(this, cancellation);
     }
 
     public async Task<LightningNodeInformation> GetInfo(CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var wallet = await _client.GetWallet(_wallet);
+        _walletId = wallet.Id;
+        var info = await _client.GetInfo();
+        return new LightningNodeInformation
+        {
+            Alias = "boltz-client",
+            Version = info.Version,
+            BlockHeight = (int)info.BlockHeights.Btc,
+        };
     }
 
     public async Task<LightningNodeBalance> GetBalance(CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var wallet = await _client.GetWallet(_wallet);
+        return new LightningNodeBalance
+        {
+            OnchainBalance = new OnchainBalance
+            {
+                Confirmed = Money.Satoshis(wallet.Balance.Confirmed),
+                Unconfirmed = Money.Satoshis(wallet.Balance.Unconfirmed),
+            }
+        };
     }
 
     public async Task<PayResponse> Pay(PayInvoiceParams payParams,
@@ -145,7 +206,16 @@ public class BoltzLightningClient : ILightningClient
     public async Task<PayResponse> Pay(string bolt11, PayInvoiceParams payParams,
         CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var response = await _client.CreateSwap(new CreateSwapRequest
+        {
+            Invoice = bolt11,
+            SendFromInternal = true,
+            WalletId = _walletId,
+            Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
+        });
+        return new PayResponse(PayResult.Ok, new PayDetails
+        {
+        });
     }
 
     public async Task<PayResponse> Pay(string bolt11, CancellationToken cancellation = new CancellationToken())
@@ -178,5 +248,51 @@ public class BoltzLightningClient : ILightningClient
     public async Task<LightningChannel[]> ListChannels(CancellationToken cancellation = new CancellationToken())
     {
         throw new NotImplementedException();
+    }
+
+    public class BoltzInvoiceListener : ILightningInvoiceListener
+    {
+        private readonly BoltzLightningClient _boltzLightningClient;
+        private readonly CancellationToken _cancellationToken;
+
+        public BoltzInvoiceListener(BoltzLightningClient boltzLightningClient, CancellationToken cancellationToken)
+        {
+            _boltzLightningClient = boltzLightningClient;
+            _cancellationToken = cancellationToken;
+
+            boltzLightningClient._client.SwapUpdate += OnSwapUpdate;
+        }
+
+        private readonly ConcurrentQueue<Task<LightningInvoice>> _invoices = new();
+
+        private void OnSwapUpdate(object? sender, GetSwapInfoResponse e)
+        {
+            var reverse = e.ReverseSwap;
+            if (reverse != null && reverse.State == SwapState.Successful)
+            {
+                _invoices.Enqueue(_boltzLightningClient.GetInvoice(reverse.Id, _cancellationToken));
+            }
+        }
+
+        public void Dispose()
+        {
+            _boltzLightningClient._client.SwapUpdate -= OnSwapUpdate;
+        }
+
+        public async Task<LightningInvoice> WaitInvoice(CancellationToken cancellation)
+        {
+            while (cancellation.IsCancellationRequested is not true)
+            {
+                if (_invoices.TryDequeue(out var task))
+                {
+                    return await task.WithCancellation(cancellation);
+                }
+
+                await Task.Delay(100, cancellation);
+            }
+
+            cancellation.ThrowIfCancellationRequested();
+            return null;
+        }
     }
 }

@@ -8,14 +8,13 @@ using Network = NBitcoin.Network;
     
 namespace BTCPayServer.Plugins.Boltz;
 
-public class BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
+public class 
+BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
 {
-      private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILoggerFactory _loggerFactory;
 
-    public BoltzLightningConnectionStringHandler(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory)
+    public BoltzLightningConnectionStringHandler( ILoggerFactory loggerFactory)
     {
-        _httpClientFactory = httpClientFactory;
         _loggerFactory = loggerFactory;
     }
 
@@ -63,14 +62,18 @@ public class BoltzLightningConnectionStringHandler : ILightningConnectionStringH
 
         if (!kv.TryGetValue("macaroon", out var macaroon))
         {
-            error = "The key 'api-key' is not found";
+            error = "Missing macaroon";
             return null;
         }
 
         error = null;
 
-        kv.TryGetValue("wallet-id", out var walletId);
-        var bclient = new BoltzLightningClient(macaroon, uri, _loggerFactory.CreateLogger(nameof(BoltzLightningClient)));
+        if (!kv.TryGetValue("wallet", out var wallet))
+        {
+            error = "Missing wallet";
+            return null;
+        };
+        var bclient = new BoltzLightningClient(uri, macaroon, wallet);
         (Network Network, string DefaultWalletId, string DefaultWalletCurrency) res;
         try
         {
@@ -85,7 +88,7 @@ public class BoltzLightningConnectionStringHandler : ILightningConnectionStringH
         }
         catch (Exception e)
         {
-            error = $"Invalid server or api key";
+            error = $"Invalid server or macaroon";
             return null;
         }
 

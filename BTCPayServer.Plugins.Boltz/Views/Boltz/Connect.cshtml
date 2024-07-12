@@ -1,0 +1,55 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Plugins.Boltz.Views
+@model BTCPayServer.Plugins.Boltz.Models.BoltzConnection
+@{
+    ViewData.SetActivePage("Boltz", "Connect", "Connect");
+
+    var boltzCredsSet = Model?.Settings?.CredentialsPopulated() ?? false;
+}
+
+@if (boltzCredsSet)
+{
+<p>
+    Connected to @Model?.Info?.Version
+</p>
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="mb-0">
+        <span>@ViewData["Title"]</span>
+    </h3>
+    <div class="d-flex gap-3 mt-3 mt-sm-0">
+        <button name="command" type="submit" value="save" class="btn btn-primary">Save</button>
+        @if (boltzCredsSet)
+        {
+            <button name="command" type="submit" value="clear" class="btn btn-danger">Clear</button>
+        }
+    </div>
+</div>
+
+<form method="post" id="boltzForm">
+    <div class="form-group">
+        <label asp-for="Settings.GrpcUrl" class="form-label"></label>
+        <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
+        <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Settings.Macaroon" class="form-label"></label>
+        <input asp-for="Settings.Macaroon" class="form-control" readonly="@boltzCredsSet"/>
+        <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
+    </div>
+
+    @if (boltzCredsSet)
+    {
+        <button name="command" type="submit" class="btn btn-danger" value="BoltzClearCredentials">
+            Disconnect client
+        </button>
+    }
+    else
+    {
+        <button name="command" type="submit" class="btn btn-primary" value="BoltzSaveCredentials">
+            Save
+        </button>
+    }
+</form>

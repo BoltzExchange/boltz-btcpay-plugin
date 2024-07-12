@@ -1,0 +1,32 @@
+@using BTCPayServer.Abstractions.Extensions
+@using BTCPayServer.Abstractions.TagHelpers
+@using BTCPayServer.Client
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Views
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@inject BoltzService BoltzService
+@{
+    var storeId = Model switch
+    {
+        string s => s,
+        StoreDashboardViewModel dashboardModel => dashboardModel.StoreId,
+        _ => Context.GetImplicitStoreId()
+    };
+    var client = BoltzService.GetClient(storeId);
+}
+
+<div class="sticky-header-setup"></div>
+<div class="sticky-header mb-l">
+    <h2 class="mt-1 mb-2 mb-lg-4">Boltz</h2>
+    @if (client is not null)
+    {
+        <nav id="SectionNav">
+            <div class="nav">
+                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Info")">Info</a>
+                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Configure" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Configure")">Configure</a>
+                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Connect" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Connect")">Connect</a>
+            </div>
+        </nav>
+    }
+</div>

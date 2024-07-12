@@ -22,6 +22,9 @@ public class BoltzSettings
 
         [Display(Name = "Macaroon")]
         public string Macaroon { get; set; }
+        
+        [Display(Name = "Wallet")]
+        public string Wallet { get; set; }
 
         public bool CredentialsPopulated()
         {

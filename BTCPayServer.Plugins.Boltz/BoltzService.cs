@@ -19,6 +19,7 @@ using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Http;
@@ -31,6 +32,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using LightningChannel = BTCPayServer.Lightning.LightningChannel;
 using Network = NBitcoin.Network;
+using UpdateChainConfigRequest = Autoswaprpc.UpdateChainConfigRequest;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -40,7 +42,7 @@ public class BoltzClient : IDisposable
     private Boltzrpc.Boltz.BoltzClient client;
     private AutoSwap.AutoSwapClient autoClient;
     private readonly GrpcChannel _channel;
-
+    private readonly Task _invoiceStreamTask;
 
     public BoltzClient(Uri grpcEndpoint, string macaroon)
     {
@@ -59,6 +61,8 @@ public class BoltzClient : IDisposable
         {
             { "macaroon", macaroon },
         };
+
+        _invoiceStreamTask = InvoiceStream();
     }
 
     public async Task<GetInfoResponse> GetInfo()
@@ -73,18 +77,25 @@ public class BoltzClient : IDisposable
 
     public async Task<Wallets> GetWallets()
     {
-        return await client.GetWalletsAsync(new GetWalletsRequest(), _metadata);
+        return await client.GetWalletsAsync(new GetWalletsRequest{IncludeReadonly = true}, _metadata);
+    }
+
+    public async Task<Wallet> GetWallet(string name)
+    {
+        return await client.GetWalletAsync(new GetWalletRequest { Name = name }, _metadata);
+    }
+
+
+    public async Task<CreateWalletResponse> CreateWallet(WalletParams walletParams)
+    {
+        return await client.CreateWalletAsync(new CreateWalletRequest {Params = walletParams}, _metadata);
     }
 
     public async Task<Wallet> GetAutoSwapWallet()
     {
         // TODO: dont fetch config everytime
         var config = await autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
-
-        return await client.GetWalletAsync(new GetWalletRequest
-        {
-            Name = config.Wallet
-        }, _metadata);
+        return await GetWallet(config.Lightning[0].Wallet);
     }
 
     public AutoSwap.AutoSwapClient GetAutoSwapClient()
@@ -92,24 +103,60 @@ public class BoltzClient : IDisposable
         return autoClient;
     }
 
-    public async Task<AutoSwapData> GetAutoSwapData()
+    public async Task<BoltzConfig> GetAutoSwapConfig()
     {
         var config = await autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
-        return new AutoSwapData
+
+        var data = new BoltzConfig();
+        if (config.Lightning.Count > 0)
         {
-            Enabled = config.Enabled,
-            MaxBalancePercent = config.MaxBalancePercent,
-        };
+            data.Ln = config.Lightning[0];
+        }
+
+        if (config.Chain.Count > 0)
+        {
+            data.Chain = config.Chain[0];
+        }
+
+        return data;
     }
 
-    public async Task UpdateAutoSwapData(AutoSwapData data)
+    public async Task<GetStatusResponse> GetAutoSwapStatus()
     {
-        var config = await autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
+        return await autoClient.GetStatusAsync(new GetStatusRequest(), _metadata);
+    }
 
-        config.Enabled = data.Enabled;
-        config.MaxBalancePercent = data.MaxBalancePercent;
+    public async Task UpdateAutoSwapConfig(BoltzConfig data)
+    {
+        if (data.Chain != null)
+        {
+            await autoClient.UpdateChainConfigAsync(new UpdateChainConfigRequest()
+            {
+                Config = data.Chain
+            });
+        }
+        if (data.Ln != null)
+        {
+            await autoClient.UpdateLightningConfigAsync(new UpdateLightningConfigRequest
+            {
+                Config = data.Ln
+            });
+        }
+    }
 
-        await autoClient.SetConfigAsync(config, _metadata);
+    public async Task UpdateAutoSwapChainConfig(AutoSwapChainConfig data)
+    {
+        await autoClient.UpdateChainConfigAsync(new UpdateChainConfigRequest
+        {
+            Config = new ChainConfig
+            {
+                Enabled = data.Enabled
+            },
+            FieldMask = new FieldMask
+            {
+                Paths = { "enabled" }
+            }
+        });
     }
 
     public Boltzrpc.Boltz.BoltzClient GetClient()
@@ -117,19 +164,38 @@ public class BoltzClient : IDisposable
         return client;
     }
 
+    public async Task<CreateReverseSwapResponse> CreateReverseSwap(CreateReverseSwapRequest request)
+    {
+        return await client.CreateReverseSwapAsync(request, _metadata);
+    }
+
+    public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request)
+    {
+        return await client.CreateSwapAsync(request, _metadata);
+    }
+
+    public event EventHandler<GetSwapInfoResponse> SwapUpdate;
+
+    private async Task InvoiceStream()
+    {
+        using (var stream = client.GetSwapInfoStream(new GetSwapInfoRequest()))
+        {
+            while (await stream.ResponseStream.MoveNext())
+            {
+                SwapUpdate.Invoke(this, stream.ResponseStream.Current);
+            }
+        }
+    }
+
     public void Dispose()
     {
         _channel.Dispose();
+        _invoiceStreamTask.Dispose();
     }
 }
 
 public class BoltzService : EventHostedServiceBase
 {
-    private readonly string _macaroon;
-    private readonly Uri _grpcEndpoint;
-    private Metadata _metadata;
-    private GrpcChannel _channel;
-
     private Dictionary<string, BoltzSettings> _settings;
     private Dictionary<string, BoltzClient> _clients = new();
 
@@ -242,7 +308,7 @@ public class BoltzService : EventHostedServiceBase
     public async Task Set(string storeId, BoltzSettings? settings)
     {
         var result = await Handle(storeId, settings);
-        await _storeRepository.UpdateSetting(storeId, "boltz", settings!);
+        await _storeRepository.UpdateSetting(storeId, "Boltz", settings!);
         if (settings is null)
         {
             _settings.Remove(storeId, out var oldSettings);
