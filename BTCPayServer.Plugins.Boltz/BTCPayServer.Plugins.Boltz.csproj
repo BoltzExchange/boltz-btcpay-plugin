@@ -50,4 +50,8 @@
     <ItemGroup>
       <UpToDateCheckInput Remove="Views\Boltz\LNPaymentMethodSetupTab.cshtml" />
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Views\Boltz\Setup\" />
+    </ItemGroup>
 </Project>

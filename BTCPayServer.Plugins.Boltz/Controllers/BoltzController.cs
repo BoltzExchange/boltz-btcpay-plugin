@@ -27,11 +27,10 @@ namespace BTCPayServer.Plugins.Boltz;
 [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Policies.CanViewProfile)]
 public class BoltzController : Controller
 {
-    private readonly MyPluginService _PluginService;
     private readonly BoltzService _boltzService;
     private readonly BTCPayWalletProvider _btcPayWalletProvider;
     private readonly StoreRepository _storeRepository;
-    private readonly ExplorerClientProvider _ExplorerProvider;
+    private readonly ExplorerClientProvider _explorerProvider;
     private readonly LightningClientFactoryService _lightningClientFactoryService;
 
     private BoltzClient _boltz => _boltzService.GetClient(CurrentStore.Id);
@@ -39,15 +38,14 @@ public class BoltzController : Controller
 
     private StoreData CurrentStore => HttpContext.GetStoreData();
 
-    public BoltzController(MyPluginService PluginService, BoltzService boltzService, StoreRepository storeRepository,
+    public BoltzController(BoltzService boltzService, StoreRepository storeRepository,
         BTCPayWalletProvider btcPayWalletProvider, IConfiguration configuration,
         ExplorerClientProvider explorerProvider)
     {
-        _PluginService = PluginService;
         _storeRepository = storeRepository;
         _boltzService = boltzService;
         _btcPayWalletProvider = btcPayWalletProvider;
-        _ExplorerProvider = explorerProvider;
+        _explorerProvider = explorerProvider;
 
         //configuration.GetConnectionString()
 
@@ -217,7 +215,7 @@ public class BoltzController : Controller
     private async void SetLightning()
     {
         var cryptoCode = "BTC";
-        var network = _ExplorerProvider.GetNetwork(cryptoCode);
+        var network = _explorerProvider.GetNetwork(cryptoCode);
         var paymentMethodId = new PaymentMethodId(network.CryptoCode, PaymentTypes.LightningLike);
         var paymentMethod = new LightningSupportedPaymentMethod
         {
@@ -247,5 +245,24 @@ public class BoltzController : Controller
         });
 
         await _storeRepository.UpdateStore(CurrentStore);
+    }
+
+    [HttpGet("setup/get-started")]
+    public IActionResult GetStarted()
+    {
+        var setup = new BoltzSetup();
+        return View(setup);
+    }
+
+    [HttpGet("setup/rebalance")]
+    public IActionResult SetupRebalance()
+    {
+        throw new NotImplementedException();
+    }
+
+    [HttpGet("setup/lightning")]
+    public IActionResult SetupLightning()
+    {
+        throw new NotImplementedException();
     }
 }

@@ -1,0 +1,49 @@
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using BTCPayServer.Plugins.Boltz
+@model BTCPayServer.Plugins.Boltz.Models.BoltzSetup
+@{
+    Layout = "_LayoutSetup";
+    //ViewData.SetActivePage(StoreNavPages.OnchainSettings, $"Setup {Model.CryptoCode} Wallet", Context.GetStoreData().Id);
+    var storeId = Context.GetImplicitStoreId();
+}
+
+<h1 class="text-center">Get Started with Boltz</h1>
+
+<p class="text-info">
+    You can use Boltz to automatically rebalance your existing Lightning node or start accepting Lightning payments without running a Lightning node.
+</p>
+
+<br>
+<div class="mt-5">
+    <h3 class="my-4">I have a wallet</h3>
+    <div class="list-group">
+        <a asp-controller="Boltz" asp-action="SetupRebalance" class="list-group-item list-group-item-action">
+            <div class="image">
+                <vc:icon symbol="existing-wallet"/>
+            </div>
+            <div class="content">
+                <h4>Rebalance existing node</h4>
+                <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably accept payments.</p>
+            </div>
+            <vc:icon symbol="caret-right" />
+        </a>
+    </div>
+</div>
+
+<br>
+<div class="mt-5">
+    <h3 class="my-4">I don't have a wallet</h3>
+    <div class="list-group">
+        <a asp-controller="Boltz" asp-action="SetupLightning" asp-route-storeId="@storeId" class="list-group-item list-group-item-action">
+            <div class="image">
+                <vc:icon symbol="new-wallet"/>
+            </div>
+            <div class="content">
+                <h4>Set up Lightning Payments</h4>
+                <p class="mb-0 text-secondary">This sets up Lightning Payments using Boltz. Lightning payments are processed using non-custodial swaps, meaning you stay in full control at all times. Supports read-only cold wallets.</p>
+            </div>
+            <vc:icon symbol="caret-right"/>
+        </a>
+    </div>
+</div>

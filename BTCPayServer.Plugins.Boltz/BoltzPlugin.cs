@@ -22,18 +22,8 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
         services.AddSingleton<ILightningConnectionStringHandler>(provider => provider.GetRequiredService<BoltzLightningConnectionStringHandler>());
         services.AddSingleton<BoltzLightningConnectionStringHandler>();
         services.AddHostedService<ApplicationPartsLogger>();
-        
-        services.AddHostedService<ApplicationPartsLogger>();
-        services.AddHostedService<PluginMigrationRunner>();
-        services.AddSingleton<MyPluginService>();
         services.AddSingleton<BoltzService>();
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<BoltzService>());
-        services.AddSingleton<MyPluginDbContextFactory>();
-        services.AddDbContext<MyPluginDbContext>((provider, o) =>
-        {
-            var factory = provider.GetRequiredService<MyPluginDbContextFactory>();
-            factory.ConfigureBuilder(o);
-        });
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTab", "ln-payment-method-setup-tab"));
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzInfo", "dashboard"));
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzNav", "store-integrations-nav"));
