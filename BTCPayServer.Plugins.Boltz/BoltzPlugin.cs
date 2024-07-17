@@ -18,16 +18,18 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
 
     public override void Execute(IServiceCollection services)
     {
-        
+
         services.AddSingleton<ILightningConnectionStringHandler>(provider => provider.GetRequiredService<BoltzLightningConnectionStringHandler>());
         services.AddSingleton<BoltzLightningConnectionStringHandler>();
         services.AddHostedService<ApplicationPartsLogger>();
+
         services.AddSingleton<BoltzService>();
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<BoltzService>());
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTab", "ln-payment-method-setup-tab"));
+        services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTabhead", "ln-payment-method-setup-tabhead"));
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzInfo", "dashboard"));
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzNav", "store-integrations-nav"));
-        
+
         base.Execute(services);
     }
 }

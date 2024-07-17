@@ -1,0 +1,53 @@
+@model Autoswaprpc.GetRecommendationsResponse
+@{
+    Layout = "_LayoutSetup";
+    ViewData["Title"] = "Enable Autoswap";
+
+    ViewData["Description"] = Model.Lightning.Count > 0 || Model.Chain.Count > 0
+        ? "Based on your configuration the following swaps will be executed"
+        : "All balances are within the configured threshold, no swap will be immediately executed.";
+}
+
+<form method="post" class="mt-3">
+
+    @if (Model.Lightning.Count > 0)
+    {
+        <h3 class="my-4">Lightning Swaps</h3>
+        <div class="list-group">
+            @foreach (var swap in Model.Lightning)
+            {
+                <div class="list-group-item">
+                    <div class="content">
+                        <h4>@swap.Type swap for @swap.Amount sats</h4>
+                        <p class="mb-0 text-secondary">Estimated Fee: @swap.FeeEstimate sats</p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Model.Chain.Count > 0)
+    {
+        <h3 class="my-4">Chain Swaps</h3>
+        <div class="list-group">
+            @foreach (var swap in Model.Chain)
+            {
+                <div class="list-group-item">
+                    <div class="content">
+                        <h4>Swap @swap.Amount sats</h4>
+                        <p class="mb-0 text-secondary">Estimated Fee: @swap.FeeEstimate sats</p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="d-flex flex-row gap-2 justify-content-between">
+        <button name="command" value="Enable" type="submit" class="btn btn-success">
+            Enable
+        </button>
+        <button name="command" value="Skip" type="submit" class="btn btn-secondary">
+            Skip for now
+        </button>
+    </div>
+</form>

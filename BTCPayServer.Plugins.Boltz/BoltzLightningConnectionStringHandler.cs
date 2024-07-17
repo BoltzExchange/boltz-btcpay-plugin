@@ -4,6 +4,8 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic.CompilerServices;
+using Org.BouncyCastle.Utilities;
 using Network = NBitcoin.Network;
     
 namespace BTCPayServer.Plugins.Boltz;
@@ -68,12 +70,17 @@ BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
 
         error = null;
 
-        if (!kv.TryGetValue("wallet", out var wallet))
+        if (!kv.TryGetValue("walletid", out var wallet))
         {
-            error = "Missing wallet";
+            error = "Missing wallet id";
             return null;
         };
-        var bclient = new BoltzLightningClient(uri, macaroon, wallet);
+        if (!UInt64.TryParse(wallet, out var walletId))
+        {
+            error = "Invalid wallet id";
+            return null;
+        }
+        var bclient = new BoltzLightningClient(uri, macaroon, walletId, network);
         (Network Network, string DefaultWalletId, string DefaultWalletCurrency) res;
         try
         {

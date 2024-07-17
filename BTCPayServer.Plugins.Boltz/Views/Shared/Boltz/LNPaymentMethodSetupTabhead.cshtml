@@ -1,0 +1,25 @@
+@inject BoltzService BoltzService;
+@using BTCPayServer.Client
+@using BTCPayServer.Plugins.Boltz
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model BTCPayServer.Models.StoreViewModels.LightningNodeViewModel
+
+@if (Model.CryptoCode != "BTC")
+{
+    return;
+}
+@{
+    var client = BoltzService.GetClient(Model.StoreId);
+}
+
+@if (client is null)
+{
+    <a asp-action="SetupMode" asp-controller="Boltz" permission="@Policies.CanModifyStoreSettings" asp-route-storeId="@Model.StoreId" asp-route-mode="@BoltzMode.Standalone"  type="radio" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+        <label for="LightningNodeType-Boltz">Configure Boltz</label>
+    </a>
+}
+else
+{
+    <input value="Custom" type="radio" id="LightningNodeType-Boltz" data-bs-toggle="pill" data-bs-target="#BoltzSetup" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <label for="LightningNodeType-Boltz">Use Boltz wallet</label>
+}

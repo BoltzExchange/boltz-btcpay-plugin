@@ -5,55 +5,50 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Boltzrpc;
-using BTCPayServer.Client.Models;
-using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
-using Grpc.Core;
-using Grpc.Net.Client;
-using Microsoft.AspNetCore.OutputCaching;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using LightningChannel = BTCPayServer.Lightning.LightningChannel;
 using Network = NBitcoin.Network;
 
 namespace BTCPayServer.Plugins.Boltz;
 
-public class BoltzLightningClient : ILightningClient
+public class NodeStats
 {
-    private readonly string _apiKey;
-    private readonly string _macaroon;
-    private readonly Uri _grpcEndpoint;
-    private Boltzrpc.Boltz.BoltzClient client;
-    private BoltzClient _client;
-    public string? WalletId { get; set; }
+    public BTC BTC { get; set; }
+}
 
-    private readonly Network _network;
+public class BTC
+{
+    public Node CLN { get; set; }
+    public Node LND { get; set; }
+}
 
-    private string _wallet;
-    private ulong _walletId;
+public class Node
+{
+    public string PublicKey { get; set; }
+    public List<string> Uris { get; set; }
+}
 
-    public BoltzLightningClient(Uri grpcEndpoint, string macaroon, string wallet)
-    {
-        _client = new BoltzClient(grpcEndpoint, macaroon);
-        _macaroon = macaroon;
-        _grpcEndpoint = grpcEndpoint;
-        _wallet = wallet;
-    }
+public class BoltzLightningClient(Uri grpcEndpoint, string macaroon, ulong walletId, Network network)
+    : ILightningClient
+{
+    private static NodeInfo? _clnInfo;
+
+    private readonly BoltzClient _client = new(grpcEndpoint, macaroon);
+
+    // TODO
 
     public override string ToString()
     {
-        return $"type=boltz;server={_grpcEndpoint};macaroon={_macaroon};allowinsecure=true";
+        return $"type=boltz;server={grpcEndpoint};macaroon={macaroon};walletId={walletId};allowinsecure=true";
     }
 
     private LightningPayment PaymentFromSwapInfo(SwapInfo info)
     {
-        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, _network);
+        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, network);
         return new LightningPayment()
         {
             Amount = invoice.MinimumAmount,
@@ -75,7 +70,7 @@ public class BoltzLightningClient : ILightningClient
 
     private LightningInvoice InvoiceFromSwapInfo(ReverseSwapInfo info)
     {
-        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, _network);
+        var invoice = BOLT11PaymentRequest.Parse(info.Invoice, network);
         return new LightningInvoice
         {
             Amount = invoice.MinimumAmount,
@@ -84,6 +79,7 @@ public class BoltzLightningClient : ILightningClient
             PaymentHash = invoice.PaymentHash?.ToString(),
             BOLT11 = info.Invoice,
             ExpiresAt = invoice.ExpiryDate,
+            PaidAt = DateTimeOffset.FromUnixTimeSeconds(info.PaidAt),
             Status = info.State switch
             {
                 SwapState.Successful => LightningInvoiceStatus.Paid,
@@ -94,27 +90,27 @@ public class BoltzLightningClient : ILightningClient
     }
 
     public async Task<LightningInvoice> GetInvoice(string invoiceId,
-        CancellationToken cancellation = new CancellationToken())
+        CancellationToken cancellation = new ())
     {
-        var info = await client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = invoiceId });
+        var info = await _client.GetSwapInfo(invoiceId);
         return InvoiceFromSwapInfo(info.ReverseSwap);
     }
 
     public async Task<LightningInvoice> GetInvoice(uint256 paymentHash,
-        CancellationToken cancellation = new CancellationToken())
+        CancellationToken cancellation = new ())
     {
         throw new NotImplementedException();
     }
 
-    public async Task<LightningInvoice[]> ListInvoices(CancellationToken cancellation = new CancellationToken())
+    public async Task<LightningInvoice[]> ListInvoices(CancellationToken cancellation = new ())
     {
         return await ListInvoices(new ListInvoicesParams(), cancellation);
     }
 
     public async Task<LightningInvoice[]> ListInvoices(ListInvoicesParams request,
-        CancellationToken cancellation = new CancellationToken())
+        CancellationToken cancellation = new ())
     {
-        var swaps = await client.ListSwapsAsync(new ListSwapsRequest());
+        var swaps = await _client.ListSwaps();
         return swaps.ReverseSwaps.ToList().Select(InvoiceFromSwapInfo).ToArray();
     }
 
@@ -133,34 +129,39 @@ public class BoltzLightningClient : ILightningClient
         CancellationToken cancellation = new CancellationToken())
     {
         var listSwapsRequest = new ListSwapsRequest();
+        /*
         if (request.OffsetIndex.HasValue)
         {
             listSwapsRequest.Offset = (ulong) request.OffsetIndex.Value;
         }
+        */
         if (request.IncludePending.HasValue)
         {
             listSwapsRequest.State = SwapState.Pending;
         }
-        var swaps = await client.ListSwapsAsync(listSwapsRequest);
+
+        var swaps = await _client.ListSwaps(listSwapsRequest);
         return swaps.Swaps.ToList().Select(PaymentFromSwapInfo).ToArray();
     }
 
     public async Task<LightningInvoice> CreateInvoice(LightMoney amount, string description, TimeSpan expiry,
-        CancellationToken cancellation = new CancellationToken()) {
-        var response = await client.CreateReverseSwapAsync(new CreateReverseSwapRequest
+        CancellationToken cancellation = new ())
+    {
+        var response = await _client.CreateReverseSwap(new CreateReverseSwapRequest
         {
             AcceptZeroConf = true,
             Amount = (ulong)amount.MilliSatoshi / 1000,
-            WalletId = _walletId,
+            WalletId = walletId,
             ExternalPay = true,
             Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
-        }, cancellationToken: cancellation);
+            Description = description,
+        }, cancellation);
 
         return await GetInvoice(response.Id, cancellation);
     }
 
     public Task<LightningInvoice> CreateInvoice(CreateInvoiceParams createInvoiceRequest,
-        CancellationToken cancellation = new CancellationToken())
+        CancellationToken cancellation = new ())
     {
         return CreateInvoice(createInvoiceRequest.Amount, createInvoiceRequest.Description, createInvoiceRequest.Expiry,
             cancellation);
@@ -173,20 +174,32 @@ public class BoltzLightningClient : ILightningClient
 
     public async Task<LightningNodeInformation> GetInfo(CancellationToken cancellation = new CancellationToken())
     {
-        var wallet = await _client.GetWallet(_wallet);
-        _walletId = wallet.Id;
+        if (_clnInfo == null)
+        {
+            var client = new HttpClient();
+            string url = "https://api.boltz.exchange/v2/nodes";
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            var nodeStats = JsonConvert.DeserializeObject<NodeStats>(responseBody);
+            _clnInfo = NodeInfo.Parse(nodeStats!.BTC.CLN.Uris.First());
+        }
+
         var info = await _client.GetInfo();
         return new LightningNodeInformation
         {
             Alias = "boltz-client",
             Version = info.Version,
             BlockHeight = (int)info.BlockHeights.Btc,
+            Color = "#e6c826",
+            NodeInfoList = { _clnInfo }
         };
     }
 
     public async Task<LightningNodeBalance> GetBalance(CancellationToken cancellation = new CancellationToken())
     {
-        var wallet = await _client.GetWallet(_wallet);
+        var wallet = await _client.GetWallet(walletId);
         return new LightningNodeBalance
         {
             OnchainBalance = new OnchainBalance
@@ -210,7 +223,7 @@ public class BoltzLightningClient : ILightningClient
         {
             Invoice = bolt11,
             SendFromInternal = true,
-            WalletId = _walletId,
+            WalletId = walletId,
             Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
         });
         return new PayResponse(PayResult.Ok, new PayDetails

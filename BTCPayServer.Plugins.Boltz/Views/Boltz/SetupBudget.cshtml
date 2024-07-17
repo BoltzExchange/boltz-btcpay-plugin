@@ -1,0 +1,31 @@
+@model BTCPayServer.Plugins.Boltz.Models.BudgetSetup
+
+@{
+    Layout = "_LayoutSetup";
+    ViewData["Title"] = "Setup Budget";
+    ViewData["Description"] = "Set the budget for your rebalancing";
+}
+
+<form method="post" class="mt-3">
+    <div class="form-group">
+        <label asp-for="Budget" class="form-label">Budget</label>
+        <input type="number" min="0" asp-for="Budget" class="form-control"></input>
+        <span asp-validation-for="Budget" class="text-danger"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="BudgetIntervalDays" class="form-label">Budget Interval (in days)</label>
+        <input type="number" min="0" asp-for="BudgetIntervalDays" class="form-control"></input>
+        <span asp-validation-for="BudgetIntervalDays" class="text-danger"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="MaxFeePercent" class="form-label">Max Fee Percent</label>
+        <input type="number" min="0" max="100" asp-for="MaxFeePercent" class="form-control"></input>
+        <span asp-validation-for="MaxFeePercent" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        Continue
+    </button>
+</form>

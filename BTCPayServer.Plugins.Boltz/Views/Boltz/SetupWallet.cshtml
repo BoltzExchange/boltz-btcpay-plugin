@@ -1,0 +1,75 @@
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Models
+@using Boltzrpc
+@model BTCPayServer.Plugins.Boltz.Models.WalletSetup
+@inject BoltzService BoltzService
+@{
+    Layout = "_LayoutSetup";
+    var routeData = Model.RouteData;
+    ViewData["Title"] = $"Setup {Model.Currency} Wallet";
+    ViewData["Description"] = Model.Flow switch
+    {
+        WalletSetupFlow.Chain => "Your mainchain BTC will be sent to this wallet",
+        WalletSetupFlow.Standalone => "This wallet will be used to make lightning payments",
+        WalletSetupFlow.Lightning => "This wallet will be used for rebalancing of your channels",
+        _ => "",
+    };
+}
+
+@if (Model.ExistingWallets.Count > 0)
+{
+    <h3 class="my-4">Existing Wallets</h3>
+    @foreach (var wallet in Model.ExistingWallets)
+    {
+        <form asp-controller="Boltz" asp-action="SetupWallet" asp-all-route-data="@routeData" class="mt-4" method="post">
+            <input type="hidden" name="isBtcPay" value="@wallet.IsBtcpay.ToString()" />
+            <div class="list-group">
+                <button name="walletName" type="submit" value="@wallet.Name" class="list-group-item list-group-item-action">
+                    <div class="image">
+                        <vc:icon symbol="existing-wallet"/>
+                    </div>
+                    <div class="content">
+                        <h4>@wallet.Name</h4>
+                        <p class="mb-0 text-secondary">Balance: @wallet.Balance satoshi @(wallet.IsReadonly ? "(Readonly)" : "")</p>
+                    </div>
+                    <vc:icon symbol="caret-right"/>
+                </button>
+            </div>
+        </form>
+    }
+
+    <br/>
+}
+
+
+<div class="mt-4">
+    <div class="list-group">
+        <a asp-controller="Boltz" asp-action="ImportWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action">
+            <div class="image">
+                <vc:icon symbol="existing-wallet"/>
+            </div>
+            <div class="content">
+                <h4>Import a wallet</h4>
+                <p class="mb-0 text-secondary">Import an existing hardware or software wallet</p>
+            </div>
+            <vc:icon symbol="caret-right"/>
+        </a>
+    </div>
+</div>
+
+<div class="mt-4">
+    <div class="list-group">
+        <a asp-controller="Boltz" asp-action="CreateWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action">
+            <div class="image">
+                <vc:icon symbol="new-wallet"/>
+            </div>
+            <div class="content">
+                <h4>Create a new wallet</h4>
+                <p class="mb-0 text-secondary">Generate a brand-new wallet to use</p>
+            </div>
+            <vc:icon symbol="caret-right"/>
+        </a>
+    </div>
+</div>

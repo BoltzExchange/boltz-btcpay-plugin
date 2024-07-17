@@ -34,13 +34,14 @@
     <!-- This will make sure that referencing BTCPayServer doesn't put any artifact in the published directory -->
 
     <ItemGroup>
-        <ProjectReference Include="..\btcpayserver\BTCPayServer\BTCPayServer.csproj"/>
-        <EmbeddedResource Include="Resources\**"/>
-        <Protobuf Include="Protos\boltzrpc\boltzrpc.proto" GrpcServices="Client"/>
-        <Protobuf Include="Protos\boltzrpc\autoswaprpc\autoswaprpc.proto" ProtoRoot="Protos\boltzrpc" GrpcServices="Client"/>
-        <PackageReference Include="Google.Protobuf" Version="3.18.0"/>
-        <PackageReference Include="Grpc.AspNetCore" Version="2.32.0"/>
-        <PackageReference Include="Grpc.Net.Client" Version="2.52.0"/>
+        <PackageReference Include="Octokit" Version="13.0.1" />
+        <ProjectReference Include="..\btcpayserver\BTCPayServer\BTCPayServer.csproj" />
+        <EmbeddedResource Include="Resources\**" />
+        <Protobuf Include="Protos\boltzrpc\boltzrpc.proto" GrpcServices="Client" />
+        <Protobuf Include="Protos\boltzrpc\autoswaprpc\autoswaprpc.proto" ProtoRoot="Protos\boltzrpc" GrpcServices="Client" />
+        <PackageReference Include="Google.Protobuf" Version="3.18.0" />
+        <PackageReference Include="Grpc.AspNetCore" Version="2.32.0" />
+        <PackageReference Include="Grpc.Net.Client" Version="2.52.0" />
         <PackageReference Include="Grpc.Tools" Version="2.40.0">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>

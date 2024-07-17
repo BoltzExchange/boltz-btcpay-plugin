@@ -34,10 +34,21 @@ service Boltz {
     rpc ListSwaps (ListSwapsRequest) returns (ListSwapsResponse);
 
     /*
+    Returns a list of all swaps, reverse swaps, and chain swaps in the database.
+    */
+    rpc GetStats (GetStatsRequest) returns (GetStatsResponse);
+
+    /*
     Refund a failed swap manually.
-    This is only required when no refund address has been set or the swap does not have an associated wallet.
+    This is only required when no refund address has been set and the swap does not have an associated wallet.
     */
     rpc RefundSwap (RefundSwapRequest) returns (GetSwapInfoResponse);
+
+    /*
+    Claim swaps manually.
+    This is only required when no claim address has been set and the swap does not have an associated wallet.
+    */
+    rpc ClaimSwaps (ClaimSwapsRequest) returns (ClaimSwapsResponse);
 
     /*
     Gets all available information about a swap from the database.
@@ -319,6 +330,7 @@ message ReverseSwapInfo {
     repeated ChannelId chan_ids = 15;
     optional string blinding_key = 16;
     int64 created_at = 17;
+    optional int64 paid_at = 23; // the time when the invoice was paid
     optional uint64 service_fee = 18;
     optional uint64 onchain_fee = 19;
     optional uint64 routing_fee_msat = 20;
@@ -345,6 +357,8 @@ message GetInfoResponse {
     repeated string refundable_swaps = 12;
     // the currently authenticated tenant
     optional Tenant tenant = 13;
+    // swaps that need a manual interaction to claim
+    repeated string claimable_swaps = 14;
 
     string symbol = 1 [deprecated = true];
     string lnd_pubkey = 3 [deprecated = true];
@@ -390,10 +404,9 @@ message GetServiceInfoResponse {
 message ListSwapsRequest {
     optional Currency from = 1;
     optional Currency to = 2;
+    // only consider manual or autoswaps. returns both if left empty
     optional bool is_auto = 3;
     optional SwapState state = 4;
-    optional uint64 limit = 5;
-    optional uint64 offset = 6;
 }
 message ListSwapsResponse {
     repeated SwapInfo swaps = 1;
@@ -401,12 +414,34 @@ message ListSwapsResponse {
     repeated ReverseSwapInfo reverse_swaps = 3;
     repeated ChainSwapInfo chain_swaps = 4;
 }
+
+message GetStatsRequest {
+    // only consider manual or autoswaps. returns both if left empty
+    optional bool is_auto = 1;
+}
+
+message GetStatsResponse {
+    SwapStats stats = 1;
+}
+
 message RefundSwapRequest {
     string id = 1;
     oneof destination {
         string address = 2;
         uint64 wallet_id = 3;
     }
+}
+
+message ClaimSwapsRequest {
+    repeated string swap_ids = 1;
+    oneof destination {
+        string address = 2;
+        uint64 wallet_id = 3;
+    }
+}
+
+message ClaimSwapsResponse {
+    string transaction_id = 1;
 }
 
 message GetSwapInfoRequest {
@@ -487,6 +522,8 @@ message CreateReverseSwapRequest {
     optional bool return_immediately = 7;
     // If set, the daemon will not pay the invoice of the swap and return the invoice to be paid. This implicitly sets `return_immediately` to true.
     optional bool external_pay = 8;
+    // Description of the invoice which will be created for the swap
+    optional string description = 9;
 }
 message CreateReverseSwapResponse {
     string id = 1;
@@ -573,6 +610,7 @@ message SwapStats {
     uint64 avg_fees = 3;
     uint64 avg_amount = 4;
     uint64 count = 5;
+    uint64 success_count = 6;
 }
 
 message Budget {

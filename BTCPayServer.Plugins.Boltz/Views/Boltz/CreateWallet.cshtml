@@ -1,0 +1,70 @@
+@using BTCPayServer.Plugins.Boltz.Models
+@model BTCPayServer.Plugins.Boltz.Models.WalletSetup
+
+@{
+    Layout = "_LayoutSetup";
+
+    var action = Model.IsImport ? "Import" : "Create";
+    ViewData["Title"] = $"{action} {Model.CurrencyName} Wallet";
+
+    var defaultName = Model.Flow switch
+    {
+        WalletSetupFlow.Chain => "mainchain",
+        WalletSetupFlow.Lightning => "autoswap",
+        WalletSetupFlow.Standalone => "lightning",
+        _ => ""
+    };
+}
+
+@if (!User.IsInRole(Roles.ServerAdmin))
+{
+    <div class="alert alert-warning">
+        You are not an admin on this server. While you are able to import or generate a wallet via seed with
+        your account, please understand that you are trusting the server admins not just with your
+        <a href="https://docs.btcpayserver.org/Deployment/ThirdPartyHosting/#privacy-concerns" target="_blank" class="alert-link" rel="noreferrer noopener">privacy</a>
+        but also with <a href="https://docs.btcpayserver.org/Deployment/ThirdPartyHosting/#trust-concerns" target="_blank" class="alert-link" rel="noreferrer noopener">trivial access to your funds.</a>
+    </div>
+}
+
+<form method="post" asp-action="CreateWallet" asp-all-route-data="@Model.RouteData">
+    <div class="form-group">
+        <label asp-for="WalletParams.Name" class="form-label">Wallet Name</label>
+        <input required value="@defaultName" asp-for="WalletParams.Name" class="form-control"></input>
+        <span asp-validation-for="WalletParams.Name" class="text-danger"></span>
+    </div>
+
+    @switch (Model.ImportMethod)
+    {
+        case WalletImportMethod.Mnemonic:
+            <div class="form-group">
+                <label asp-for="WalletCredentials.Mnemonic" class="form-label">Wallet Recovery Seed</label>
+                <textarea asp-for="WalletCredentials.Mnemonic" class="form-control font-monospace py-2" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+                <span asp-validation-for="WalletCredentials.Mnemonic" class="text-danger"></span>
+            </div>
+            break;
+        case WalletImportMethod.Xpub:
+            <p class="text-secondary mt-3">
+                This key, also called "xpub", is used to generate individual destination addresses for your invoices.
+                <a href="https://docs.btcpayserver.org/FAQ/Wallet/#what-is-a-derivation-scheme" target="_blank" rel="noreferrer noopener" title="More information...">
+                    <vc:icon symbol="info"/>
+                </a>
+            </p>
+            <div class="form-group">
+                <label asp-for="WalletCredentials.Xpub" class="form-label">Extended public key</label>
+                <textarea asp-for="WalletCredentials.Xpub" class="form-control store-derivation-scheme font-monospace py-2" rows="2"></textarea>
+                <span asp-validation-for="WalletCredentials.Xpub" class="text-danger"></span>
+            </div>
+            break;
+        case WalletImportMethod.Descriptor:
+            <div class="form-group">
+                <label asp-for="WalletCredentials.CoreDescriptor" class="form-label">Core descriptor</label>
+                <textarea asp-for="WalletCredentials.CoreDescriptor" class="form-control font-monospace py-2" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+                <span asp-validation-for="WalletCredentials.CoreDescriptor" class="text-danger"></span>
+            </div>
+            break;
+    }
+
+    <button type="submit" class="btn btn-success">
+        @action
+    </button>
+</form>

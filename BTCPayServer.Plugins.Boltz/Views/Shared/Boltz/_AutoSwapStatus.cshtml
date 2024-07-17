@@ -1,0 +1,46 @@
+@using BTCPayServer.Plugins.Boltz.Models
+@using BTCPayServer.Plugins.Boltz
+@model BTCPayServer.Plugins.Boltz.Models.AutoSwapStatus
+@{
+    var status = Model.Status;
+    var statusString = status.Error != "" ? "disabled" : status.Running ? "enabled" : "pending";
+}
+@if (Model.Compact)
+{
+    <div class="d-flex align-items-center justify-content-start gap-2">
+        <span class="btcpay-status btcpay-status--@(statusString)"></span>
+        <h6 class="text-truncate">@Model.Name @(status.Running ? "Running" : "Disabled")</h6>
+    </div>
+}
+else
+{
+    <div class="d-flex flex flex-column gap-2">
+        <div class="d-flex align-items-center justify-content-start gap-2 mb-2">
+            <h5 class="my-0">@Model.Name</h5>
+            <span class="btcpay-status btcpay-status--@(statusString)"></span>
+            <h6 class="text-truncate">@(status.Running ? "Running" : "Disabled")</h6>
+        </div>
+        @if (status.Description != "")
+        {
+            <p>
+                @status.Description
+            </p>
+        }
+        @if (status.Error != "")
+        {
+            <p>
+                @status.Error
+            </p>
+        }
+        @if (status.Budget != null)
+        {
+            var stats = new List<Stat>
+            {
+                new() { Name = "Total Budget", Value = status.Budget.Total, Unit = Unit.Sat },
+                new() { Name = "Remaining Budget", Value = (ulong)status.Budget.Remaining, Unit = Unit.Sat },
+            }.Concat(BoltzClient.ParseStats(status.Budget.Stats)).ToList();
+
+            <partial name="Boltz/_Stats" model="stats"/>
+        }
+    </div>
+}

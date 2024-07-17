@@ -1,3 +1,4 @@
+@using AngleSharp.Common
 @{
     Layout = "_LayoutWizard";
 }
@@ -14,9 +15,17 @@
     @await RenderSectionAsync("Navbar", false)
 
     <a asp-controller="UIStores" asp-action="Dashboard" asp-route-storeId="@Context.GetRouteValue("storeId")" class="cancel">
-        <vc:icon symbol="close" />
+        <vc:icon symbol="close"/>
     </a>
 }
+
+<header class="text-center">
+    <h1>@ViewData["Title"]</h1>
+    @if (ViewData.TryGetValue("Description", out var description))
+    {
+        <p class="text-secondary mt-3">@description</p>
+    }
+</header>
 
 @RenderBody()
 

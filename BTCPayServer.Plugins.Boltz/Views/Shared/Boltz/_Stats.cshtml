@@ -1,0 +1,17 @@
+@using BTCPayServer.Plugins.Boltz.Models
+@model List<BTCPayServer.Plugins.Boltz.Models.Stat>
+<div class="d-flex flex-row flex-wrap gap-5">
+    @foreach (var stat in Model)
+    {
+        <div class="d-flex flex-column gap-1">
+            <h6 class="text-truncate text-secondary">@stat.Name</h6>
+            <div class="d-flex flex-row align-items-baseline gap-1">
+                <h5>@stat.Value</h5>
+                @if (stat.Unit != Unit.None)
+                {
+                    <span class="text-secondary fw-semibold">@stat.Unit</span>
+                }
+            </div>
+        </div>
+    }
+</div>
