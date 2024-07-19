@@ -228,10 +228,12 @@ public class BoltzClient : IDisposable
 
     public async Task<LightningConfig> UpdateAutoSwapLightningConfig(LightningConfig config, IEnumerable<string>? paths)
     {
-        var result = await _autoClient.UpdateLightningConfigAsync(new UpdateLightningConfigRequest
+        var request = new UpdateLightningConfigRequest { Config = config };
+        if (paths is not null)
         {
-            Config = config, FieldMask = FieldMask.FromStringEnumerable<LightningConfig>(paths),
-        }, _metadata);
+            request.FieldMask = FieldMask.FromStringEnumerable<LightningConfig>(paths);
+        }
+        var result = await _autoClient.UpdateLightningConfigAsync(request, _metadata);
         return result.Lightning[0];
     }
 

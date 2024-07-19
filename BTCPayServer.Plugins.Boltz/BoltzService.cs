@@ -59,11 +59,9 @@ public class BoltzService(
         }
 
         Daemon = new BoltzDaemon(StorageDir, BtcNetwork, logger);
+
         await Daemon.Init();
-        if (!await Daemon.Configure(InternalLightning))
-        {
-            await Daemon.Configure(null);
-        }
+        await Daemon.TryConfigure(InternalLightning);
 
         foreach (var keyValuePair in _settings)
         {

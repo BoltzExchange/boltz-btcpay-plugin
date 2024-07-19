@@ -15,20 +15,20 @@
 else
 {
     <div class="d-flex flex flex-column gap-2">
-        <div class="d-flex align-items-center justify-content-start gap-2 mb-2">
+        <div class="d-flex align-items-center justify-content-start gap-2">
             <h5 class="my-0">@Model.Name</h5>
             <span class="btcpay-status btcpay-status--@(statusString)"></span>
             <h6 class="text-truncate">@(status.Running ? "Running" : "Disabled")</h6>
         </div>
         @if (status.Description != "")
         {
-            <p>
+            <p class="my-1">
                 @status.Description
             </p>
         }
         @if (status.Error != "")
         {
-            <p>
+            <p class="my-1">
                 @status.Error
             </p>
         }

@@ -18,17 +18,19 @@
     {
         var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
         var chain = new AutoSwapStatus { Name = "Chain", Status = Model.Status.Chain };
-        <div class="widget d-flex flex-column gap-2">
-            <h4>Autoswap</h4>
-            @if (Model.Ln is not null)
-            {
-                <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-            }
+        <div class="widget">
+            <h4 class="mb-3">Autoswap</h4>
+            <div class="d-flex flex-column gap-4">
+                @if (Model.Ln is not null)
+                {
+                    <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                }
 
-            @if (Model.Chain is not null)
-            {
-                <partial name="Boltz/_AutoSwapStatus" model="chain"/>
-            }
+                @if (Model.Chain is not null)
+                {
+                    <partial name="Boltz/_AutoSwapStatus" model="chain"/>
+                }
+            </div>
         </div>
     }
     @if (settings?.Mode == BoltzMode.Standalone)

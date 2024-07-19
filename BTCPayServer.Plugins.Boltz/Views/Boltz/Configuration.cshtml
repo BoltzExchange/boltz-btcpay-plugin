@@ -85,9 +85,17 @@
             </div>
         </div>
 
-        <button name="command" type="submit" class="btn btn-success" value="BoltzSetLnConfig">
-            Save
-        </button>
+        <div class="d-flex flex-row gap-2 justify-content-start">
+            <button name="command" type="submit" class="btn btn-success" value="BoltzSetLnConfig">
+                Save
+            </button>
+            @if (Model.Chain == null && Model.Ln.Currency == Currency.Lbtc)
+            {
+                <a asp-action="SetupChain" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
+                    Setup Chain Swaps
+                </a>
+            }
+        </div>
     </form>
 }
 
@@ -173,7 +181,6 @@
                 </a>
             }
         </div>
-
     </form>
 }
 

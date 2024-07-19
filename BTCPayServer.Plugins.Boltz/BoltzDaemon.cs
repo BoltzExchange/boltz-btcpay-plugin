@@ -149,7 +149,31 @@ public class BoltzDaemon(
 
     public ILightningClient? Node;
 
-    public async Task<bool> Configure(ILightningClient? node)
+    public string? NodeError { get; private set; }
+    public string? LatestStdout { get; private set; }
+    public string? LatestStderr { get; private set; }
+
+    public async Task<bool> TryConfigure(ILightningClient? node)
+    {
+        try
+        {
+            await Configure(node);
+            Node = node;
+            return true;
+        }
+        catch (Exception e)
+        {
+            if (node != null)
+            {
+                NodeError = e.Message;
+                return await TryConfigure(null);
+            }
+
+            return false;
+        }
+    }
+
+    private async Task Configure(ILightningClient? node)
     {
         var networkName = network.NBitcoinNetwork.ChainName.ToString().ToLower();
 
@@ -227,9 +251,10 @@ public class BoltzDaemon(
 
         await File.WriteAllTextAsync(Path.Combine(storageDir, "boltz.toml"), config);
         await Stop();
-        var success = await Start();
-        Node = success ? node : null;
-        return success;
+        if (!await Start())
+        {
+            throw new Exception("Failed to start daemon");
+        }
     }
 
     public event EventHandler? OnDaemonExit;
@@ -267,6 +292,9 @@ public class BoltzDaemon(
             {
                 var daemon = Path.Combine(storageDir, "bin", $"linux_{Architecture}", "boltzd");
                 var (exitCode, stdout, stderr) = await RunProcess(daemon, $"--datadir {storageDir}");
+
+                LatestStderr = stderr;
+                LatestStdout = stdout;
 
                 OnDaemonExit?.Invoke(this, new EventArgs());
                 if (exitCode != 0)

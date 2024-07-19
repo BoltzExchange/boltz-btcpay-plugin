@@ -143,7 +143,7 @@ public class BoltzController(
         {
             case "BoltzSetLnConfig":
             {
-                await SetLightningConfig(vm.Ln, null);
+                await SetLightningConfig(vm.Ln);
                 TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
                 break;
             }
@@ -568,7 +568,7 @@ public class BoltzController(
         return RedirectGetStarted();
     }
 
-    async Task<LightningConfig> SetLightningConfig(LightningConfig config, IEnumerable<string>? paths)
+    async Task<LightningConfig> SetLightningConfig(LightningConfig config, IEnumerable<string>? paths = null)
     {
         if (config.Wallet == BtcPayName)
         {
