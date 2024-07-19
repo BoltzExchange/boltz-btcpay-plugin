@@ -293,8 +293,8 @@ public class BoltzDaemon(
                 var daemon = Path.Combine(storageDir, "bin", $"linux_{Architecture}", "boltzd");
                 var (exitCode, stdout, stderr) = await RunProcess(daemon, $"--datadir {storageDir}");
 
-                LatestStderr = stderr;
-                LatestStdout = stdout;
+                LatestStderr = stderr == "" ? null : stderr;
+                LatestStdout = stdout == "" ? null : stdout;
 
                 OnDaemonExit?.Invoke(this, new EventArgs());
                 if (exitCode != 0)
