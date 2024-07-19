@@ -12,6 +12,7 @@ Then, clone this repository and build the plugin
 
 ```
 git clone https://github.com/jackstar12/btcpayserver-boltz --recurse-submodules
+cd btcpayserver-boltz/
 dotnet build BTCPayServer.Plugins.Boltz
 ```
 
