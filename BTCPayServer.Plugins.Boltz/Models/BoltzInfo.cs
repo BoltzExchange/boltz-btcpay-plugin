@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Autoswaprpc;
 using Boltzrpc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
 
@@ -70,9 +71,11 @@ public class BoltzConfig
     public List<ExistingWallet> ExistingWallets { get; set; }
     public BoltzSettings Settings { get; set; }
 
-    public List<ExistingWallet> WalletsForCurrency(Currency currency)
+    public SelectList WalletSelectList(Currency? currency)
     {
-        return ExistingWallets.FindAll(w => w.Currency == currency);
+        return new SelectList(
+            currency.HasValue ? ExistingWallets.FindAll(w => w.Currency == currency) : ExistingWallets,
+            nameof(ExistingWallet.Value), nameof(ExistingWallet.Name));
     }
 }
 

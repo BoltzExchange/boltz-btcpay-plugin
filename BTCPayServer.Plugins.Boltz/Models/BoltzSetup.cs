@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using Autoswaprpc;
@@ -10,9 +11,6 @@ public class BoltzSetup
 {
     public bool AllowRebalance { get; set; }
     public bool HasInternal { get; set; }
-
-
-
 }
 
 public enum WalletImportMethod
@@ -37,17 +35,20 @@ public class ExistingWallet
     public bool IsReadonly { get; set; }
     public ulong Balance { get; set; }
     public Currency Currency { get; set; }
+
+    public String Value => IsBtcpay ? "" : Name;
 }
 
 public class WalletSetup
 {
+    public string StoreId { get; set; }
+
     public WalletSetupFlow Flow { get; set; }
     public Currency? Currency { get; set; }
-    public WalletParams WalletParams { get; set; }
-    public WalletCredentials WalletCredentials { get; set; }
+    public WalletParams WalletParams { get; set; } = new (){Currency = Boltzrpc.Currency.Lbtc};
+    public WalletCredentials WalletCredentials { get; set; } = new ();
     public WalletImportMethod? ImportMethod { get; set; }
-    public string StoreId { get; set; }
-    public string SwapType { get; set; }
+    public string? SwapType { get; set; }
 
     public List<ExistingWallet> ExistingWallets { get; set; }
 

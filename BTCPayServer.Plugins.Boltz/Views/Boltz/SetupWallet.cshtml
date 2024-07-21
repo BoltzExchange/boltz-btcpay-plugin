@@ -24,9 +24,8 @@
     @foreach (var wallet in Model.ExistingWallets)
     {
         <form asp-controller="Boltz" asp-action="SetupWallet" asp-all-route-data="@routeData" class="mt-4" method="post">
-            <input type="hidden" name="isBtcPay" value="@wallet.IsBtcpay.ToString()" />
             <div class="list-group">
-                <button name="walletName" type="submit" value="@wallet.Name" class="list-group-item list-group-item-action">
+                <button name="walletName" type="submit" value="@wallet.Value" class="list-group-item list-group-item-action">
                     <div class="image">
                         <vc:icon symbol="existing-wallet"/>
                     </div>

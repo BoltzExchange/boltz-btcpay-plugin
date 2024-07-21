@@ -53,10 +53,12 @@
 
             <div id="AdvancedLightningSettings" class="collapse">
 
+                <input type="hidden" asp-for="Ln.StaticAddress"/>
+
                 <div class="form-group mt-4">
                     <label asp-for="Ln.Wallet" class="form-label"></label>
                     <div class="d-flex flex-row gap-2">
-                        <select asp-items="new SelectList(Model.ExistingWallets, nameof(Wallet.Name), nameof(Wallet.Name), Model.Ln.Wallet, nameof(Wallet.Currency))" asp-for="Ln.Wallet" class="form-select flex-grow-1">
+                        <select asp-items="new SelectList(Model.ExistingWallets, nameof(ExistingWallet.Value), nameof(ExistingWallet.Name), Model.Ln.Wallet, nameof(Wallet.Currency))" asp-for="Ln.Wallet" class="form-select flex-grow-1">
                         </select>
                         <a asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Manual" class="btn btn-secondary text-nowrap">
                             Setup another wallet
@@ -106,9 +108,9 @@
         @if (mode == BoltzMode.Standalone)
         {
             <div class="form-group mt-4">
-                <label asp-for="Settings.StandaloneWallet.Name" class="form-label">Standalone Wallet</label>
+                <label asp-for="Settings.StandaloneWallet.Name" class="form-label">Lightning Wallet</label>
                 <div class="d-flex flex-row gap-2">
-                    <select asp-items="new SelectList(Model.WalletsForCurrency(Currency.Lbtc), nameof(Wallet.Name), nameof(Wallet.Name))" asp-for="Settings.StandaloneWallet.Name" class="form-select flex-grow-1">
+                    <select asp-items="Model.WalletSelectList(Currency.Lbtc)" asp-for="Settings.StandaloneWallet.Name" class="form-select flex-grow-1">
                     </select>
                     <a asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Manual" asp-route-currency="@Currency.Lbtc" class="btn btn-secondary text-nowrap">
                         Setup another liquid wallet
@@ -131,10 +133,12 @@
                 <span asp-validation-for="Chain.MaxBalance" class="text-danger"></span>
             </div>
 
+            <input type="hidden" asp-for="Chain.ToAddress"/>
+
             <div class="form-group mt-4">
                 <label asp-for="Chain.ToWallet" class="form-label">Mainchain Wallet</label>
                 <div class="d-flex flex-row gap-2">
-                    <select asp-items="new SelectList(Model.WalletsForCurrency(Currency.Btc), nameof(Wallet.Name), nameof(Wallet.Name))" asp-for="Chain.ToWallet" class="form-select flex-grow-1">
+                    <select asp-items="Model.WalletSelectList(Currency.Btc)" asp-for="Chain.ToWallet" class="form-select flex-grow-1">
                     </select>
                     <a asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Manual" asp-route-currency="@Currency.Btc" class="btn btn-secondary text-nowrap">
                         Setup another mainchain wallet
