@@ -43,7 +43,7 @@ cd BTCPayServer/Properties
 nano launchsettings.json
 ```
 
-In the launchsettings, change the BTCPAY_LIGHTNING entry to
+In the launchsettings, change the BTC_LIGHTNING entry to
 
 `type=clightning;server=unix://home/jacksn/regtest/data/clightning-1/regtest/lightning-rpc`
 
