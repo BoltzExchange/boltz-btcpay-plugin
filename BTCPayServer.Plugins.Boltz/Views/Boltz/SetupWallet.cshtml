@@ -12,15 +12,14 @@
     ViewData["Description"] = Model.Flow switch
     {
         WalletSetupFlow.Chain => "Your mainchain BTC will be sent to this wallet",
-        WalletSetupFlow.Standalone => "This wallet will be used to make lightning payments",
-        WalletSetupFlow.Lightning => "This wallet will be used for rebalancing of your channels",
+        WalletSetupFlow.Standalone => "Select the wallet to be used for receiving lightning payments",
+        WalletSetupFlow.Lightning => "Select the wallet to be used for rebalancing your channels",
         _ => "",
     };
 }
 
 @if (Model.ExistingWallets.Count > 0)
 {
-    <h3 class="my-4">Existing Wallets</h3>
     @foreach (var wallet in Model.ExistingWallets)
     {
         <form asp-controller="Boltz" asp-action="SetupWallet" asp-all-route-data="@routeData" class="mt-4" method="post">
