@@ -2,7 +2,7 @@
 
 ## Regtest setup
 
-You will need to setup https://github.com/BoltzExchange/legend-regtest-enviroment first.
+You will need to setup https://github.com/BoltzExchange/regtest first.
 
 Then, clone this repository and build the plugin
 
@@ -45,6 +45,6 @@ nano launchsettings.json
 
 In the launchsettings, change the `BTCPAY_BTCLIGHTNING` entry to
 
-`type=clightning;server=unix://home/jacksn/regtest/data/clightning-1/regtest/lightning-rpc`
+`type=clightning;server=unix://home/jacksn/regtest/data/cln1/regtest/lightning-rpc`
 
-Where `/home/jacksn/regtest` is the path of your `legend-regtest-enviroment` repository.
+Where `/home/jacksn/regtest` is the path of your https://github.com/BoltzExchange/regtest repository.
