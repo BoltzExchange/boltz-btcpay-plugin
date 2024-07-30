@@ -488,16 +488,11 @@ public class BoltzController(
     [HttpGet("setup/thresholds")]
     public IActionResult SetupThresholds()
     {
-        if (Boltz != null)
+        if (LightningSetup is not null)
         {
-            var vm = new BalanceSetup
-            {
-                Ln = new LightningConfig
-                {
-                    InboundBalancePercent = 25,
-                    OutboundBalancePercent = 25,
-                }
-            };
+            var vm = new BalanceSetup { Ln = LightningSetup };
+            vm.Ln.InboundBalancePercent = 25;
+            vm.Ln.OutboundBalancePercent = 25;
             return View(vm);
         }
 
@@ -507,9 +502,9 @@ public class BoltzController(
     [HttpPost("setup/thresholds")]
     public IActionResult SetupThresholds(BalanceSetup vm, string storeId)
     {
-        if (Boltz != null)
+        if (LightningSetup is not null)
         {
-            var setup = LightningSetup!;
+            var setup = LightningSetup;
             setup.MergeFrom(vm.Ln);
             LightningSetup = setup;
             return RedirectToAction(nameof(SetupBudget), new

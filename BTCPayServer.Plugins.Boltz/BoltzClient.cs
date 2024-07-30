@@ -21,7 +21,6 @@ public class BoltzClient : IDisposable
     private readonly Boltzrpc.Boltz.BoltzClient _client;
     private readonly AutoSwap.AutoSwapClient _autoClient;
     private readonly GrpcChannel _channel;
-    private Task? _invoiceStreamTask;
 
     private static readonly Dictionary<Uri, GrpcChannel> Channels = new();
 
@@ -163,13 +162,13 @@ public class BoltzClient : IDisposable
 
     public async Task EnableAutoSwap()
     {
-        var config = await _autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
-        if (config.Lightning.Count > 0)
+        var (ln, chain) = await GetAutoSwapConfig();
+        if (ln is not null)
         {
             await UpdateAutoSwapLightningConfig(new LightningConfig { Enabled = true }, new[] { "enabled" });
         }
 
-        if (config.Chain.Count > 0)
+        if (chain is not null)
         {
             await UpdateAutoSwapChainConfig(new ChainConfig { Enabled = true }, new[] { "enabled" });
         }
