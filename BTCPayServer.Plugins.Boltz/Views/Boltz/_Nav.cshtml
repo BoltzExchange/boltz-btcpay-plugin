@@ -5,6 +5,7 @@
 @using BTCPayServer.Plugins.Boltz.Views
 @using BTCPayServer.Security
 @using Microsoft.AspNetCore.Mvc.TagHelpers
+@using AngleSharp.Common
 @inject BoltzService BoltzService
 @{
     var storeId = Model switch
@@ -16,22 +17,24 @@
     var client = BoltzService.GetClient(storeId);
 }
 
-<div class="sticky-header-setup"></div>
-<div class="sticky-header mb-l">
-    <div class="d-flex flex-row justify-content-between mt-1 mb-2 mb-lg-4">
-        <h2>Boltz</h2>
-        <a asp-action="SetupMode" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
-            Setup
-        </a>
+@if (!(bool)ViewData.GetOrDefault("IsSetup", false))
+{
+    <div class="sticky-header mb-l">
+        <div class="d-flex flex-row justify-content-between mt-1 mb-2 mb-lg-4">
+            <h2>Boltz</h2>
+            <a asp-action="SetupMode" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
+                Setup
+            </a>
+        </div>
+        @if (client is not null)
+        {
+            <nav id="SectionNav">
+                <div class="nav">
+                    <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Info")">Info</a>
+                    <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Configuration" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Configuration")">Configuration</a>
+                    <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Admin")">Admin</a>
+                </div>
+            </nav>
+        }
     </div>
-    @if (client is not null)
-    {
-        <nav id="SectionNav">
-            <div class="nav">
-                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Info")">Info</a>
-                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Configuration" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Configuration")">Configuration</a>
-                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Admin")">Admin</a>
-            </div>
-        </nav>
-    }
-</div>
+}

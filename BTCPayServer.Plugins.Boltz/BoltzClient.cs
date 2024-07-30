@@ -21,16 +21,22 @@ public class BoltzClient : IDisposable
     private readonly Boltzrpc.Boltz.BoltzClient _client;
     private readonly AutoSwap.AutoSwapClient _autoClient;
     private readonly GrpcChannel _channel;
-    private readonly Task _invoiceStreamTask;
+    private Task? _invoiceStreamTask;
+
+    private static readonly Dictionary<Uri, GrpcChannel> Channels = new();
 
     public BoltzClient(Uri grpcEndpoint, string? macaroon = null, ulong? tenantId = null)
     {
-        var opt = new GrpcChannelOptions()
+        var opt = new GrpcChannelOptions
         {
-            Credentials = ChannelCredentials.Insecure,
+            Credentials = ChannelCredentials.Insecure
         };
 
-        _channel = GrpcChannel.ForAddress(grpcEndpoint, opt);
+        if (!Channels.TryGetValue(grpcEndpoint, out _channel!))
+        {
+            _channel = GrpcChannel.ForAddress(grpcEndpoint, opt);
+            Channels.Add(grpcEndpoint, _channel);
+        }
 
         _client = new(_channel);
         _autoClient = new(_channel);
@@ -45,8 +51,6 @@ public class BoltzClient : IDisposable
         {
             _metadata.Add("tenant", tenantId.Value.ToString());
         }
-
-        _invoiceStreamTask = InvoiceStream();
     }
 
     public async Task<GetInfoResponse> GetInfo()
@@ -96,18 +100,6 @@ public class BoltzClient : IDisposable
             _metadata);
     }
 
-    public async Task<Wallet?> GetAutoSwapWallet()
-    {
-        // TODO: dont fetch config everytime
-        var config = await GetLightningConfig();
-        if (config is null || config.Wallet is null)
-        {
-            return null;
-        }
-
-        return await GetWallet(config.Wallet);
-    }
-
     public async Task<GetRecommendationsResponse> GetAutoSwapRecommendations()
     {
         return await _autoClient.GetRecommendationsAsync(new GetRecommendationsRequest(), _metadata);
@@ -125,11 +117,6 @@ public class BoltzClient : IDisposable
     public async Task<GetStatsResponse> GetStats()
     {
         return await _client.GetStatsAsync(new GetStatsRequest(), _metadata);
-    }
-
-    public AutoSwap.AutoSwapClient GetAutoSwapClient()
-    {
-        return _autoClient;
     }
 
     public async Task ResetLnConfig()
@@ -164,28 +151,14 @@ public class BoltzClient : IDisposable
 
     public async Task<bool> IsAutoSwapConfigured()
     {
-        try
-        {
-             await _autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
-             return true;
-        }
-        catch (RpcException e) when (e.Status.Detail == "autoswap not configured")
-        {
-            return false;
-        }
+        var (ln, chain) = await GetAutoSwapConfig();
+        return ln is not null || chain is not null;
     }
 
     public async Task<(LightningConfig?, ChainConfig?)> GetAutoSwapConfig()
     {
-        try
-        {
-            var config = await _autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
-            return (LightningConfig(config), ChainConfig(config));
-        }
-        catch (RpcException e) when (e.Status.Detail == "autoswap not configured")
-        {
-            return (null, null);
-        }
+        var config = await _autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
+        return (LightningConfig(config), ChainConfig(config));
     }
 
     public async Task EnableAutoSwap()
@@ -233,6 +206,7 @@ public class BoltzClient : IDisposable
         {
             request.FieldMask = FieldMask.FromStringEnumerable<LightningConfig>(paths);
         }
+
         var result = await _autoClient.UpdateLightningConfigAsync(request, _metadata);
         return result.Lightning[0];
     }
@@ -299,21 +273,45 @@ public class BoltzClient : IDisposable
         }, _metadata);
     }
 
-    public event EventHandler<GetSwapInfoResponse>? SwapUpdate;
+    private EventHandler<GetSwapInfoResponse>? _swapUpdate;
+    private CancellationTokenSource? _invoiceStreamCancel;
+
+    public event EventHandler<GetSwapInfoResponse> SwapUpdate
+    {
+        add
+        {
+            if (_invoiceStreamCancel is null)
+            {
+                Task.Run(InvoiceStream);
+            }
+
+            _swapUpdate += value;
+        }
+        remove
+        {
+            _swapUpdate -= value;
+            if (_swapUpdate is null)
+            {
+                _invoiceStreamCancel?.Cancel();
+                _invoiceStreamCancel = null;
+            }
+        }
+    }
 
     private async Task InvoiceStream()
     {
-        using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), _metadata);
+        _invoiceStreamCancel = new CancellationTokenSource();
+        using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), _metadata,
+            cancellationToken: _invoiceStreamCancel.Token);
         while (await stream.ResponseStream.MoveNext())
         {
-            SwapUpdate?.Invoke(this, stream.ResponseStream.Current);
+            _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
         }
     }
 
     public void Dispose()
     {
         _channel.Dispose();
-        _invoiceStreamTask.Dispose();
     }
 
     public static List<Stat> ParseStats(SwapStats stats)

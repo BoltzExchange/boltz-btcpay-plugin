@@ -28,16 +28,18 @@ public class BoltzService(
     EventAggregator eventAggregator,
     ILogger<BoltzService> logger,
     BTCPayNetworkProvider btcPayNetworkProvider,
-    IOptions<LightningNetworkOptions> lightningNetworkOptions)
+    IOptions<LightningNetworkOptions> lightningNetworkOptions,
+    IOptions<ExternalServicesOptions> externalServiceOptions
+)
     : EventHostedServiceBase(eventAggregator, logger)
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
     private readonly Dictionary<string, BoltzClient> _clients = new();
     private readonly ILogger _logger = logger;
-    private BoltzClient AdminClient => Daemon.AdminClient;
 
     public BoltzDaemon Daemon;
+    public BoltzClient AdminClient => Daemon.AdminClient!;
 
     public BoltzSettings? RebalanceStore => _settings?.Values.ToList()
         .Find(settings => settings.Mode == BoltzMode.Rebalance);
@@ -50,6 +52,7 @@ public class BoltzService(
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
+        externalServiceOptions.Value.OtherExternalServices.Add("Boltz", new Uri("https://boltz.exchange"));
         _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>("Boltz"))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
 
@@ -86,6 +89,7 @@ public class BoltzService(
         {
             throw new InvalidOperationException("Store has no btc wallet configured");
         }
+
         var address = await BtcWallet.ReserveAddressAsync(store.Id, derivation.AccountDerivation, "Boltz");
         return address.Address.ToString();
     }
@@ -111,24 +115,8 @@ public class BoltzService(
         return null;
     }
 
-    public async Task InitializeStore(string storeId, BoltzMode mode)
+    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
     {
-        if (_clients.TryGetValue(storeId, out var existing))
-        {
-            try
-            {
-                await existing.ResetLnConfig();
-                await existing.ResetChainConfig();
-            }
-            catch (RpcException e)
-            {
-                if (!e.Message.Contains("autoswap not configured"))
-                {
-                    throw;
-                }
-            }
-        }
-
         var settings = new BoltzSettings { GrpcUrl = _defaultUri, Mode = mode };
         if (mode == BoltzMode.Standalone)
         {
@@ -152,7 +140,7 @@ public class BoltzService(
             settings.Macaroon = Daemon.AdminMacaroon!;
         }
 
-        await Set(storeId, settings);
+        return settings;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
@@ -201,11 +189,19 @@ public class BoltzService(
     {
         var result = await Handle(storeId, settings);
         await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
+
+        var cryptoCode = "BTC";
+        var paymentMethodId = new PaymentMethodId(cryptoCode, PaymentTypes.LightningLike);
+
+        var data = await storeRepository.FindStore(storeId);
         if (settings is null)
         {
             _settings!.Remove(storeId, out var oldSettings);
-            var data = await storeRepository.FindStore(storeId);
-            var paymentMethodId = new PaymentMethodId("BTC", LightningPaymentType.Instance);
+            if (oldSettings is not null && oldSettings.Mode == BoltzMode.Rebalance)
+            {
+                await AdminClient.ResetLnConfig();
+            }
+
             var boltzUrl = GetLightningClient(oldSettings)?.ToString();
             var paymentMethod = data?.GetSupportedPaymentMethods(btcPayNetworkProvider)
                 .OfType<LightningSupportedPaymentMethod>()
@@ -219,6 +215,20 @@ public class BoltzService(
         }
         else if (result is not null)
         {
+            if (settings.Mode == BoltzMode.Standalone)
+            {
+                var paymentMethod = new LightningSupportedPaymentMethod
+                {
+                    CryptoCode = paymentMethodId.CryptoCode
+                };
+
+                var lightningClient = GetLightningClient(settings)!;
+                paymentMethod.SetLightningUrl(lightningClient);
+
+                data!.SetSupportedPaymentMethod(paymentMethodId, paymentMethod);
+            }
+
+            await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);
         }
     }

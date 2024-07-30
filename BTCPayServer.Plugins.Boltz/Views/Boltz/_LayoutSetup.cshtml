@@ -1,7 +1,10 @@
 @using AngleSharp.Common
+@using BTCPayServer.Plugins.Boltz
 @{
     Layout = "_LayoutWizard";
+    var storeId = Context.GetCurrentStoreId();
 }
+@inject BoltzService BoltzService
 
 @section PageHeadContent {
     @await RenderSectionAsync("PageHeadContent", false)
@@ -14,9 +17,18 @@
 @section Navbar {
     @await RenderSectionAsync("Navbar", false)
 
-    <a asp-controller="Boltz" asp-action="Info" asp-route-storeId="@Context.GetRouteValue("storeId")" class="cancel">
-        <vc:icon symbol="close"/>
-    </a>
+    @if (BoltzService.GetSettings(storeId) != null)
+    {
+        <a asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="cancel">
+            <vc:icon symbol="close"/>
+        </a>
+    }
+    else
+    {
+        <a asp-controller="UIStores" asp-action="Dashboard" asp-route-storeId="@storeId" class="cancel">
+            <vc:icon symbol="close"/>
+        </a>
+    }
 }
 
 <header class="text-center">

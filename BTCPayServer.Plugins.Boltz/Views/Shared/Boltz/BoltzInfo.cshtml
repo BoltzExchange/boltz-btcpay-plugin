@@ -25,14 +25,21 @@
         {
         }
 
-        @if (await client.IsAutoSwapConfigured())
+        var (ln, chain) = await client.GetAutoSwapConfig();
+        @if (ln is not null || chain is not null)
         {
             var status = await client.GetAutoSwapStatus();
-            var ln = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
-            var chain = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
+            if (ln is not null)
+            {
+                var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
+                <partial name="Boltz/_AutoSwapStatus" model="lnStatus"/>
+            }
 
-            <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-            <partial name="Boltz/_AutoSwapStatus" model="chain"/>
+            if (chain is not null)
+            {
+                var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
+                <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
+            }
         }
     }
 </div>

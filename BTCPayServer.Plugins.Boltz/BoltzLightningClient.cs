@@ -228,6 +228,13 @@ public class BoltzLightningClient(Uri grpcEndpoint, string macaroon, ulong walle
         });
         return new PayResponse(PayResult.Ok, new PayDetails
         {
+            TotalAmount = LightMoney.Satoshis(response.ExpectedAmount),
+            Status = LightningPaymentStatus.Pending,
+            /*
+            FeeAmount = LightMoney.Satoshis(response.ServiceFee),
+            Preimage = response.Preimage,
+            PaymentHash = response.PaymentHash,
+            */
         });
     }
 
@@ -281,7 +288,7 @@ public class BoltzLightningClient(Uri grpcEndpoint, string macaroon, ulong walle
         private void OnSwapUpdate(object? sender, GetSwapInfoResponse e)
         {
             var reverse = e.ReverseSwap;
-            if (reverse != null && reverse.State == SwapState.Successful)
+            if (reverse?.State == SwapState.Successful)
             {
                 _invoices.Enqueue(_boltzLightningClient.GetInvoice(reverse.Id, _cancellationToken));
             }

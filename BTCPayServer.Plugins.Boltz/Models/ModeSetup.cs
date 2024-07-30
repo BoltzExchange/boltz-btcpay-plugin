@@ -7,7 +7,7 @@ using NBitcoin;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
 
-public class BoltzSetup
+public class ModeSetup
 {
     public bool AllowRebalance { get; set; }
     public bool HasInternal { get; set; }
@@ -95,17 +95,15 @@ public enum SwapperType
     Chain
 }
 
-[Serializable]
-public class ChainSetup
-{
-    public ulong MaxBalance { get; set; }
-    public string ToWallet { get; set; }
-}
-
 public class BudgetSetup
 {
     public SwapperType SwapperType { get; set; }
     public ulong Budget { get; set; }
     public ulong BudgetIntervalDays { get; set; }
     public float MaxFeePercent { get; set; }
+}
+
+public class ChainSetup
+{
+    public ulong MaxBalance { get; set; }
 }

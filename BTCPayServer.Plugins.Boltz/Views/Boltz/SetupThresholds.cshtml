@@ -24,7 +24,7 @@
     {
         <div class="form-group percentage">
             <label asp-for="Ln.InboundBalancePercent" class="form-label">Minimum Inbound Balance (@unitPercent)</label>
-            <input type="number" min="0" max="100" asp-for="Ln.InboundBalancePercent" class="form-control"></input>
+            <input type="number" min="1" max="100" asp-for="Ln.InboundBalancePercent" class="form-control"></input>
             <span asp-validation-for="Ln.InboundBalancePercent" class="text-danger"></span>
         </div>
 
@@ -39,7 +39,7 @@
     {
         <div class="form-group percentage">
             <label asp-for="Ln.OutboundBalancePercent" class="form-label">Minimum Outbound Balance (@unitPercent)</label>
-            <input type="number" min="0" max="100" asp-for="Ln.OutboundBalancePercent" class="form-control"></input>
+            <input type="number" min="1" max="100" asp-for="Ln.OutboundBalancePercent" class="form-control"></input>
             <span asp-validation-for="Ln.OutboundBalancePercent" class="text-danger"></span>
         </div>
 

@@ -1,7 +1,7 @@
 @using BTCPayServer.Security
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @using BTCPayServer.Plugins.Boltz
-@model BTCPayServer.Plugins.Boltz.Models.BoltzSetup
+@model BTCPayServer.Plugins.Boltz.Models.ModeSetup
 @inject BoltzService BoltzService
 @{
     Layout = "_LayoutSetup";
@@ -31,6 +31,7 @@ else
     {
         <div class="alert alert-danger">@BoltzService.Daemon.NodeError</div>
     }
+
     @if (BoltzService.Daemon.LatestStderr is not null)
     {
         <div class="alert alert-danger">@BoltzService.Daemon.LatestStdout</div>
@@ -43,12 +44,16 @@ else
                 <div class="image">
                     <vc:icon symbol="existing-wallet"/>
                 </div>
-                <div class="content d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between me-2">
+                <div class="content d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between">
                     <div>
                         <h4>Rebalance existing node</h4>
                         <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably accept payments.</p>
                     </div>
-                    <small class="d-block text-danger mt-2 mt-lg-0" data-bs-toggle="tooltip" data-bs-placement="top" title="You really should not type your seed into a device that is connected to the internet.">Not available</small>
+                    @if (!Model.AllowRebalance)
+                    {
+                        var tooltip = Model.HasInternal ? "Internal Node is already being rebalanced" : "No internal node available";
+                        <small class="d-block text-danger mt-2 mt-lg-0" data-bs-toggle="tooltip" data-bs-placement="top" title="@tooltip">Not available</small>
+                    }
                 </div>
                 <vc:icon symbol="caret-right"/>
             </a>
