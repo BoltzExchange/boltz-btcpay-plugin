@@ -1,9 +1,10 @@
 @using Boltzrpc
+@using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
 @model BTCPayServer.Plugins.Boltz.Models.WalletSetup
 @{
     Layout = "_LayoutSetup";
-    ViewData["Title"] = $"Import {Model.CurrencyName} Wallet";
+    ViewData["Title"] = $"Import {BoltzClient.CurrencyName(Model.Currency!.Value)} Wallet";
     ViewData["Description"] = "The following methods assume that you already have an existing wallet created and backed up.";
 }
 

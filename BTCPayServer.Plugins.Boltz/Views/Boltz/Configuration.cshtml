@@ -10,6 +10,13 @@
     var storeId = Context.GetImplicitStoreId();
     var swapTypes = new List<string> { "Reverse", "Normal", "Both" };
     var mode = Model.Settings.Mode;
+    var walletList = new SelectList(
+        Model.ExistingWallets,
+        nameof(ExistingWallet.Value),
+        nameof(ExistingWallet.Name),
+        Model.Ln.Wallet,
+        nameof(ExistingWallet.Currency)
+    );
 }
 
 
@@ -58,7 +65,7 @@
                 <div class="form-group mt-4">
                     <label asp-for="Ln.Wallet" class="form-label"></label>
                     <div class="d-flex flex-row gap-2">
-                        <select asp-items="new SelectList(Model.ExistingWallets, nameof(ExistingWallet.Value), nameof(ExistingWallet.Name), Model.Ln.Wallet, nameof(Wallet.Currency))" asp-for="Ln.Wallet" class="form-select flex-grow-1">
+                        <select asp-items="walletList" asp-for="Ln.Wallet" class="form-select flex-grow-1">
                         </select>
                         <a asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Manual" class="btn btn-secondary text-nowrap">
                             Setup another wallet

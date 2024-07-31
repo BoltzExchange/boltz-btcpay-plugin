@@ -310,7 +310,10 @@ public class BoltzClient : IDisposable
 
     public void Dispose()
     {
-        _channel.Dispose();
+        foreach (var channel in Channels.Values)
+        {
+            channel.Dispose();
+        }
     }
 
     public static List<Stat> ParseStats(SwapStats stats)
@@ -321,5 +324,10 @@ public class BoltzClient : IDisposable
             new() { Name = "Swap Volume", Value = stats.TotalAmount, Unit = Unit.Sat },
             new() { Name = "Successful Swap Count", Value = stats.SuccessCount, Unit = Unit.None }
         };
+    }
+
+    public static string  CurrencyName(Currency currency)
+    {
+        return currency == Currency.Btc ? "BTC" : "L-BTC";
     }
 }

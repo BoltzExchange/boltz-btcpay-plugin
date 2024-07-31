@@ -99,16 +99,17 @@ public class BoltzService(
     {
         if (settings is null)
         {
+            /*
             if (storeId is not null && _clients.Remove(storeId, out var client))
             {
                 client.Dispose();
             }
+            */
         }
         else
         {
-            var client = new BoltzClient(settings.GrpcUrl, settings.Macaroon);
+            var client = new BoltzClient(settings.GrpcUrl!, settings.Macaroon);
             await client.GetInfo();
-            _clients!.AddOrReplace(storeId, client);
             return client;
         }
 
@@ -145,8 +146,8 @@ public class BoltzService(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        await AdminClient.Stop();
-        _clients.Values.ToList().ForEach(c => c.Dispose());
+        logger.LogInformation("Stopping Boltz");
+        await Daemon.Stop();
         await base.StopAsync(cancellationToken);
     }
 
@@ -154,13 +155,7 @@ public class BoltzService(
 
     public BoltzClient? GetClient(string? storeId)
     {
-        if (storeId is null)
-        {
-            return null;
-        }
-
-        _clients.TryGetValue(storeId, out var client);
-        return client;
+        return GetSettings(storeId)?.Client;
     }
 
     public BoltzSettings? GetSettings(string? storeId)

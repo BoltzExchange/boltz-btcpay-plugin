@@ -3,13 +3,14 @@
 @model BTCPayServer.Plugins.Boltz.Models.AutoSwapStatus
 @{
     var status = Model.Status;
-    var statusString = status.Error != "" ? "disabled" : status.Running ? "enabled" : "pending";
+    var statusClass = status.Error != "" ? "disabled" : status.Running ? "enabled" : "pending";
+    var statusString = status.Error != "" ? "Error" : status.Running ? "Running" : "Disabled";
 }
 @if (Model.Compact)
 {
     <div class="d-flex align-items-center justify-content-start gap-2">
-        <span class="btcpay-status btcpay-status--@(statusString)"></span>
-        <h6 class="text-truncate">@Model.Name @(status.Running ? "Running" : "Disabled")</h6>
+        <span class="btcpay-status btcpay-status--@(statusClass)"></span>
+        <h6 class="text-truncate">@Model.Name @statusString</h6>
     </div>
 }
 else
@@ -17,8 +18,8 @@ else
     <div class="d-flex flex flex-column gap-2">
         <div class="d-flex align-items-center justify-content-start gap-2">
             <h5 class="my-0">@Model.Name</h5>
-            <span class="btcpay-status btcpay-status--@(statusString)"></span>
-            <h6 class="text-truncate">@(status.Running ? "Running" : "Disabled")</h6>
+            <span class="btcpay-status btcpay-status--@(statusClass)"></span>
+            <h6 class="text-truncate">@statusString</h6>
         </div>
         @if (status.Description != "")
         {

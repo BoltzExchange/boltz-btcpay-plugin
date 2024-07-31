@@ -1,11 +1,12 @@
 @using BTCPayServer.Plugins.Boltz.Models
+@using BTCPayServer.Plugins.Boltz
 @model BTCPayServer.Plugins.Boltz.Models.WalletSetup
 
 @{
     Layout = "_LayoutSetup";
 
     var action = Model.IsImport ? "Import" : "Create";
-    ViewData["Title"] = $"{action} {Model.CurrencyName} Wallet";
+    ViewData["Title"] = $"{action} {BoltzClient.CurrencyName(Model.Currency!.Value)} Wallet";
 
     var defaultName = Model.Flow switch
     {

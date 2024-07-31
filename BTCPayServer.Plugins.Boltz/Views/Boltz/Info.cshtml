@@ -3,6 +3,7 @@
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Plugins.Boltz.Views
 @using BTCPayServer.Security
+@using Boltzrpc
 @model BTCPayServer.Plugins.Boltz.Models.BoltzInfo
 @inject BoltzService BoltzService
 @{
@@ -44,63 +45,53 @@
     }
 
     <div class="widget">
-        <h4>Reverse Swaps</h4>
+        <h4>Swaps</h4>
         <div class="invoice-payments table-responsive mt-0">
             <table class="table table-hover mb-0">
                 <thead>
                 <tr>
-                    <th class="w-75px">ID</th>
-                    <th class="w-75px">From</th>
-                    <th class="w-75px">To</th>
-                    <th class="w-175px">State</th>
+                    <th class="text-nowrap">ID</th>
+                    <th >Type</th>
+                    <th >From</th>
+                    <th >To</th>
+                    <th >Date</th>
+                    <th >State</th>
                     <th class="text-nowrap">Status</th>
-                    <th class="w-100px">Amount</th>
+                    <th>Amount</th>
                 </tr>
                 </thead>
                 <tbody>
                 @if (Model.Swaps is not null)
                 {
-                    @if (Model.Swaps?.ReverseSwaps?.Count > 0)
+                    var swaps = Model.Swaps.ReverseSwaps.ToList()
+                        .Select(info => (info.Id, Type: SwapType.Reverse, info.Pair, info.State, info.Status, Amount: (ulong)info.OnchainAmount, info.CreatedAt)).ToList();
+                    var normal = Model.Swaps.Swaps.ToList()
+                        .Select(info => (info.Id, Type: SwapType.Submarine, info.Pair, info.State, info.Status, Amount: info.ExpectedAmount, info.CreatedAt));
+                    var chain = Model.Swaps.ChainSwaps.ToList()
+                        .Select(info => (info.Id, Type: SwapType.Chain, info.Pair, info.State, info.Status, info.FromData.Amount, info.CreatedAt));
+                    swaps.AddRange(normal);
+                    swaps.AddRange(chain);
+                    swaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+
+                    @if (swaps.Count > 0)
                     {
-                        @foreach (var payment in Model.Swaps.ReverseSwaps)
+                        @foreach (var payment in swaps)
                         {
-                            <tr >
+                            <tr>
                                 <td>@payment.Id</td>
-                                <td>@payment.Pair.From</td>
-                                <td>@payment.Pair.To</td>
+                                <td>@payment.Type</td>
+                                <td>@BoltzClient.CurrencyName(payment.Pair.From)</td>
+                                <td>@BoltzClient.CurrencyName(payment.Pair.To)</td>
+                                <td>@(DateTimeOffset.FromUnixTimeSeconds(payment.CreatedAt).ToBrowserDate())</td>
                                 <td>@payment.State</td>
                                 <td>@payment.Status</td>
-                                <td>@payment.OnchainAmount</td>
+                                <td>@payment.Amount</td>
                             </tr>
                         }
                     }
                     else
                     {
-                        <p>No reverse swaps avilable</p>
-                    }
-
-                    @foreach (var payment in Model.Swaps.ChainSwaps)
-                    {
-                        <tr >
-                            <td>@payment.Id</td>
-                            <td>@payment.Pair.From</td>
-                            <td>@payment.Pair.To</td>
-                            <td>@payment.State</td>
-                            <td>@payment.Status</td>
-                            <td>@payment.FromData.Amount</td>
-                        </tr>
-                    }
-
-                    @foreach (var payment in Model.Swaps.Swaps)
-                    {
-                        <tr>
-                            <td>@payment.Id</td>
-                            <td>@payment.Pair.From</td>
-                            <td>@payment.Pair.To</td>
-                            <td>@payment.State</td>
-                            <td>@payment.Status</td>
-                            <td>@payment.ExpectedAmount</td>
-                        </tr>
+                        <p>No swaps avilable</p>
                     }
                 }
                 </tbody>

@@ -8,7 +8,7 @@
 @{
     Layout = "_LayoutSetup";
     var routeData = Model.RouteData;
-    ViewData["Title"] = $"Setup {Model.Currency} Wallet";
+    ViewData["Title"] = $"Setup {BoltzClient.CurrencyName(Model.Currency!.Value)} Wallet";
     ViewData["Description"] = Model.Flow switch
     {
         WalletSetupFlow.Chain => "Your mainchain BTC will be sent to this wallet",

@@ -592,7 +592,8 @@ public class BoltzController(
             return View(new ChainSetup
             {
                 // TODO: remove buffer once proper sweep is implemented
-                MaxBalance = info.Limits.Minimal + 10000,
+                MaxBalance = 10_000_000,
+                PairInfo = info
             });
         }
 

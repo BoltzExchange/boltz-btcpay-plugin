@@ -284,6 +284,7 @@ public class BoltzDaemon(
 
     private Task<bool> Start()
     {
+        _logger.LogInformation($"Starting daemon");
         _daemonCancel?.Cancel();
         _daemonCancel = new CancellationTokenSource();
         Task.Factory.StartNew(async () =>
@@ -315,13 +316,16 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
+        _logger.LogInformation("Stopping daemon");
+        Console.WriteLine("Stopping daemon");
         if (AdminClient is not null)
         {
             await AdminClient.Stop();
+            AdminClient.Dispose();
         }
-        else
+        else if (_daemonCancel is not null)
         {
-            _daemonCancel?.Cancel();
+            await _daemonCancel.CancelAsync();
         }
     }
 
@@ -329,6 +333,7 @@ public class BoltzDaemon(
     {
         var processStartInfo = new ProcessStartInfo
         {
+
             FileName = fileName,
             Arguments = args,
             RedirectStandardOutput = true,

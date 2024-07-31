@@ -36,6 +36,7 @@ public class ExistingWallet
     public ulong Balance { get; set; }
     public Currency Currency { get; set; }
 
+    public string CurrencyName => BoltzClient.CurrencyName(Currency);
     public String Value => IsBtcpay ? "" : Name;
 }
 
@@ -45,8 +46,8 @@ public class WalletSetup
 
     public WalletSetupFlow Flow { get; set; }
     public Currency? Currency { get; set; }
-    public WalletParams WalletParams { get; set; } = new (){Currency = Boltzrpc.Currency.Lbtc};
-    public WalletCredentials WalletCredentials { get; set; } = new ();
+    public WalletParams WalletParams { get; set; } = new() { Currency = Boltzrpc.Currency.Lbtc };
+    public WalletCredentials WalletCredentials { get; set; } = new();
     public WalletImportMethod? ImportMethod { get; set; }
     public string? SwapType { get; set; }
 
@@ -72,9 +73,6 @@ public class WalletSetup
         data[key] = value.ToString();
         return data;
     }
-
-    public string CurrencyName =>
-        Currency.HasValue ? Currency.Value == Boltzrpc.Currency.Btc ? "mainchain" : "liquid" : "";
 }
 
 public enum BalanceType
@@ -106,4 +104,5 @@ public class BudgetSetup
 public class ChainSetup
 {
     public ulong MaxBalance { get; set; }
+    public PairInfo PairInfo { get; set; }
 }
