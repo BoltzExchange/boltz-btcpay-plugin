@@ -1,18 +1,8 @@
 #nullable enable
 using System;
 using System.ComponentModel.DataAnnotations;
-using Autoswaprpc;
 using Newtonsoft.Json;
-using BTCPayServer.Abstractions.Contracts;
-using BTCPayServer.Abstractions.Services;
-using BTCPayServer.Data;
-using BTCPayServer.Plugins.Shopify.Models;
 using Google.Protobuf;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using NBitcoin;
-using NBXplorer;
-using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -24,11 +14,9 @@ public enum BoltzMode
 
 public class BoltzSettings
 {
-    [Display(Name = "GRPC Url")] public Uri GrpcUrl { get; set; }
+    [Display(Name = "GRPC Url")] public Uri? GrpcUrl { get; set; }
 
-    [Display(Name = "Macaroon")] public string Macaroon { get; set; }
-
-    [Display(Name = "Version")] public string DaemonVersion { get; set; }
+    [Display(Name = "Macaroon")] public string? Macaroon { get; set; }
 
     public BoltzMode? Mode { get; set; }
 
@@ -45,13 +33,11 @@ public class BoltzSettings
     public bool CredentialsPopulated()
     {
         return
-            !string.IsNullOrWhiteSpace(GrpcUrl.ToString()) &&
+            !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
 
-    public DateTimeOffset? IntegratedAt { get; set; }
-
-    [JsonIgnore] public BoltzClient Client => new(GrpcUrl, Macaroon);
+    [JsonIgnore] public BoltzClient? Client => GrpcUrl is null ? null : new(GrpcUrl, Macaroon);
 }
 
 public class ProtoConverter<T> : JsonConverter<T> where T : IMessage, new()

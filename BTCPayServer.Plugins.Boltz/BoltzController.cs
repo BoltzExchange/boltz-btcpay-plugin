@@ -77,23 +77,28 @@ public class BoltzController(
         return RedirectToAction(nameof(Info), new { storeId });
     }
 
-    // GET
-    [HttpGet("info")]
-    public async Task<IActionResult> Info(string storeId)
+    private void ClearSetup()
     {
         SetupSettings = null;
         ChainSetup = null;
         LightningSetup = null;
+    }
 
-        if (SavedSettings is null)
+    // GET
+    [HttpGet("info")]
+    public async Task<IActionResult> Info(string storeId)
+    {
+        ClearSetup();
+
+        if (Boltz is null)
         {
-            return RedirectGetStarted();
+            return RedirectSetup();
         }
 
         var data = new BoltzInfo();
         try
         {
-            data.Info = await Boltz!.GetInfo();
+            data.Info = await Boltz.GetInfo();
             data.Swaps = await Boltz.ListSwaps();
             data.Wallets = await Boltz.GetWallets(true);
             (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
@@ -110,26 +115,14 @@ public class BoltzController(
         return View(data);
     }
 
-    /*
-    [HttpGet("{storeId}/dashboard/boltz/stats")]
-    public async Task<IActionResult> Stats()
-    {
-        var vm = new BoltzStats();
-        if (_boltz != null)
-        {
-            vm.Wallet = await _boltz.GetAutoSwapWallet();
-        }
-        return ViewComponent("Boltz/Stats", new { vm } );
-    }
-    */
-
-
     [HttpGet("configuration")]
     public async Task<IActionResult> Configuration(string storeId)
     {
+        ClearSetup();
+
         if (Boltz == null)
         {
-            return RedirectGetStarted();
+            return RedirectSetup();
         }
 
         var data = new BoltzConfig
@@ -160,10 +153,11 @@ public class BoltzController(
         return View(data);
     }
 
-    private async Task<BoltzSettings.Wallet?> GetStandaloneWallet(string name)
+    private async Task<BoltzSettings> SetStandaloneWallet(BoltzSettings settings, string name)
     {
         var wallet = await Boltz!.GetWallet(name);
-        return new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name };
+        settings.StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name };
+        return settings;
     }
 
     [HttpPost("configuration")]
@@ -179,12 +173,10 @@ public class BoltzController(
             }
             case "BoltzSetChainConfig":
             {
-                var name = vm.Settings.StandaloneWallet?.Name;
+                var name = vm.Settings?.StandaloneWallet?.Name;
                 if (name is not null)
                 {
-                    var settings = Settings!;
-                    settings.StandaloneWallet = await GetStandaloneWallet(name);
-                    await boltzService.Set(CurrentStore.Id, settings);
+                    await boltzService.Set(CurrentStore.Id, await SetStandaloneWallet(Settings!, name));
                 }
 
                 if (vm.Chain is not null)
@@ -195,22 +187,6 @@ public class BoltzController(
                 TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
                 break;
             }
-            /*
-            case "BoltzSetStandaloneWallet":
-            {
-                var name = vm.Settings.StandaloneWallet?.Name;
-                if (name is null)
-                {
-                    TempData[WellKnownTempData.ErrorMessage] = "Please select a wallet";
-                    return RedirectToAction(nameof(Configuration), new { storeId });
-                }
-
-                await SetStandaloneWallet(name);
-                TempData[WellKnownTempData.SuccessMessage] = "Lightning Wallet updated";
-
-                break;
-            }
-            */
         }
 
         return RedirectToAction(nameof(Configuration), new { storeId });
@@ -220,10 +196,7 @@ public class BoltzController(
     [Authorize(Policy = Policies.CanModifyServerSettings)]
     public async Task<IActionResult> Admin(string storeId)
     {
-        var data = new BoltzConnection()
-        {
-            Settings = boltzService.GetSettings(CurrentStore.Id),
-        };
+        var data = new BoltzConnection { Settings = Settings };
 
         if (Boltz != null)
         {
@@ -282,7 +255,7 @@ public class BoltzController(
     }
 
     [NonAction]
-    private RedirectToActionResult RedirectGetStarted()
+    private RedirectToActionResult RedirectSetup()
     {
         return RedirectToAction(nameof(SetupMode), new { storeId = CurrentStore.Id });
     }
@@ -370,13 +343,13 @@ public class BoltzController(
             catch (Exception e)
             {
                 TempData[WellKnownTempData.ErrorMessage] = "Could not fetch existing wallets: " + e.Message;
-                return RedirectGetStarted();
+                return RedirectSetup();
             }
 
             return View(vm);
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/wallet/{flow}/{currency}")]
@@ -390,9 +363,7 @@ public class BoltzController(
                 switch (vm.Flow)
                 {
                     case WalletSetupFlow.Standalone:
-                        var settings = SetupSettings!;
-                        settings.StandaloneWallet = await GetStandaloneWallet(walletName);
-                        SetupSettings = settings;
+                        SetupSettings = await SetStandaloneWallet(SetupSettings!, walletName);
                         return RedirectToAction(nameof(SetupChain), new { storeId = vm.StoreId });
                     case WalletSetupFlow.Lightning:
                         LightningSetup = new LightningConfig
@@ -413,11 +384,11 @@ public class BoltzController(
             catch (Exception e)
             {
                 TempData[WellKnownTempData.ErrorMessage] = "Could not setup wallet: " + e.Message;
-                return RedirectGetStarted();
+                return RedirectSetup();
             }
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpGet("setup/wallet/{flow}/{currency}/create")]
@@ -428,7 +399,7 @@ public class BoltzController(
             return View(vm);
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/wallet/{flow}/{currency}/create")]
@@ -461,7 +432,7 @@ public class BoltzController(
             }
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpGet("setup/wallet/{flow}/{currency}/import")]
@@ -482,7 +453,7 @@ public class BoltzController(
             return View("CreateWallet", vm);
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpGet("setup/thresholds")]
@@ -496,7 +467,7 @@ public class BoltzController(
             return View(vm);
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/thresholds")]
@@ -513,7 +484,7 @@ public class BoltzController(
             });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpGet("setup/{swapperType}/budget")]
@@ -527,7 +498,7 @@ public class BoltzController(
             return View(vm);
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/{swapperType}/budget")]
@@ -561,7 +532,7 @@ public class BoltzController(
             return RedirectToAction(nameof(Enable), new { storeId });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     async Task SetLightningConfig(LightningConfig config, IEnumerable<string>? paths = null)
@@ -625,7 +596,7 @@ public class BoltzController(
             });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/chain")]
@@ -643,7 +614,7 @@ public class BoltzController(
                 new { storeId, flow = WalletSetupFlow.Chain, currency = Currency.Btc });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpGet("setup/enable")]
@@ -677,7 +648,7 @@ public class BoltzController(
                 new { storeId });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 
     [HttpPost("setup/enable")]
@@ -695,6 +666,6 @@ public class BoltzController(
                 new { storeId });
         }
 
-        return RedirectGetStarted();
+        return RedirectSetup();
     }
 }
