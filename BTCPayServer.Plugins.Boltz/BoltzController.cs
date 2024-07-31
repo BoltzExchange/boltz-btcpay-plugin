@@ -74,7 +74,7 @@ public class BoltzController(
     [HttpGet("")]
     public IActionResult Index(string storeId)
     {
-        return RedirectToAction(nameof(Info), new { storeId });
+        return RedirectToAction(nameof(Status), new { storeId });
     }
 
     private void ClearSetup()
@@ -85,8 +85,8 @@ public class BoltzController(
     }
 
     // GET
-    [HttpGet("info")]
-    public async Task<IActionResult> Info(string storeId)
+    [HttpGet("status")]
+    public async Task<IActionResult> Status(string storeId)
     {
         ClearSetup();
 
@@ -645,7 +645,7 @@ public class BoltzController(
                 return View(vm);
             }
 
-            return RedirectToAction(nameof(Info),
+            return RedirectToAction(nameof(Status),
                 new { storeId });
         }
 
@@ -663,7 +663,7 @@ public class BoltzController(
                 TempData[WellKnownTempData.SuccessMessage] = "AutoSwap enabled";
             }
 
-            return RedirectToAction(nameof(Info),
+            return RedirectToAction(nameof(Status),
                 new { storeId });
         }
 

@@ -316,10 +316,9 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        _logger.LogInformation("Stopping daemon");
-        Console.WriteLine("Stopping daemon");
         if (AdminClient is not null)
         {
+            _logger.LogInformation("Stopping daemon gracefully");
             await AdminClient.Stop();
             AdminClient.Dispose();
         }
@@ -333,7 +332,6 @@ public class BoltzDaemon(
     {
         var processStartInfo = new ProcessStartInfo
         {
-
             FileName = fileName,
             Arguments = args,
             RedirectStandardOutput = true,

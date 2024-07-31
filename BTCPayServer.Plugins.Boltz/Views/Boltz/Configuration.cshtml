@@ -10,18 +10,19 @@
     var storeId = Context.GetImplicitStoreId();
     var swapTypes = new List<string> { "Reverse", "Normal", "Both" };
     var mode = Model.Settings.Mode;
-    var walletList = new SelectList(
-        Model.ExistingWallets,
-        nameof(ExistingWallet.Value),
-        nameof(ExistingWallet.Name),
-        Model.Ln.Wallet,
-        nameof(ExistingWallet.Currency)
-    );
 }
 
 
 @if (mode == BoltzMode.Rebalance)
 {
+    var walletList = new SelectList(
+        Model.ExistingWallets,
+        nameof(ExistingWallet.Value),
+        nameof(ExistingWallet.Name),
+        Model.Ln.Wallet,
+        nameof(ExistingWallet.CurrencyName)
+    );
+
     <form method="post" class="mt-3" id="autoswapForm">
         <div class="d-flex flex-row justify-content-between my-3">
             <h4 class="my-0">Lightning</h4>

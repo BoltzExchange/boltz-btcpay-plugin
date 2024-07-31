@@ -30,7 +30,7 @@
         {
             <nav id="SectionNav">
                 <div class="nav">
-                    <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Info")">Info</a>
+                    <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Status")">Info</a>
                     <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Configuration" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Configuration")">Configuration</a>
                     <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Admin")">Admin</a>
                 </div>

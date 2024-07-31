@@ -19,7 +19,7 @@
 
     @if (BoltzService.GetSettings(storeId) != null)
     {
-        <a asp-controller="Boltz" asp-action="Info" asp-route-storeId="@storeId" class="cancel">
+        <a asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" class="cancel">
             <vc:icon symbol="close"/>
         </a>
     }

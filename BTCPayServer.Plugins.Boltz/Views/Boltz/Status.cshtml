@@ -1,13 +1,11 @@
-@using BTCPayServer.Abstractions.Extensions
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
-@using BTCPayServer.Plugins.Boltz.Views
 @using BTCPayServer.Security
 @using Boltzrpc
 @model BTCPayServer.Plugins.Boltz.Models.BoltzInfo
 @inject BoltzService BoltzService
 @{
-    ViewData.SetActivePage("Boltz", "Info", "Info");
+    ViewData.SetActivePage("Boltz", "Status", "Status");
 
     var storeId = Context.GetImplicitStoreId();
 
@@ -63,19 +61,20 @@
                 <tbody>
                 @if (Model.Swaps is not null)
                 {
-                    var swaps = Model.Swaps.ReverseSwaps.ToList()
+                    var swaps = Model.Swaps;
+                    var reverseSwaps = swaps.ReverseSwaps.ToList()
                         .Select(info => (info.Id, Type: SwapType.Reverse, info.Pair, info.State, info.Status, Amount: (ulong)info.OnchainAmount, info.CreatedAt)).ToList();
-                    var normal = Model.Swaps.Swaps.ToList()
+                    var normal = swaps.Swaps.ToList()
                         .Select(info => (info.Id, Type: SwapType.Submarine, info.Pair, info.State, info.Status, Amount: info.ExpectedAmount, info.CreatedAt));
-                    var chain = Model.Swaps.ChainSwaps.ToList()
+                    var chain = swaps.ChainSwaps.ToList()
                         .Select(info => (info.Id, Type: SwapType.Chain, info.Pair, info.State, info.Status, info.FromData.Amount, info.CreatedAt));
-                    swaps.AddRange(normal);
-                    swaps.AddRange(chain);
-                    swaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+                    reverseSwaps.AddRange(normal);
+                    reverseSwaps.AddRange(chain);
+                    reverseSwaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
 
-                    @if (swaps.Count > 0)
+                    @if (reverseSwaps.Count > 0)
                     {
-                        @foreach (var payment in swaps)
+                        @foreach (var payment in reverseSwaps)
                         {
                             <tr>
                                 <td>@payment.Id</td>

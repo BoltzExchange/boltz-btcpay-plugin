@@ -1,4 +1,4 @@
-using System;
+#nullable enable
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Autoswaprpc;
@@ -59,11 +59,6 @@ public class Stat
     public Unit Unit { get; set; }
 }
 
-public class StatsModel
-{
-    public List<Stat> Stats { get; set; }
-}
-
 public class BoltzConfig
 {
     public LightningConfig Ln { get; set; }
@@ -90,12 +85,12 @@ public class BoltzInfo
 {
     public GetInfoResponse Info { get; set; }
 
-    public ListSwapsResponse Swaps { get; set; }
+    public ListSwapsResponse? Swaps { get; set; }
 
     public Wallets Wallets { get; set; }
 
-    public GetStatusResponse Status { get; set; }
+    public GetStatusResponse? Status { get; set; }
 
-    public LightningConfig Ln { get; set; }
-    public ChainConfig Chain { get; set; }
+    public LightningConfig? Ln { get; set; }
+    public ChainConfig? Chain { get; set; }
 }
