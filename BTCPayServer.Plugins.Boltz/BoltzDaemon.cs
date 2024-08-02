@@ -25,7 +25,6 @@ public class BoltzDaemon(
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
-    private readonly ILogger _logger = logger;
     private Stream? _downloadStream;
     private CancellationTokenSource? _daemonCancel;
 
@@ -62,6 +61,8 @@ public class BoltzDaemon(
                     await Task.Delay(TimeSpan.FromMilliseconds(50));
                 }
 
+                logger.LogDebug("Admin macaroon found");
+
                 var reader = await File.ReadAllBytesAsync(path);
                 AdminMacaroon = Convert.ToHexString(reader).ToLower();
                 var client = new BoltzClient(_defaultUri, AdminMacaroon);
@@ -71,6 +72,7 @@ public class BoltzDaemon(
                     try
                     {
                         await client.GetInfo();
+                        logger.LogInformation("Client running");
                         AdminClient = client;
                         tcs.TrySetResult(true);
                         return;
@@ -83,6 +85,7 @@ public class BoltzDaemon(
             }
             catch (TaskCanceledException)
             {
+                logger.LogInformation("Daemon start timed out");
                 AdminClient = null;
                 tcs.TrySetResult(false);
             }
@@ -284,7 +287,7 @@ public class BoltzDaemon(
 
     private Task<bool> Start()
     {
-        _logger.LogInformation($"Starting daemon");
+        logger.LogInformation($"Starting daemon");
         _daemonCancel?.Cancel();
         _daemonCancel = new CancellationTokenSource();
         Task.Factory.StartNew(async () =>
@@ -297,16 +300,18 @@ public class BoltzDaemon(
                 LatestStderr = stderr == "" ? null : stderr;
                 LatestStdout = stdout == "" ? null : stdout;
 
-                OnDaemonExit?.Invoke(this, new EventArgs());
+                OnDaemonExit?.Invoke(this, EventArgs.Empty);
                 if (exitCode != 0)
                 {
-                    _logger.LogError($"Process exited with code {exitCode}");
-                    _logger.LogError(stdout);
-                    _logger.LogError(stderr);
+                    logger.LogError($"Process exited with code {exitCode}");
+                    logger.LogError(stdout);
+                    logger.LogError(stderr);
                     await Task.Delay(5000);
                 }
                 else
                 {
+                    _daemonCancel?.Cancel();
+                    _daemonCancel = null;
                     return;
                 }
             }
@@ -316,14 +321,15 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        if (AdminClient is not null)
+        if (_daemonCancel is not null)
         {
-            _logger.LogInformation("Stopping daemon gracefully");
-            await AdminClient.Stop();
-            AdminClient.Dispose();
-        }
-        else if (_daemonCancel is not null)
-        {
+            if (AdminClient is not null)
+            {
+                logger.LogInformation("Stopping daemon gracefully");
+                await AdminClient.Stop();
+                AdminClient.Dispose();
+            }
+
             await _daemonCancel.CancelAsync();
         }
     }
