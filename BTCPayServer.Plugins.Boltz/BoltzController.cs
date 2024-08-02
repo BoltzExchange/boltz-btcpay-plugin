@@ -8,7 +8,9 @@ using Boltzrpc;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
 using BTCPayServer.Data;
+using BTCPayServer.Lightning;
 using BTCPayServer.Models.StoreViewModels;
+using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
@@ -264,15 +266,21 @@ public class BoltzController(
     //[Authorize(Policy = Policies.CanUseInternalLightningNode)]
     public async Task<IActionResult> SetupMode(ModeSetup vm, BoltzMode? mode, string storeId)
     {
-        if (boltzService.Daemon.Node is not null)
-        {
-            var rebalanceStore = boltzService.RebalanceStore;
-            vm.AllowRebalance = (rebalanceStore is null || rebalanceStore == Settings) &&
-                                User.IsInRole(Roles.ServerAdmin);
-        }
-
         if (mode is null)
         {
+            var paymentMethod = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
+                .OfType<LightningSupportedPaymentMethod>()
+                .FirstOrDefault();
+            vm.AllowStandalone = paymentMethod is null || SavedSettings?.Mode == BoltzMode.Standalone;
+
+            vm.IsAdmin = User.IsInRole(Roles.ServerAdmin);
+            vm.HasInternal = boltzService.InternalLightning is not null;
+            vm.ConnectedInternal = boltzService.Daemon.Node is not null;
+            if (vm.IsAdmin)
+            {
+                vm.RebalanceStore = await boltzService.GetRebalanceStore();
+            }
+
             return View(vm);
         }
 

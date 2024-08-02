@@ -41,8 +41,12 @@ public class BoltzService(
     public BoltzDaemon Daemon;
     public BoltzClient AdminClient => Daemon.AdminClient!;
 
-    public BoltzSettings? RebalanceStore => _settings?.Values.ToList()
-        .Find(settings => settings.Mode == BoltzMode.Rebalance);
+    public async Task<StoreData?> GetRebalanceStore()
+    {
+        var store = _settings?.ToList()
+            .Find(pair => pair.Value.Mode == BoltzMode.Rebalance);
+        return store is null ? null : await storeRepository.FindStore(store.Value.Key);
+    }
 
     public BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     public BTCPayWallet BtcWallet => btcPayWalletProvider.GetWallet(BtcNetwork);

@@ -44,16 +44,22 @@ else
                 <div class="image">
                     <vc:icon symbol="existing-wallet"/>
                 </div>
-                <div class="content d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between">
-                    <div>
-                        <h4>Rebalance existing Lightning node</h4>
+                <div class="content">
+                    <h4>Rebalance existing Lightning node</h4>
+                    <div class="d-flex flex-column gap-2">
                         <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably process payments.</p>
+                        @if (!Model.AllowRebalance)
+                        {
+                            var tooltip = Model.IsAdmin
+                                ? Model.RebalanceStore is null
+                                    ? Model.HasInternal
+                                        ? "Could not connect to internal node"
+                                        : "No internal node available"
+                                    : $"Internal Node is already being rebalanced in store {Model.RebalanceStore.StoreName}"
+                                : "Only available for admins";
+                            <small class="d-block text-danger mt-2 mt-lg-0">@tooltip</small>
+                        }
                     </div>
-                    @if (!Model.AllowRebalance)
-                    {
-                        var tooltip = Model.HasInternal ? "Internal Node is already being rebalanced" : "No internal node available";
-                        <small class="d-block text-danger mt-2 mt-lg-0" data-bs-toggle="tooltip" data-bs-placement="top" title="@tooltip">Not available</small>
-                    }
                 </div>
                 <vc:icon symbol="caret-right"/>
             </a>
@@ -63,16 +69,23 @@ else
     <br>
     <div class="mt-4">
         <div class="list-group">
-            <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action">
+            <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action @(Model.AllowStandalone ? "" : "disabled")">
                 <div class="image">
                     <vc:icon symbol="new-wallet"/>
                 </div>
                 <div class="content">
                     <h4>Accept Lightning payments without running a node</h4>
-                    <p class="mb-0 text-secondary">This sets up Lightning payments using Boltz. Lightning payments are processed using non-custodial swaps, meaning you stay in full control at all times. Supports read-only cold wallets.</p>
+                    <div class="d-flex flex-column gap-2">
+                        <p class="mb-0 text-secondary">This sets up Lightning payments using Boltz. Lightning payments are processed using non-custodial swaps, meaning you stay in full control at all times. Supports read-only cold wallets.</p>
+                        @if (!Model.AllowStandalone)
+                        {
+                            <small class="d-block text-danger mt-2 mt-lg-0">Lightning node already connected</small>
+                        }
+                    </div>
                 </div>
+
                 <vc:icon symbol="caret-right"/>
-            </a>
-        </div>
-    </div>
+            </a >
+        </div >
+    </div >
 }
