@@ -31,6 +31,7 @@ public class BoltzClient : IDisposable
             Credentials = ChannelCredentials.Insecure
         };
 
+
         if (!Channels.TryGetValue(grpcEndpoint, out _channel!))
         {
             _channel = GrpcChannel.ForAddress(grpcEndpoint, opt);
@@ -50,6 +51,7 @@ public class BoltzClient : IDisposable
         {
             _metadata.Add("tenant", tenantId.Value.ToString());
         }
+
     }
 
     public async Task<GetInfoResponse> GetInfo()
@@ -326,7 +328,7 @@ public class BoltzClient : IDisposable
         };
     }
 
-    public static string  CurrencyName(Currency currency)
+    public static string CurrencyName(Currency currency)
     {
         return currency == Currency.Btc ? "BTC" : "L-BTC";
     }

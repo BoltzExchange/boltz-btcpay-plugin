@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,22 +23,21 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzService(
     BTCPayWalletProvider btcPayWalletProvider,
     StoreRepository storeRepository,
-    IOptions<DataDirectories> dataDirectories,
     EventAggregator eventAggregator,
     ILogger<BoltzService> logger,
     BTCPayNetworkProvider btcPayNetworkProvider,
     IOptions<LightningNetworkOptions> lightningNetworkOptions,
-    IOptions<ExternalServicesOptions> externalServiceOptions
+    IOptions<ExternalServicesOptions> externalServiceOptions,
+    BoltzDaemon daemon
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
-    private readonly Dictionary<string, BoltzClient> _clients = new();
     private readonly ILogger _logger = logger;
 
-    public BoltzDaemon Daemon;
-    public BoltzClient AdminClient => Daemon.AdminClient!;
+    public BoltzDaemon Daemon => daemon;
+    public BoltzClient AdminClient => daemon.AdminClient!;
 
     public async Task<StoreData?> GetRebalanceStore()
     {
@@ -60,15 +58,9 @@ public class BoltzService(
         _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>("Boltz"))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
 
-        if (!Directory.Exists(StorageDir))
-        {
-            Directory.CreateDirectory(StorageDir);
-        }
 
-        Daemon = new BoltzDaemon(StorageDir, BtcNetwork, logger);
-
-        await Daemon.Init();
-        await Daemon.TryConfigure(InternalLightning);
+        await daemon.Init();
+        await daemon.TryConfigure(InternalLightning);
 
         foreach (var keyValuePair in _settings)
         {
@@ -142,7 +134,7 @@ public class BoltzService(
         }
         else
         {
-            settings.Macaroon = Daemon.AdminMacaroon!;
+            settings.Macaroon = daemon.AdminMacaroon!;
         }
 
         return settings;
@@ -151,11 +143,9 @@ public class BoltzService(
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Stopping Boltz");
-        await Daemon.Stop();
+        await daemon.Stop();
         await base.StopAsync(cancellationToken);
     }
-
-    private string StorageDir => Path.Combine(dataDirectories.Value.StorageDir, "Boltz");
 
     public BoltzClient? GetClient(string? storeId)
     {
@@ -177,8 +167,8 @@ public class BoltzService(
     {
         if (settings?.StandaloneWallet is not null)
         {
-            return new BoltzLightningClient(settings.GrpcUrl, settings.Macaroon, settings.StandaloneWallet.Id,
-                BtcNetwork.NBitcoinNetwork);
+            return new BoltzLightningClient(settings.GrpcUrl!, settings.Macaroon!, settings.StandaloneWallet.Id,
+                BtcNetwork.NBitcoinNetwork, daemon);
         }
 
         return null;

@@ -1,26 +1,13 @@
-#nullable  enable
+#nullable enable
 using BTCPayServer.Lightning;
 using System;
 using System.Linq;
-using System.Net.Http;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic.CompilerServices;
-using Org.BouncyCastle.Utilities;
 using Network = NBitcoin.Network;
-    
+
 namespace BTCPayServer.Plugins.Boltz;
 
-public class 
-BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
+public class BoltzLightningConnectionStringHandler(BoltzDaemon daemon) : ILightningConnectionStringHandler
 {
-    private readonly ILoggerFactory _loggerFactory;
-
-    public BoltzLightningConnectionStringHandler( ILoggerFactory loggerFactory)
-    {
-        _loggerFactory = loggerFactory;
-    }
-
-
     public ILightningClient? Create(string connectionString, Network network, out string? error)
     {
         var kv = LightningConnectionStringHelper.ExtractValues(connectionString, out var type);
@@ -29,7 +16,7 @@ BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
             error = null;
             return null;
         }
-        
+
         if (!kv.TryGetValue("server", out var server))
         {
             error = $"The key 'server' is mandatory for boltz connection strings";
@@ -46,7 +33,7 @@ BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
         bool allowInsecure = false;
         if (kv.TryGetValue("allowinsecure", out var allowinsecureStr))
         {
-            var allowedValues = new[] {"true", "false"};
+            var allowedValues = new[] { "true", "false" };
             if (!allowedValues.Any(v => v.Equals(allowinsecureStr, StringComparison.OrdinalIgnoreCase)))
             {
                 error = "The key 'allowinsecure' should be true or false";
@@ -74,31 +61,15 @@ BoltzLightningConnectionStringHandler : ILightningConnectionStringHandler
         {
             error = "Missing wallet id";
             return null;
-        };
+        }
+
+        ;
         if (!UInt64.TryParse(wallet, out var walletId))
         {
             error = "Invalid wallet id";
             return null;
         }
-        var bclient = new BoltzLightningClient(uri, macaroon, walletId, network);
-        (Network Network, string DefaultWalletId, string DefaultWalletCurrency) res;
-        try
-        {
-            
-            //var info = bclient.GetInfo().GetAwaiter().GetResult();
-            //if (res.Network != network)
-            //{
-            //    error = $"The wallet is not on the right network ({res.Network.Name} instead of {network.Name})";
-            //    return null;
-            //}
 
-        }
-        catch (Exception e)
-        {
-            error = $"Invalid server or macaroon";
-            return null;
-        }
-
-        return bclient;
+        return new BoltzLightningClient(uri, macaroon, walletId, network, daemon);
     }
 }

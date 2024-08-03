@@ -1,3 +1,4 @@
+using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Abstractions.Services;
@@ -6,6 +7,7 @@ using BTCPayServer.Plugins.Boltz;
 using BTCPayServer.Plugins.Boltz.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NBitcoin;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -19,10 +21,9 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
     public override void Execute(IServiceCollection services)
     {
 
+        services.AddSingleton<BoltzDaemon>();
         services.AddSingleton<ILightningConnectionStringHandler>(provider => provider.GetRequiredService<BoltzLightningConnectionStringHandler>());
         services.AddSingleton<BoltzLightningConnectionStringHandler>();
-        services.AddHostedService<ApplicationPartsLogger>();
-
         services.AddSingleton<BoltzService>();
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<BoltzService>());
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTab", "ln-payment-method-setup-tab"));
