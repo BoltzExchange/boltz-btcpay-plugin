@@ -34,7 +34,7 @@ service Boltz {
     rpc ListSwaps (ListSwapsRequest) returns (ListSwapsResponse);
 
     /*
-    Returns a list of all swaps, reverse swaps, and chain swaps in the database.
+    Returns stats of all swaps, reverse swaps, and chain swaps in the database.
     */
     rpc GetStats (GetStatsRequest) returns (GetStatsResponse);
 
@@ -140,13 +140,13 @@ service Boltz {
     /*
     Unlocks the server. This will be required on startup if there are any encrypted wallets.
      */
-    rpc Unlock(UnlockRequest) returns (google.protobuf.Empty); 
+    rpc Unlock(UnlockRequest) returns (google.protobuf.Empty);
 
     /*
     Check if the password is correct.
      */
-    rpc VerifyWalletPassword(VerifyWalletPasswordRequest) returns (VerifyWalletPasswordResponse); 
-    
+    rpc VerifyWalletPassword(VerifyWalletPasswordRequest) returns (VerifyWalletPasswordResponse);
+
     /*
     Changes the password for wallet encryption.
      */
@@ -169,7 +169,7 @@ service Boltz {
 
     /*
     Bakes a new macaroon with the specified permissions.
-    The macaroon can also be restricted to a specific tenant. In this case, 
+    The macaroon can also be restricted to a specific tenant. In this case,
     - any swap or wallet created with the returned macaroon will belong to this tenant and can not be accessed by other tenants.
     - the lightning node connected to the daemon can not be used to pay or create invoices for swaps.
      */
@@ -400,13 +400,17 @@ message GetServiceInfoResponse {
     Limits limits = 2;
 }
 
+enum IncludeSwaps {
+    ALL = 0;
+    MANUAL = 1;
+    AUTO = 2;
+}
 
 message ListSwapsRequest {
     optional Currency from = 1;
     optional Currency to = 2;
-    // only consider manual or autoswaps. returns both if left empty
-    optional bool is_auto = 3;
     optional SwapState state = 4;
+    IncludeSwaps include = 5;
 }
 message ListSwapsResponse {
     repeated SwapInfo swaps = 1;
@@ -416,8 +420,7 @@ message ListSwapsResponse {
 }
 
 message GetStatsRequest {
-    // only consider manual or autoswaps. returns both if left empty
-    optional bool is_auto = 1;
+    IncludeSwaps include = 1;
 }
 
 message GetStatsResponse {
@@ -481,6 +484,9 @@ message CreateSwapRequest {
     optional uint64 wallet_id = 6;
     // invoice to use for the swap. if not set, the daemon will get a new invoice from the lightning node
     optional string invoice = 7;
+    // make sure boltz will accept the lockup transaction without waiting for a confirmation if the amount is within limits,
+    // involves higher fees for liquid
+    optional bool zero_conf = 8;
 }
 message CreateSwapResponse {
     string id = 1;
@@ -555,6 +561,9 @@ message CreateChainSwapRequest {
     optional bool accept_zero_conf = 7;
     // If set, the daemon will not pay the swap from an internal wallet.
     optional bool external_pay = 8;
+    // make sure boltz will accept the lockup transaction without waiting for a confirmation if the amount is within limits,
+    // involves higher fees for liquid
+    optional bool lockup_zero_conf = 9;
 }
 
 message ChainSwapInfo {

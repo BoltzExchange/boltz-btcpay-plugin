@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Autoswaprpc;
@@ -8,7 +9,8 @@ using Boltzrpc;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
 using BTCPayServer.Data;
-using BTCPayServer.Lightning;
+using System.IO;
+using System.Net;
 using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
@@ -17,6 +19,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
 using Newtonsoft.Json;
+using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.AuthenticationSchemes;
 using ChainConfig = Autoswaprpc.ChainConfig;
 using RpcException = Grpc.Core.RpcException;
 
@@ -34,6 +37,7 @@ public class BoltzController(
     private BoltzSettings? SavedSettings => boltzService.GetSettings(CurrentStore.Id);
 
     private const string BtcPayName = "BTCPay";
+    private const string BackUrl = "BackUrl";
 
     private StoreData CurrentStore => HttpContext.GetStoreData();
 
@@ -91,8 +95,7 @@ public class BoltzController(
     public async Task<IActionResult> Status(string storeId)
     {
         ClearSetup();
-
-        if (Boltz is null)
+        if (Settings?.Mode is null)
         {
             return RedirectSetup();
         }
@@ -100,11 +103,13 @@ public class BoltzController(
         var data = new BoltzInfo();
         try
         {
-            data.Info = await Boltz.GetInfo();
+            data.Info = await Boltz!.GetInfo();
             data.Swaps = await Boltz.ListSwaps();
             data.Wallets = await Boltz.GetWallets(true);
             (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
             data.Status = await Boltz.GetAutoSwapStatus();
+            data.Recommendations = await Boltz.GetAutoSwapRecommendations();
+            data.Stats = await Boltz.GetStats();
         }
         catch (RpcException e)
         {
@@ -121,16 +126,12 @@ public class BoltzController(
     public async Task<IActionResult> Configuration(string storeId)
     {
         ClearSetup();
-
-        if (Boltz == null)
+        if (Settings?.Mode == null)
         {
             return RedirectSetup();
         }
 
-        var data = new BoltzConfig
-        {
-            Settings = Settings,
-        };
+        var data = new BoltzConfig { Settings = Settings, };
 
         try
         {
@@ -169,6 +170,16 @@ public class BoltzController(
         {
             case "BoltzSetLnConfig":
             {
+                if (vm.Ln.Wallet != "")
+                {
+                    var wallet = await Boltz!.GetWallet(vm.Ln.Wallet);
+                    vm.Ln.Currency = wallet.Currency;
+                }
+                else
+                {
+                    vm.Ln.Currency = Currency.Btc;
+                }
+
                 await SetLightningConfig(vm.Ln);
                 TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
                 break;
@@ -196,15 +207,15 @@ public class BoltzController(
 
     [HttpGet("admin")]
     [Authorize(Policy = Policies.CanModifyServerSettings)]
-    public async Task<IActionResult> Admin(string storeId)
+    public async Task<IActionResult> Admin(string storeId, string? logFile, int offset = 0, bool download = false)
     {
-        var data = new BoltzConnection { Settings = Settings };
+        var vm = new AdminModel { Settings = Settings, };
 
         if (Boltz != null)
         {
             try
             {
-                data.Info = await Boltz.GetInfo();
+                vm.Info = await Boltz.GetInfo();
             }
             catch (RpcException e)
             {
@@ -212,17 +223,61 @@ public class BoltzController(
             }
         }
 
-        return View(data);
+        var di = Directory.GetParent(boltzService.Daemon.LogFile);
+        if (di is null)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = "Could not load log files";
+            return View(vm);
+        }
+
+        var fileName = Path.GetFileName(boltzService.Daemon.LogFile);
+
+        // We are checking if "di" is null above yet accessing GetFiles on it, this could lead to an exception?
+        var logFiles = di.GetFiles($"{Path.GetFileNameWithoutExtension(fileName)}*{Path.GetExtension(fileName)}");
+        vm.Log.LogFileCount = logFiles.Length;
+        vm.Log.LogFiles = logFiles
+            .OrderBy(info => info.LastWriteTime)
+            .Skip(offset)
+            .Take(5)
+            .ToList();
+        vm.Log.LogFileOffset = offset;
+
+        if (string.IsNullOrEmpty(logFile))
+        {
+            vm.Log.Log = boltzService.Daemon.RecentOutput;
+        }
+        else
+        {
+            try
+            {
+                var stream = System.IO.File.OpenRead(Path.Combine(di.FullName, logFile));
+                if (download)
+                {
+                    return new FileStreamResult(stream, "text/plain")
+                    {
+                        FileDownloadName = logFile
+                    };
+                }
+                vm.Log.Log = await new StreamReader(stream).ReadToEndAsync();
+            }
+            catch (Exception)
+            {
+                TempData[WellKnownTempData.ErrorMessage] = "Could not load log file";
+            }
+
+        }
+
+        return View(vm);
     }
 
 
     [HttpPost("admin")]
     [Authorize(Policy = Policies.CanModifyServerSettings)]
-    public async Task<IActionResult> Admin(string storeId, BoltzConnection vm, string command = "")
+    public async Task<IActionResult> Admin(string storeId, AdminModel vm, string command = "")
     {
         switch (command)
         {
-            case "BoltzSaveCredentials":
+            case "Save":
             {
                 var settings = vm.Settings;
                 var validCreds = settings != null && settings.CredentialsPopulated();
@@ -245,7 +300,13 @@ public class BoltzController(
                 TempData[WellKnownTempData.SuccessMessage] = "Boltz plugin successfully updated";
                 break;
             }
-            case "BoltzClearCredentials":
+            case "Update":
+            {
+                boltzService.Daemon.StartUpdate();
+                TempData[WellKnownTempData.SuccessMessage] = "Boltz update initiated";
+                break;
+            }
+            case "Clear":
             {
                 await boltzService.Set(CurrentStore.Id, null);
                 TempData[WellKnownTempData.SuccessMessage] = "Boltz plugin credentials cleared";
@@ -268,17 +329,20 @@ public class BoltzController(
     {
         if (mode is null)
         {
-            var paymentMethod = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
+            vm.ExistingSettings = SavedSettings;
+            vm.ConnectedNode = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
                 .OfType<LightningSupportedPaymentMethod>()
                 .FirstOrDefault();
-            vm.AllowStandalone = paymentMethod is null || SavedSettings?.Mode == BoltzMode.Standalone;
-
             vm.IsAdmin = User.IsInRole(Roles.ServerAdmin);
             vm.HasInternal = boltzService.InternalLightning is not null;
             vm.ConnectedInternal = boltzService.Daemon.Node is not null;
             if (vm.IsAdmin)
             {
-                vm.RebalanceStore = await boltzService.GetRebalanceStore();
+                var store = await boltzService.GetRebalanceStore();
+                if (store?.Id != CurrentStore.Id)
+                {
+                    vm.RebalanceStore = store;
+                }
             }
 
             return View(vm);
@@ -337,6 +401,12 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
+            vm.Currency = vm.Flow switch
+            {
+                WalletSetupFlow.Standalone => Currency.Lbtc,
+                WalletSetupFlow.Chain => Currency.Btc,
+                _ => vm.Currency
+            };
             if (vm.Currency is null)
             {
                 return View("SetupCurrency", vm);
@@ -472,6 +542,8 @@ public class BoltzController(
             var vm = new BalanceSetup { Ln = LightningSetup };
             vm.Ln.InboundBalancePercent = 25;
             vm.Ln.OutboundBalancePercent = 25;
+            ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                new { flow = WalletSetupFlow.Lightning, currency = vm.Ln.Currency, storeId = CurrentStore.Id });
             return View(vm);
         }
 
@@ -503,6 +575,12 @@ public class BoltzController(
             vm.Budget = 100_000;
             vm.BudgetIntervalDays = 7;
             vm.MaxFeePercent = 1;
+            if (vm.SwapperType == SwapperType.Chain)
+            {
+                ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                    new { storeId = CurrentStore.Id, Flow = WalletSetupFlow.Chain });
+            }
+
             return View(vm);
         }
 
@@ -592,17 +670,25 @@ public class BoltzController(
     }
 
     [HttpGet("setup/chain")]
-    public async Task<IActionResult> SetupChain()
+    public async Task<IActionResult> SetupChain(string storeId)
     {
         if (Boltz != null)
         {
             var info = await Boltz.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
-            return View(new ChainSetup
+            var vm = new ChainSetup
             {
                 // TODO: remove buffer once proper sweep is implemented
                 MaxBalance = 10_000_000,
                 PairInfo = info
-            });
+            };
+
+            if (SetupSettings?.Mode == BoltzMode.Standalone)
+            {
+                ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                    new { flow = WalletSetupFlow.Standalone, storeId });
+            }
+
+            return View(vm);
         }
 
         return RedirectSetup();

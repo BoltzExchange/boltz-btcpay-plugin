@@ -1,8 +1,10 @@
 #nullable enable
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using Autoswaprpc;
 using Boltzrpc;
+using BTCPayServer.Models.ServerViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
@@ -38,18 +40,20 @@ public class BoltzStats
     public string ProblemDescription { get; set; }
 }
 
-public class BoltzConnection
+public class AdminModel
 {
-    public GetInfoResponse Info { get; set; }
-    public BoltzSettings Settings { get; set; }
+    public GetInfoResponse? Info { get; set; }
+    public BoltzSettings? Settings { get; set; }
+
+    public LogsViewModel Log { get; set; } = new();
 }
 
 public enum Unit
 {
+    None,
     Sat,
     Btc,
     Percent,
-    None
 }
 
 public class Stat
@@ -63,7 +67,7 @@ public class BoltzConfig
 {
     public LightningConfig Ln { get; set; }
     public ChainConfig Chain { get; set; }
-    public List<ExistingWallet> ExistingWallets { get; set; }
+    public List<ExistingWallet> ExistingWallets { get; set; } = new();
     public BoltzSettings Settings { get; set; }
 
     public SelectList WalletSelectList(Currency? currency)
@@ -79,11 +83,14 @@ public class AutoSwapStatus
     public Status Status { get; set; }
     public string Name { get; set; }
     public bool Compact { get; set; }
+    public List<Stat>? Stats { get; set; }
 }
 
 public class BoltzInfo
 {
     public GetInfoResponse Info { get; set; }
+    public GetRecommendationsResponse Recommendations { get; set; }
+    public SwapStats Stats { get; set; }
 
     public ListSwapsResponse? Swaps { get; set; }
 

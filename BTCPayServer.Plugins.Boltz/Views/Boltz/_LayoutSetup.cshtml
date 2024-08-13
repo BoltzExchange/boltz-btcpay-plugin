@@ -17,7 +17,20 @@
 @section Navbar {
     @await RenderSectionAsync("Navbar", false)
 
-    @if (BoltzService.GetSettings(storeId) != null)
+    @if (ViewData.TryGetValue("BackUrl", out var url))
+    {
+        <a href="@url">
+            <vc:icon symbol="back"/>
+        </a>
+    }
+    else
+    {
+        <a onclick="history.back()">
+            <vc:icon symbol="back"/>
+        </a>
+    }
+
+    @if (BoltzService.GetSettings(storeId)?.Mode != null)
     {
         <a asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" class="cancel">
             <vc:icon symbol="close"/>

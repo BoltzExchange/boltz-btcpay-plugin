@@ -39,9 +39,13 @@ else
             {
                 new() { Name = "Total Budget", Value = status.Budget.Total, Unit = Unit.Sat },
                 new() { Name = "Remaining Budget", Value = (ulong)status.Budget.Remaining, Unit = Unit.Sat },
-            }.Concat(BoltzClient.ParseStats(status.Budget.Stats)).ToList();
+            }.Concat(BoltzClient.ParseStats(status.Budget.Stats));
+            if (Model.Stats is not null)
+            {
+                stats = stats.Concat(Model.Stats);
+            }
 
-            <partial name="Boltz/_Stats" model="stats"/>
+            <partial name="Boltz/_Stats" model="stats.ToList()"/>
         }
     </div>
 }

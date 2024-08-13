@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Data;
+using BTCPayServer.Payments.Lightning;
 using NBitcoin;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
@@ -11,12 +12,25 @@ namespace BTCPayServer.Plugins.Boltz.Models;
 public class ModeSetup
 {
     public StoreData? RebalanceStore { get; set; }
+    public LightningSupportedPaymentMethod? ConnectedNode { get; set; }
+    public BoltzSettings? ExistingSettings { get; set; }
     public bool IsAdmin { get; set; }
     public bool HasInternal { get; set; }
     public bool ConnectedInternal { get; set; }
 
-    public bool AllowStandalone { get; set; }
-    public bool AllowRebalance => IsAdmin && HasInternal && ConnectedInternal && RebalanceStore is null;
+    public bool AllowRebalance => Tooltip is null;
+
+    public string? Tooltip => IsAdmin
+        ? RebalanceStore is null
+            ? HasInternal
+                ? ConnectedNode is not null && ConnectedNode.IsInternalNode
+                    ? ConnectedInternal ? null : "Could not connect to internal node"
+                    : "Store is not connected to internal lightning node"
+                : "No internal node available"
+            : $"Internal Node is already being rebalanced in store {RebalanceStore.StoreName}"
+        : "Only available for admins";
+
+
 }
 
 public enum WalletImportMethod

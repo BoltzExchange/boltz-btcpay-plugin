@@ -8,12 +8,6 @@
     ViewData["Description"] = "The following methods assume that you already have an existing wallet created and backed up.";
 }
 
-@section Navbar {
-    <a asp-controller="Boltz" asp-action="SetupWallet" asp-all-route-data="@Model.RouteData">
-        <vc:icon symbol="back"/>
-    </a>
-}
-
 <div class="list-group mt-4">
     <a asp-controller="Boltz" asp-action="ImportWallet" asp-all-route-data="@Model.GetRouteData("importMethod", WalletImportMethod.Mnemonic)" class="list-group-item list-group-item-action">
         <div class="image">

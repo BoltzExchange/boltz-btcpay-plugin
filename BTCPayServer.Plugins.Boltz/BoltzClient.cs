@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
@@ -28,9 +29,15 @@ public class BoltzClient : IDisposable
     {
         var opt = new GrpcChannelOptions
         {
-            Credentials = ChannelCredentials.Insecure
+            Credentials = ChannelCredentials.Insecure,
+            HttpHandler = new SocketsHttpHandler()
+            {
+                EnableMultipleHttp2Connections = true,
+                KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+                KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+                PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan
+            }
         };
-
 
         if (!Channels.TryGetValue(grpcEndpoint, out _channel!))
         {
@@ -54,9 +61,9 @@ public class BoltzClient : IDisposable
 
     }
 
-    public async Task<GetInfoResponse> GetInfo()
+    public async Task<GetInfoResponse> GetInfo(CancellationToken cancellationToken = default)
     {
-        return await _client.GetInfoAsync(new GetInfoRequest(), _metadata);
+        return await _client.GetInfoAsync(new GetInfoRequest(), _metadata, cancellationToken: cancellationToken);
     }
 
     public async Task<ListSwapsResponse> ListSwaps()
@@ -115,9 +122,9 @@ public class BoltzClient : IDisposable
         }, _metadata);
     }
 
-    public async Task<GetStatsResponse> GetStats()
+    public async Task<SwapStats> GetStats()
     {
-        return await _client.GetStatsAsync(new GetStatsRequest(), _metadata);
+        return (await _client.GetStatsAsync(new GetStatsRequest(), _metadata)).Stats;
     }
 
     public async Task ResetLnConfig()
@@ -316,6 +323,7 @@ public class BoltzClient : IDisposable
         {
             channel.Dispose();
         }
+        Channels.Clear();
     }
 
     public static List<Stat> ParseStats(SwapStats stats)

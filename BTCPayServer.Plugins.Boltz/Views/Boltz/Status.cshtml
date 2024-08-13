@@ -16,18 +16,35 @@
     @if (Model.Status is not null)
     {
         var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
-        var chain = new AutoSwapStatus { Name = "Chain", Status = Model.Status.Chain };
+
+        var chainRecommendation = Model.Recommendations.Chain.First();
+        var chain = new AutoSwapStatus
+        {
+            Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
+            {
+                new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
+            }
+        };
+
         <div class="widget">
             <h4 class="mb-3">Autoswap</h4>
             <div class="d-flex flex-column gap-4">
                 @if (Model.Ln is not null)
                 {
-                    <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                    <div>
+                        <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
+                    </div>
                 }
 
                 @if (Model.Chain is not null)
                 {
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
+                    @if (chainRecommendation.Swap is not null)
+                    {
+                        <h5>Upcoming Swap</h5>
+                        <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
+                    }
                 }
             </div>
         </div>
@@ -35,7 +52,10 @@
     @if (settings?.Mode == BoltzMode.Standalone)
     {
         <div class="widget">
-            <partial name="Boltz/_SwapStats"/>
+            <div class="d-flex flex-column gap-2">
+                <h4>Total Swap Stats</h4>
+                <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(Model.Stats)"/>
+            </div>
         </div>
         <div class="widget">
             <partial name="Boltz/_Fees"/>
@@ -44,7 +64,7 @@
 
     <div class="widget">
         <h4>Swaps</h4>
-        <div class="invoice-payments table-responsive mt-0">
+        <div class="table-responsive mt-0">
             <table class="table table-hover mb-0">
                 <thead>
                 <tr>

@@ -1,6 +1,7 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Security
+@using Grpc.Core
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @inject BoltzService BoltzService
 @model StoreDashboardViewModel
@@ -12,8 +13,6 @@
 <div id="StoreBoltzInfo-@Model.StoreId" class="widget flex-column gap-3" style="grid-column-start: 1; grid-column-end: 4">
     @if (client is not null)
     {
-        var info = await client.GetInfo();
-
         <header>
             <h4>Boltz</h4>
             <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
@@ -21,25 +20,48 @@
             </a>
         </header>
 
-        @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
+        @if (BoltzService.Daemon.UpdateAvailable)
         {
+            <div class="alert alert-warning">
+                <p>
+                    New version available
+                </p>
+            </div>
         }
 
-        var (ln, chain) = await client.GetAutoSwapConfig();
-        @if (ln is not null || chain is not null)
+        try
         {
-            var status = await client.GetAutoSwapStatus();
-            if (ln is not null)
+            var info = await client.GetInfo();
+            @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
             {
-                var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
-                <partial name="Boltz/_AutoSwapStatus" model="lnStatus"/>
             }
 
-            if (chain is not null)
-            {
-                var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
-                <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
-            }
+            var (ln, chain) = await client.GetAutoSwapConfig();
+            <div class="d-flex gap-2 flex-column">
+                @if (ln is not null || chain is not null)
+                {
+                    var status = await client.GetAutoSwapStatus();
+                    if (ln is not null)
+                    {
+                        var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
+                        <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
+                    }
+
+                    if (chain is not null)
+                    {
+                        var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
+                        <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
+                    }
+                }
+            </div>
+        }
+        catch (RpcException)
+        {
+            <div class="alert alert-warning">
+                <p>
+                    Client connection not working.
+                </p>
+            </div>
         }
     }
 </div>

@@ -1,6 +1,7 @@
-﻿@{
+﻿@using BTCPayServer.Plugins.Boltz
+@inject BoltzDaemon Daemon
+@{
     Layout = "../Shared/_NavLayout.cshtml";
-    ViewData["IsSetup"] = false;
 }
 <style>
 /*
@@ -9,4 +10,12 @@
     }
  */
 </style>
+
+
+@if (Daemon.UpdateAvailable)
+{
+    <a class="d-block alert alert-info my-2" href="@Daemon.LatestRelease!.HtmlUrl">
+        A newer version of boltz-client is available.
+    </a>
+}
 @RenderBody()

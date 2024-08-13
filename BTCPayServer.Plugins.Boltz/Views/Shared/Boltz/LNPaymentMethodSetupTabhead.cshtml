@@ -8,18 +8,20 @@
 {
     return;
 }
+
 @{
-    var client = BoltzService.GetClient(Model.StoreId);
+    var lnClient = BoltzService.GetLightningClient(BoltzService.GetSettings(Model.StoreId));
 }
 
-@if (client is null)
+@if (lnClient is null)
 {
-    <a asp-action="SetupMode" asp-controller="Boltz" permission="@Policies.CanModifyStoreSettings" asp-route-storeId="@Model.StoreId" asp-route-mode="@BoltzMode.Standalone"  type="radio" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <a asp-action="SetupMode" asp-controller="Boltz" permission="@Policies.CanModifyStoreSettings" asp-route-storeId="@Model.StoreId" asp-route-mode="@BoltzMode.Standalone" type="radio" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
         <label for="LightningNodeType-Boltz">Configure Boltz</label>
     </a>
 }
 else
 {
     <input asp-for="LightningNodeType" value="Custom" type="radio" id="LightningNodeType-Boltz" data-bs-toggle="pill" data-bs-target="#BoltzSetup" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <input asp-for="ConnectionString" value="@lnClient.ToString()" type="hidden">
     <label asp-for="LightningNodeType" for="LightningNodeType-Boltz">Use Boltz wallet</label>
 }

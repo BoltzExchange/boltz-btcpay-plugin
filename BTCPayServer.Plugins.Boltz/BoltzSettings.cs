@@ -21,6 +21,7 @@ public class BoltzSettings
     public BoltzMode? Mode { get; set; }
 
     public ulong TenantId { get; set; }
+    public ulong ActualTenantId => Mode == BoltzMode.Rebalance ? 1 : TenantId;
 
     public class Wallet
     {

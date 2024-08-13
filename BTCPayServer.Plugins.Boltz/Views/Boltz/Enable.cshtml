@@ -1,9 +1,11 @@
+@using ExchangeSharp
 @model Autoswaprpc.GetRecommendationsResponse
 @{
     Layout = "_LayoutSetup";
     ViewData["Title"] = "Enable Autoswap";
 
-    ViewData["Description"] = Model.Lightning.Count > 0 || Model.Chain.Count > 0
+
+    ViewData["Description"] = Model.Lightning.FirstOrDefault()?.Swap is not null || Model.Chain.FirstOrDefault()?.Swap is not null
         ? "Based on your configuration the following swaps will be executed"
         : "All balances are within the configured threshold, no swap will be immediately executed.";
 }
@@ -12,37 +14,17 @@
 
     @if (Model.Lightning.Count > 0)
     {
-        <h3 class="my-4">Lightning Swaps</h3>
-        <div class="list-group">
-            @foreach (var swap in Model.Lightning)
-            {
-                <div class="list-group-item">
-                    <div class="content">
-                        <h4>@swap.Type swap for @swap.Amount sats</h4>
-                        <p class="mb-0 text-secondary">Estimated Fee: @swap.FeeEstimate sats</p>
-                    </div>
-                </div>
-            }
-        </div>
+        <h4 class="mt-4">Lightning</h4>
+        <partial name="Boltz/_LightningRecommendations" model="Model.Lightning"/>
     }
 
-    @if (Model.Chain.Count > 0)
+    @if (Model.Chain.FirstOrDefault()?.Swap is not null)
     {
-        <h3 class="my-4">Chain Swaps</h3>
-        <div class="list-group">
-            @foreach (var swap in Model.Chain)
-            {
-                <div class="list-group-item">
-                    <div class="content">
-                        <h4>Swap @swap.Amount sats</h4>
-                        <p class="mb-0 text-secondary">Estimated Fee: @swap.FeeEstimate sats</p>
-                    </div>
-                </div>
-            }
-        </div>
+        <h4 class="mt-4">Chain</h4>
+        <partial name="Boltz/_ChainRecommendations" model="Model.Chain.First().Swap"/>
     }
 
-    <div class="d-flex flex-row gap-2 justify-content-between">
+    <div class="d-flex flex-row gap-2 justify-content-between mt-4">
         <button name="command" value="Enable" type="submit" class="btn btn-success">
             Enable
         </button>

@@ -1,55 +1,103 @@
-@using BTCPayServer.Abstractions.Extensions
-@using BTCPayServer.Plugins.Boltz.Views
-@model BTCPayServer.Plugins.Boltz.Models.BoltzConnection
+@using BTCPayServer.Plugins.Boltz
+@model BTCPayServer.Plugins.Boltz.Models.AdminModel
+@inject BoltzDaemon Daemon
 @{
     ViewData.SetActivePage("Boltz", "Admin", "Admin");
 
-    var boltzCredsSet = Model?.Settings?.CredentialsPopulated() ?? false;
+    var boltzCredsSet = Model.Settings?.CredentialsPopulated() ?? false;
 }
 
-@if (boltzCredsSet)
-{
-<p>
-    Connected to Boltz Client @Model?.Info?.Version
-</p>
-}
+<form method="post">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h3 class="mb-0">
+            <span>@ViewData["Title"]</span>
+        </h3>
+        <div class="d-flex gap-3 mt-3 mt-sm-0">
+            @if (Daemon.UpdateAvailable)
+            {
+                <button name="command" type="submit" value="Update" class="btn btn-primary">Update</button>
+            }
+            @if (boltzCredsSet)
+            {
+                <button name="command" type="submit" value="Clear" class="btn btn-danger">
+                    Disconnect
+                </button>
+            }
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h3 class="mb-0">
-        <span>@ViewData["Title"]</span>
-    </h3>
-    <div class="d-flex gap-3 mt-3 mt-sm-0">
-        <button name="command" type="submit" value="save" class="btn btn-primary">Save</button>
-        @if (boltzCredsSet)
-        {
-            <button name="command" type="submit" value="clear" class="btn btn-danger">Clear</button>
-        }
-    </div>
-</div>
-
-<form method="post" id="boltzForm">
-    <div class="form-group">
-        <label asp-for="Settings.GrpcUrl" class="form-label"></label>
-        <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
-        <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
-    </div>
-
-    <div class="form-group">
-        <label asp-for="Settings.Macaroon" class="form-label"></label>
-        <input asp-for="Settings.Macaroon" class="form-control" readonly="@boltzCredsSet"/>
-        <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
+        </div>
     </div>
 
     @if (boltzCredsSet)
     {
-        <button name="command" type="submit" class="btn btn-danger" value="BoltzClearCredentials">
-            Disconnect Boltz Client
-        </button>
+        <p>
+            Connected to Boltz Client @Model?.Info?.Version
+        </p>
     }
-    else
-    {
-        <button name="command" type="submit" class="btn btn-primary" value="BoltzSaveCredentials">
-            Save
+
+    <div class="my-4">
+        <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#AdvancedSettings" aria-expanded="false" aria-controls="AdvancedSettings">
+            <vc:icon symbol="caret-down"/>
+            <span class="ms-1">Advanced</span>
         </button>
+
+        <div id="AdvancedSettings" class="collapse">
+            <div class="form-group">
+                <label asp-for="Settings.GrpcUrl" class="form-label"></label>
+                <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
+                <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Settings.Macaroon" class="form-label"></label>
+                <input asp-for="Settings.Macaroon" class="form-control" readonly="@boltzCredsSet"/>
+                <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
+            </div>
+
+            <button name="command" type="submit" class="btn btn-primary" value="Save" disabled>
+                Save
+            </button>
+        </div>
+    </div>
+
+    @if (Model is not null)
+    {
+        <h4>Logs</h4>
+
+        <ul class="list-unstyled">
+            @foreach (var file in Model.Log.LogFiles)
+            {
+                <li>
+                    <a asp-action="Admin" asp-route-logFile="@file.Name" asp-route-offset="@Model.Log.LogFileOffset">@file.Name</a>
+                    <a asp-action="Admin" asp-route-logFile="@file.Name" asp-route-offset="@Model.Log.LogFileOffset" asp-route-download="true" class="mx-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
+                        </svg>
+                    </a>
+                </li>
+            }
+        </ul>
+
+        <nav aria-label="..." class="w-100">
+            <ul class="pagination float-start">
+                <li class="page-item @(Model.Log.LogFileOffset == 0 ? "disabled" : null)">
+                    <a class="page-link" asp-action="Admin" asp-route-offset="@(Model.Log.LogFileOffset - 5)">&laquo;</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Showing @Model.Log.LogFileOffset - (@(Model.Log.LogFileOffset + Model.Log.LogFiles.Count)) of @Model.Log.LogFileCount</span>
+                </li>
+                <li class="page-item @((Model.Log.LogFileOffset + Model.Log.LogFiles.Count) < Model.Log.LogFileCount ? null : "disabled")">
+                    <a class="page-link" asp-action="Admin" asp-route-offset="@(Model.Log.LogFileOffset + Model.Log.LogFiles.Count)">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+
+        @if (!string.IsNullOrEmpty(Model.Log.Log))
+        {
+            <br/>
+            <br/>
+            <br/>
+            <pre>@Model.Log.Log</pre>
+        }
     }
 </form>

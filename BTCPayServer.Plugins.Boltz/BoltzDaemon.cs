@@ -2,20 +2,26 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Boltzrpc;
 using BTCPayServer.Configuration;
+using BTCPayServer.Hwi.Deployment;
 using BTCPayServer.Lightning;
 using BTCPayServer.Lightning.CLightning;
+using BTCPayServer.Lightning.Eclair;
 using BTCPayServer.Lightning.LND;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Octokit;
+using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 
 namespace BTCPayServer.Plugins.Boltz;
@@ -29,19 +35,31 @@ public class BoltzDaemon(
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
     private Stream? _downloadStream;
+    private Task? _updateTask;
     private static CancellationTokenSource? _daemonCancel;
+    public string StorageDir => Path.Combine(dataDirectories.Value.StorageDir, "Boltz");
+    public string LogFile => Path.Combine(StorageDir, "boltz.log");
+    public string ConfigPath => Path.Combine(StorageDir, "boltz.toml");
+    public string DaemonBinary => Path.Combine(StorageDir, "bin", $"linux_{Architecture}", "boltzd");
+    private readonly List<string> _output = new();
+
     public BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
-
     public string? AdminMacaroon { get; private set; }
-    public string? LatestVersion { get; private set; }
+    public Release? LatestRelease { get; private set; }
     public string? CurrentVersion { get; private set; }
-    public bool UpdateAvailable => LatestVersion != CurrentVersion;
+    public bool UpdateAvailable => LatestRelease!.TagName != CurrentVersion;
     public BoltzClient? AdminClient { get; private set; }
-    public string? Error { get; private set; }
     public bool Running => AdminClient is not null;
+    public readonly TaskCompletionSource<bool> InitialStart = new();
+    public event EventHandler<GetSwapInfoResponse>? SwapUpdate;
+    public ILightningClient? Node;
+    public string? NodeError { get; private set; }
+    public string? Error { get; private set; }
+    public string? LatestStdout { get; private set; }
+    public string? LatestStderr { get; private set; }
+    public string RecentOutput => string.Join("\n", _output);
 
-    public event EventHandler? OnDaemonStart;
-    public readonly TaskCompletionSource InitialStart = new();
+    private const int MaxLogLines = 200;
 
     readonly SemaphoreSlim _semaphore = new(1, 1);
 
@@ -52,62 +70,50 @@ public class BoltzDaemon(
         _ => ""
     };
 
-    public Task<bool> Wait()
+    public async Task<bool> Wait(CancellationToken cancellationToken)
     {
-        var tcs = new TaskCompletionSource<bool>();
-
-        var source = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-
-        OnDaemonExit += (_, _) => { source.Cancel(); };
-
-        Task.Factory.StartNew(async () =>
+        try
         {
-            try
+            var path = Path.Combine(StorageDir, "macaroons", "admin.macaroon");
+            while (!File.Exists(path))
             {
-                var path = Path.Combine(StorageDir, "macaroons", "admin.macaroon");
-                while (!File.Exists(path))
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+
+            logger.LogDebug("Admin macaroon found");
+
+            var reader = await File.ReadAllBytesAsync(path, cancellationToken);
+            AdminMacaroon = Convert.ToHexString(reader).ToLower();
+            var client = new BoltzClient(_defaultUri, AdminMacaroon);
+
+            while (true)
+            {
+                try
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(50));
+                    await client.GetInfo(cancellationToken);
+                    logger.LogInformation("Client running");
+                    AdminClient = client;
+                    AdminClient.SwapUpdate += SwapUpdate;
+                    return true;
                 }
-
-                logger.LogDebug("Admin macaroon found");
-
-                var reader = await File.ReadAllBytesAsync(path);
-                AdminMacaroon = Convert.ToHexString(reader).ToLower();
-                var client = new BoltzClient(_defaultUri, AdminMacaroon);
-
-                while (true)
+                catch (RpcException)
                 {
-                    try
-                    {
-                        await client.GetInfo();
-                        logger.LogInformation("Client running");
-                        AdminClient = client;
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-                    catch (RpcException)
-                    {
-                        await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: source.Token);
-                    }
+                    await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 }
             }
-            catch (TaskCanceledException)
-            {
-                logger.LogInformation("Daemon start timed out");
-                AdminClient = null;
-                tcs.TrySetResult(false);
-            }
-        }, source.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            logger.LogInformation("Daemon start timed out");
+            await Stop();
+        }
 
-        return tcs.Task;
+        return false;
     }
 
-    public async Task<string> GetLatestClientVersion()
+    public async Task<Release> GetLatestRelease()
     {
-        return "v2.1.0";
-        var latest = await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
-        return latest.TagName;
+        return await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
     }
 
     public string ArchiveName(string version)
@@ -120,23 +126,36 @@ public class BoltzDaemon(
         return "";
     }
 
+    public async Task Download()
+    {
+        await Download(LatestRelease!.TagName);
+    }
+
+    private async Task Update()
+    {
+        await Stop();
+        await Download();
+        await Start();
+    }
+
+    public void StartUpdate()
+    {
+        _updateTask = Update();
+    }
+
     public async Task Download(string version)
     {
+        logger.LogInformation($"Downloading boltz client {version}");
         var archive = ArchiveName(version);
-        var archivePath = Path.Combine(StorageDir, archive);
-        if (!File.Exists(archivePath))
-        {
-            using var client = new HttpClient();
-            string url =
-                $"https://github.com/BoltzExchange/boltz-client/releases/download/{version}/{archive}";
-            await using var s = await client.GetStreamAsync(url);
-            _downloadStream = s;
-            await using var fs = new FileStream(archivePath, FileMode.OpenOrCreate);
-            await s.CopyToAsync(fs);
-            _downloadStream = null;
-        }
+        using var client = new HttpClient();
+        string url =
+            $"https://github.com/BoltzExchange/boltz-client/releases/download/{version}/{archive}";
+        await using var s = await client.GetStreamAsync(url);
+        _downloadStream = s;
+        await using var gzip = new GZipStream(s, CompressionMode.Decompress);
+        await TarFile.ExtractToDirectoryAsync(gzip, StorageDir, true);
 
-        await ExtractTar(archivePath, StorageDir);
+        _downloadStream = null;
         CurrentVersion = version;
     }
 
@@ -153,19 +172,16 @@ public class BoltzDaemon(
 
     public async Task ExtractTar(string tarGzPath, string outputDir)
     {
-        var (exit, _, _) = await RunProcess("tar", $"-xzf \"{tarGzPath}\" -C \"{outputDir}\"");
+        logger.LogInformation($"Extracting: tar -xzf \"{tarGzPath}\" -C \"{outputDir}\"");
+        var (exit, stdout, stderr) = await RunCommand("tar", $"-xzf \"{tarGzPath}\" -C \"{outputDir}\"");
         if (exit != 0)
         {
+            logger.LogError(stdout);
+            logger.LogError(stderr);
+
             throw new Exception("failed to extract tar archive");
         }
     }
-
-    public ILightningClient? Node;
-    private string StorageDir => Path.Combine(dataDirectories.Value.StorageDir, "Boltz");
-    private string ConfigPath => Path.Combine(StorageDir, "boltz.toml");
-    public string? NodeError { get; private set; }
-    public string? LatestStdout { get; private set; }
-    public string? LatestStderr { get; private set; }
 
     public async Task<bool> TryConfigure(ILightningClient? node)
     {
@@ -191,9 +207,9 @@ public class BoltzDaemon(
     {
         var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
 
-        // TODO: set defaults in daemon for regtest
         string shared = $"""
                          network = "{networkName}"
+                         referralId = "btcpay"
 
                          [RPC]
                          noMacaroons = false
@@ -259,8 +275,9 @@ public class BoltzDaemon(
         await _semaphore.WaitAsync();
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(StorageDir, "boltz.toml"), GetConfig(node));
-            await Start();
+            await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
+            await Stop();
+            InitialStart.TrySetResult(await Start());
         }
         finally
         {
@@ -272,25 +289,23 @@ public class BoltzDaemon(
 
     public async Task Init()
     {
-        logger.LogInformation("Initializing");
+        logger.LogDebug("Initializing");
         if (!Directory.Exists(StorageDir))
         {
             Directory.CreateDirectory(StorageDir);
         }
 
-        LatestVersion = await GetLatestClientVersion();
-        var daemon = Path.Combine(StorageDir, "bin", $"linux_{Architecture}", "boltzd");
-
-        if (!File.Exists(daemon))
+        LatestRelease = await GetLatestRelease();
+        if (!File.Exists(DaemonBinary))
         {
-            await Download(LatestVersion);
+            await Download();
         }
         else
         {
-            var (code, stdout, _) = await RunProcess(daemon, "--version");
+            var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
             if (code != 0)
             {
-                await Download(LatestVersion);
+                await Download();
             }
             else
             {
@@ -299,61 +314,52 @@ public class BoltzDaemon(
         }
     }
 
-    public async Task EnsureRunning(ILightningClient? client)
+    private async Task<bool> Start()
     {
-        await _semaphore.WaitAsync();
-        try
-        {
-            if (!Running)
-            {
-                await Init();
-                await TryConfigure(client);
-            }
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
-    }
-
-    private async Task Start()
-    {
-        await Stop();
         logger.LogInformation("Starting daemon");
-        _daemonCancel?.Cancel();
         _daemonCancel = new CancellationTokenSource();
-        Task.Factory.StartNew(async () =>
+        _ = Task.Factory.StartNew(async () =>
         {
-            while (true)
+            while (!_daemonCancel.Token.IsCancellationRequested)
             {
-                var daemon = Path.Combine(StorageDir, "bin", $"linux_{Architecture}", "boltzd");
-                var (exitCode, stdout, stderr) = await RunProcess(daemon, $"--datadir {StorageDir}");
+                _output.Clear();
+                using var process = StartProcess(DaemonBinary, $"--datadir {StorageDir}");
 
-                LatestStderr = stderr == "" ? null : stderr;
-                LatestStdout = stdout == "" ? null : stdout;
+                MonitorStream(process.StandardOutput, _daemonCancel.Token);
+                MonitorStream(process.StandardError, _daemonCancel.Token);
+
+                try
+                {
+                    await process.WaitForExitAsync(_daemonCancel.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    process.Kill();
+                    throw;
+                }
 
                 OnDaemonExit?.Invoke(this, EventArgs.Empty);
-                if (exitCode != 0)
+
+                if (process.ExitCode != 0)
                 {
-                    logger.LogError($"Process exited with code {exitCode}");
-                    logger.LogError(stdout);
-                    logger.LogError(stderr);
-                    await Task.Delay(5000);
+                    logger.LogError($"Process exited with code {process.ExitCode}\n{RecentOutput}");
+                    await Task.Delay(5000, _daemonCancel.Token);
                 }
                 else
                 {
-                    _daemonCancel?.Cancel();
+                    await _daemonCancel.CancelAsync();
                     _daemonCancel = null;
                     return;
                 }
             }
         }, _daemonCancel.Token);
-        if (!await Wait())
-        {
-            throw new Exception("Daemon start timed out");
-        }
 
-        InitialStart.TrySetResult();
+        var source = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        EventHandler handler = (_, _) => { source.Cancel(); };
+        OnDaemonExit += handler;
+        var res = await Wait(source.Token);
+        OnDaemonExit -= handler;
+        return res;
     }
 
     public async Task Stop()
@@ -365,13 +371,14 @@ public class BoltzDaemon(
                 logger.LogInformation("Stopping gracefully");
                 await AdminClient.Stop();
                 AdminClient.Dispose();
+                AdminClient = null;
             }
 
             await _daemonCancel.CancelAsync();
         }
     }
 
-    async Task<(int, string, string)> RunProcess(string fileName, string args)
+    private Process StartProcess(string fileName, string args)
     {
         var processStartInfo = new ProcessStartInfo
         {
@@ -382,13 +389,45 @@ public class BoltzDaemon(
             UseShellExecute = false,
             CreateNoWindow = true
         };
-
-        using Process process = new Process();
-        process.StartInfo = processStartInfo;
+        Process process = new Process { StartInfo = processStartInfo };
         process.Start();
-        await process.WaitForExitAsync();
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
+        return process;
+    }
+
+    async Task<(int, string, string)> RunCommand(string fileName, string args,
+        CancellationToken cancellationToken = default)
+    {
+        using Process process = StartProcess(fileName, args);
+        await process.WaitForExitAsync(cancellationToken);
+        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
         return (process.ExitCode, stdout, stderr);
+    }
+
+    private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken)
+    {
+        Task.Factory.StartNew(async () =>
+        {
+            while (!streamReader.EndOfStream)
+            {
+                var line = await streamReader.ReadLineAsync(cancellationToken);
+                if (line != null)
+                {
+                    {
+                        if (line.Contains("error") || line.Contains("fatal"))
+                        {
+                            logger.LogError(line);
+                        }
+
+                        if (_output.Count >= MaxLogLines)
+                        {
+                            _output.RemoveAt(0);
+                        }
+
+                        _output.Add(line);
+                    }
+                }
+            }
+        }, cancellationToken);
     }
 }
