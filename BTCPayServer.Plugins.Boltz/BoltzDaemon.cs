@@ -90,7 +90,7 @@ public class BoltzDaemon(
                 try
                 {
                     await client.GetInfo(cancellationToken);
-                    logger.LogInformation("Client running");
+                    logger.LogInformation("Running");
                     AdminClient = client;
                     AdminClient.SwapUpdate += SwapUpdate;
                     return true;

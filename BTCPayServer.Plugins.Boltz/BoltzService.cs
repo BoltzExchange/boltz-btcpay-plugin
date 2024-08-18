@@ -58,12 +58,11 @@ public class BoltzService(
 
         if (daemon.Running)
         {
-            foreach (var keyValuePair in _settings)
+            foreach (var storeId in _settings.Keys)
             {
                 try
                 {
-                    var settings = keyValuePair.Value;
-                    await Handle(keyValuePair.Key, settings);
+                    await CheckStore(storeId);
                 }
                 catch (Exception e)
                 {
@@ -73,6 +72,21 @@ public class BoltzService(
         }
 
         await base.StartAsync(cancellationToken);
+    }
+
+    private async Task CheckStore(string storeId)
+    {
+        var settings = GetSettings(storeId)!;
+        try
+        {
+            await CheckSettings(settings);
+        }
+        catch (RpcException e) when (settings.GrpcUrl == _defaultUri)
+        {
+            logger.LogInformation(e, "Trying to generate new macaroon for store {storeId}", storeId);
+            await SetMacaroon(storeId, settings);
+            await Set(storeId, settings);
+        }
     }
 
     private async void OnSwap(object? sender, GetSwapInfoResponse swap)
@@ -95,6 +109,7 @@ public class BoltzService(
             logger.LogError("Could not find store {storeId}", found.Value.Key);
             return;
         }
+
         var address = await GenerateNewAddress(store);
         var client = found.Value.Value.Client!;
 
@@ -130,31 +145,16 @@ public class BoltzService(
     }
 
 
-    private async Task<BoltzClient?> Handle(string? storeId, BoltzSettings? settings)
+    private async Task<BoltzClient?> CheckSettings(BoltzSettings settings)
     {
-        if (settings is null)
-        {
-            /*
-            if (storeId is not null && _clients.Remove(storeId, out var client))
-            {
-                client.Dispose();
-            }
-            */
-        }
-        else
-        {
-            var client = new BoltzClient(settings.GrpcUrl!, settings.Macaroon);
-            await client.GetInfo();
-            return client;
-        }
-
-        return null;
+        var client = settings.Client!;
+        await client.GetInfo();
+        return client;
     }
 
-    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
+    public async Task SetMacaroon(string storeId, BoltzSettings settings)
     {
-        var settings = new BoltzSettings { GrpcUrl = _defaultUri, Mode = mode };
-        if (mode == BoltzMode.Standalone)
+        if (settings.Mode == BoltzMode.Standalone)
         {
             var tenantName = "btcpay-" + storeId;
             Tenant tenant;
@@ -175,13 +175,17 @@ public class BoltzService(
         {
             settings.Macaroon = daemon.AdminMacaroon!;
         }
+    }
 
+    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
+    {
+        var settings = new BoltzSettings { GrpcUrl = _defaultUri, Mode = mode };
+        await SetMacaroon(storeId, settings);
         return settings;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Stopping Boltz");
         await daemon.Stop();
         await base.StopAsync(cancellationToken);
     }
@@ -220,9 +224,6 @@ public class BoltzService(
 
     public async Task Set(string storeId, BoltzSettings? settings)
     {
-        var result = await Handle(storeId, settings);
-        await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
-
         var cryptoCode = "BTC";
         var paymentMethodId = new PaymentMethodId(cryptoCode, PaymentTypes.LightningLike);
 
@@ -246,8 +247,10 @@ public class BoltzService(
                 await storeRepository.UpdateStore(data!);
             }
         }
-        else if (result is not null)
+        else
         {
+            await CheckSettings(settings);
+
             if (settings.Mode == BoltzMode.Standalone)
             {
                 var paymentMethod = new LightningSupportedPaymentMethod
@@ -264,6 +267,8 @@ public class BoltzService(
             await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);
         }
+        
+        await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
     }
 
     public async Task<StoreData?> GetRebalanceStore()

@@ -80,4 +80,3 @@ public class FeesModel
         SwapType = Boltzrpc.SwapType.Reverse
     };
 }
-}
