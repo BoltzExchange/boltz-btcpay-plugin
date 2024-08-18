@@ -54,6 +54,9 @@
                     }
                 }
             </div>
+
+            var stats = await client.GetStats();
+            <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(stats)"/>
         }
         catch (RpcException)
         {

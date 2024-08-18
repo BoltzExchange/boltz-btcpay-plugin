@@ -11,7 +11,7 @@
 
     var settings = BoltzService.GetSettings(storeId);
 
-    var chainRecommendation = Model.Recommendations?.Chain.First();
+    var chainRecommendation = Model.Recommendations?.Chain.FirstOrDefault();
 }
 
 <div class="d-flex flex-column gap-3">
@@ -20,7 +20,7 @@
         <div class="widget">
             <h4 class="mb-3">Autoswap</h4>
             <div class="d-flex flex-column gap-4">
-                @if (Model.Recommendations?.Lightning is not null)
+                @if (Model.Recommendations?.Lightning.Count > 0)
                 {
                     var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
                     <div>
@@ -35,7 +35,7 @@
                     {
                         Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
                         {
-                            new() { Name = "From Wallet Balance", Value = chainRecommendation?.WalletBalance.Confirmed ?? 0, Unit = Unit.Sat },
+                            new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
                         }
                     };
 

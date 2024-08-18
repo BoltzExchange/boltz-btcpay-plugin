@@ -24,18 +24,17 @@
     <div class="alert alert-danger">
         <p>Daemon is not yet running</p>
     </div>
+
+    @if (BoltzService.Daemon.Error is not null)
+    {
+        <div class="alert alert-danger">@BoltzService.Daemon.Error</div>
+    }
 }
 else
 {
     @if (BoltzService.Daemon.NodeError is not null)
     {
         <div class="alert alert-danger">@BoltzService.Daemon.NodeError</div>
-    }
-
-    @if (BoltzService.Daemon.LatestStderr is not null)
-    {
-        <div class="alert alert-danger">@BoltzService.Daemon.LatestStdout</div>
-        <div class="alert alert-danger">@BoltzService.Daemon.LatestStderr</div>
     }
 
 
