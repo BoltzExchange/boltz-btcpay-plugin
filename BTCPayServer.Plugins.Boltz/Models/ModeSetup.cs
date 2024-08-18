@@ -52,7 +52,7 @@ public class ExistingWallet
     public String Name { get; set; } = "";
     public bool IsBtcpay { get; set; }
     public bool IsReadonly { get; set; }
-    public ulong Balance { get; set; }
+    public ulong? Balance { get; set; }
     public Currency Currency { get; set; }
 
     public string CurrencyName => BoltzClient.CurrencyName(Currency);
