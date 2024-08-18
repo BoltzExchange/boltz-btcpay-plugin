@@ -74,19 +74,18 @@
             </div>
         }
     }
-    @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null)
+    @if (Model.Stats is not null)
     {
         <div class="widget">
-            <div class="d-flex flex-column gap-2">
-                <h4>Total Swap Stats</h4>
-                <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(Model.Stats)"/>
-            </div>
+            <h4 class="mb-3">Total Swap Stats</h4>
+            <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(Model.Stats)"/>
         </div>
+    }
+    @if (settings?.Mode == BoltzMode.Standalone)
+    {
         <div class="widget">
-            <div class="d-flex flex-column gap-2">
-                <h4>Current Pair Info</h4>
-                <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
-            </div>
+            <h4 class="mb-3">Lightning Payments</h4>
+            <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
         </div>
     }
 
@@ -107,8 +106,8 @@
         {
             <div class="widget">
                 <h4>Swaps</h4>
-                <div class="table-responsive mt-0">
-                    <table class="table table-hover mb-0">
+                <div class="table-responsive my-0">
+                    <table class="table table-hover my-0">
                         <thead>
                         <tr>
                             <th class="text-nowrap">ID</th>
