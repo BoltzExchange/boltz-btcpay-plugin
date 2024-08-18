@@ -14,7 +14,10 @@
     When BTCPay Server needs to create a Lightning invoice, instead of pulling an invoice from a connected Lightning node, it creates a Boltz Lightning -> Liquid swap for the same amount. When a customer pays the invoice, Boltz swaps the amount minus fees to your Liquid wallet. Liquid is the only option for this mode as it features reliably low network fees that make accepting even small Lightning payments economically viable.
 </p>
 
-<partial name="Boltz/_Fees"/>
+<div class="d-flex flex-column gap-2">
+    <h4>Current Pair Info</h4>
+    <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
+</div>
 
 <p class="text-secondary my-3">
     Note: Boltz swaps are non-custodial, but the Liquid Network is run a by a federation and requires trusting the entities in the federation to guard L-BTC, the Liquid representation of Bitcoin. Learn more about the Liquid network here.

@@ -68,3 +68,16 @@ public class BoltzInfo
     public LightningConfig? Ln { get; set; }
     public ChainConfig? Chain { get; set; }
 }
+
+public class FeesModel
+{
+    public Pair? Pair { get; set; }
+    public SwapType? SwapType { get; set; }
+
+    public static FeesModel Standalone = new()
+    {
+        Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
+        SwapType = Boltzrpc.SwapType.Reverse
+    };
+}
+}

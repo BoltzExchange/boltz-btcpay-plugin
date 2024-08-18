@@ -17,37 +17,62 @@
 <div class="d-flex flex-column gap-3">
     @if (Model.Status is not null)
     {
-        <div class="widget">
-            <h4 class="mb-3">Autoswap</h4>
-            <div class="d-flex flex-column gap-4">
-                @if (Model.Recommendations?.Lightning.Count > 0)
+        @if (Model.Ln is not null)
+        {
+            var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
+            <div class="widget d-flex gap-3 flex-column">
+                <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                <div>
+                    <h5>Recommendations</h5>
+                    <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations!.Lightning"></partial>
+                </div>
+
+                @if (Model.Ln.SwapType != "normal")
                 {
-                    var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
+                    var fees = new FeesModel { Pair = new Pair { From = Currency.Btc, To = Model.Ln.Currency }, SwapType = SwapType.Reverse };
                     <div>
-                        <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
+                        <h5>Reverse Swap Info</h5>
+                        <partial name="Boltz/_Fees" model="fees"/>
                     </div>
                 }
 
-                @if (chainRecommendation is not null)
+                @if (Model.Ln.SwapType != "reverse")
                 {
-                    var chain = new AutoSwapStatus
-                    {
-                        Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
-                        {
-                            new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
-                        }
-                    };
-
-                    <partial name="Boltz/_AutoSwapStatus" model="chain"/>
-                    @if (chainRecommendation.Swap is not null)
-                    {
-                        <h5>Upcoming Swap</h5>
-                        <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
-                    }
+                    var fees = new FeesModel { Pair = new Pair { From = Model.Ln.Currency, To = Currency.Btc }, SwapType = SwapType.Submarine };
+                    <div>
+                        <h5>Submarine Swap Info</h5>
+                        <partial name="Boltz/_Fees" model="fees"/>
+                    </div>
                 }
             </div>
-        </div>
+        }
+
+        @if (chainRecommendation is not null)
+        {
+            var chain = new AutoSwapStatus
+            {
+                Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
+                {
+                    new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
+                }
+            };
+            var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
+
+            <div class="widget d-flex gap-3 flex-column">
+                <partial name="Boltz/_AutoSwapStatus" model="chain"/>
+                @if (chainRecommendation.Swap is not null)
+                {
+                    <div>
+                        <h5>Upcoming Swap</h5>
+                        <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
+                    </div>
+                }
+                <div>
+                    <h5>Swap Info</h5>
+                    <partial name="Boltz/_Fees" model="fees"/>
+                </div>
+            </div>
+        }
     }
     @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null)
     {
@@ -58,7 +83,10 @@
             </div>
         </div>
         <div class="widget">
-            <partial name="Boltz/_Fees"/>
+            <div class="d-flex flex-column gap-2">
+                <h4>Current Pair Info</h4>
+                <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
+            </div>
         </div>
     }
 
