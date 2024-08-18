@@ -105,11 +105,12 @@ public class BoltzController(
         {
             data.Info = await Boltz!.GetInfo();
             data.Swaps = await Boltz.ListSwaps();
+            data.Stats = await Boltz.GetStats();
             data.Wallets = await Boltz.GetWallets(true);
+
             (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
             data.Status = await Boltz.GetAutoSwapStatus();
             data.Recommendations = await Boltz.GetAutoSwapRecommendations();
-            data.Stats = await Boltz.GetStats();
         }
         catch (RpcException e)
         {
@@ -701,6 +702,7 @@ public class BoltzController(
         {
             if (command == "Skip")
             {
+                ChainSetup = null;
                 return RedirectToAction(nameof(Enable), new { storeId });
             }
 

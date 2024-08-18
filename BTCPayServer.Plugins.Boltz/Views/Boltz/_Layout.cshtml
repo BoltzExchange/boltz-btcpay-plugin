@@ -1,4 +1,5 @@
 ﻿@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Security
 @inject BoltzDaemon Daemon
 @{
     Layout = "../Shared/_NavLayout.cshtml";
@@ -12,10 +13,13 @@
 </style>
 
 
-@if (Daemon.UpdateAvailable)
+@if (Daemon.UpdateAvailable && User.IsInRole(Roles.ServerAdmin))
 {
-    <a class="d-block alert alert-info my-2" href="@Daemon.LatestRelease!.HtmlUrl">
-        A newer version of boltz-client is available.
-    </a>
+    <div class="alert alert-info mt-2 mb-4 d-flex align-items-center justify-content-between">
+        <a class="text-white" href="@Daemon.LatestRelease!.HtmlUrl">A newer version of boltz-client is available.</a>
+        <form method="post" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetImplicitStoreId()">
+            <button class="btn btn-info" name="command" value="Update">Update</button>
+        </form>
+    </div>
 }
 @RenderBody()

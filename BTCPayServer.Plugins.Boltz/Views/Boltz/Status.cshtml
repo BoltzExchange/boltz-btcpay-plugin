@@ -10,35 +10,35 @@
     var storeId = Context.GetImplicitStoreId();
 
     var settings = BoltzService.GetSettings(storeId);
+
+    var chainRecommendation = Model.Recommendations?.Chain.First();
 }
 
 <div class="d-flex flex-column gap-3">
     @if (Model.Status is not null)
     {
-        var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
-
-        var chainRecommendation = Model.Recommendations.Chain.First();
-        var chain = new AutoSwapStatus
-        {
-            Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
-            {
-                new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
-            }
-        };
-
         <div class="widget">
             <h4 class="mb-3">Autoswap</h4>
             <div class="d-flex flex-column gap-4">
-                @if (Model.Ln is not null)
+                @if (Model.Recommendations?.Lightning is not null)
                 {
+                    var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
                     <div>
                         <partial name="Boltz/_AutoSwapStatus" model="ln"/>
                         <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
                     </div>
                 }
 
-                @if (Model.Chain is not null)
+                @if (chainRecommendation is not null)
                 {
+                    var chain = new AutoSwapStatus
+                    {
+                        Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
+                        {
+                            new() { Name = "From Wallet Balance", Value = chainRecommendation?.WalletBalance.Confirmed ?? 0, Unit = Unit.Sat },
+                        }
+                    };
+
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
                     @if (chainRecommendation.Swap is not null)
                     {
@@ -49,7 +49,7 @@
             </div>
         </div>
     }
-    @if (settings?.Mode == BoltzMode.Standalone)
+    @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null)
     {
         <div class="widget">
             <div class="d-flex flex-column gap-2">
@@ -62,38 +62,38 @@
         </div>
     }
 
-    <div class="widget">
-        <h4>Swaps</h4>
-        <div class="table-responsive mt-0">
-            <table class="table table-hover mb-0">
-                <thead>
-                <tr>
-                    <th class="text-nowrap">ID</th>
-                    <th >Type</th>
-                    <th >From</th>
-                    <th >To</th>
-                    <th >Date</th>
-                    <th >State</th>
-                    <th class="text-nowrap">Status</th>
-                    <th>Amount</th>
-                </tr>
-                </thead>
-                <tbody>
-                @if (Model.Swaps is not null)
-                {
-                    var swaps = Model.Swaps;
-                    var reverseSwaps = swaps.ReverseSwaps.ToList()
-                        .Select(info => (info.Id, Type: SwapType.Reverse, info.Pair, info.State, info.Status, Amount: (ulong)info.OnchainAmount, info.CreatedAt)).ToList();
-                    var normal = swaps.Swaps.ToList()
-                        .Select(info => (info.Id, Type: SwapType.Submarine, info.Pair, info.State, info.Status, Amount: info.ExpectedAmount, info.CreatedAt));
-                    var chain = swaps.ChainSwaps.ToList()
-                        .Select(info => (info.Id, Type: SwapType.Chain, info.Pair, info.State, info.Status, info.FromData.Amount, info.CreatedAt));
-                    reverseSwaps.AddRange(normal);
-                    reverseSwaps.AddRange(chain);
-                    reverseSwaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+    @if (Model.Swaps is not null)
+    {
+        var swaps = Model.Swaps;
+        var reverseSwaps = swaps.ReverseSwaps.ToList()
+            .Select(info => (info.Id, Type: SwapType.Reverse, info.Pair, info.State, info.Status, Amount: (ulong)info.OnchainAmount, info.CreatedAt)).ToList();
+        var normal = swaps.Swaps.ToList()
+            .Select(info => (info.Id, Type: SwapType.Submarine, info.Pair, info.State, info.Status, Amount: info.ExpectedAmount, info.CreatedAt));
+        var chain = swaps.ChainSwaps.ToList()
+            .Select(info => (info.Id, Type: SwapType.Chain, info.Pair, info.State, info.Status, info.FromData.Amount, info.CreatedAt));
+        reverseSwaps.AddRange(normal);
+        reverseSwaps.AddRange(chain);
+        reverseSwaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
 
-                    @if (reverseSwaps.Count > 0)
-                    {
+        @if (reverseSwaps.Count > 0)
+        {
+            <div class="widget">
+                <h4>Swaps</h4>
+                <div class="table-responsive mt-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-nowrap">ID</th>
+                            <th>Type</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Date</th>
+                            <th>State</th>
+                            <th class="text-nowrap">Status</th>
+                            <th>Amount</th>
+                        </tr>
+                        </thead>
+                        <tbody>
                         @foreach (var payment in reverseSwaps)
                         {
                             <tr>
@@ -107,14 +107,11 @@
                                 <td>@payment.Amount</td>
                             </tr>
                         }
-                    }
-                    else
-                    {
-                        <p>No swaps avilable</p>
-                    }
-                }
-                </tbody>
-            </table>
-        </div>
-    </div>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
 </div>
