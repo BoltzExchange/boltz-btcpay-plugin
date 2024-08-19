@@ -105,8 +105,6 @@ public class BoltzDaemon(
         }
         catch (TaskCanceledException)
         {
-            Error = "Daemon start failed";
-            logger.LogInformation(Error);
             await Stop();
         }
 
@@ -259,24 +257,30 @@ public class BoltzDaemon(
     }
 
 
-    public async Task<bool> TryConfigure(ILightningClient? node)
+    public async Task TryConfigure(ILightningClient? node)
     {
+        Error = null;
+        NodeError = null;
+        if (node != null)
+        {
+            try
+            {
+                await Configure(node);
+                return;
+            }
+            catch (Exception e)
+            {
+                NodeError = e.Message.Contains("start") ? RecentOutput : e.Message;
+            }
+        }
+
         try
         {
-            await Configure(node);
-            Node = node;
-            return true;
+            await Configure(null);
         }
         catch (Exception e)
         {
-            if (node != null)
-            {
-                NodeError = e.Message;
-                return await TryConfigure(null);
-            }
             Error = e.Message;
-
-            return false;
         }
     }
 
@@ -354,8 +358,7 @@ public class BoltzDaemon(
         try
         {
             await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
-            await Stop();
-            InitialStart.TrySetResult(await Start());
+            await Start();
         }
         finally
         {
@@ -392,7 +395,7 @@ public class BoltzDaemon(
         }
     }
 
-    private async Task<bool> Start()
+    private async Task Start()
     {
         await Stop();
         logger.LogInformation("Starting daemon");
@@ -437,8 +440,12 @@ public class BoltzDaemon(
         EventHandler handler = (_, _) => { source.Cancel(); };
         OnDaemonExit += handler;
         var res = await Wait(source.Token);
+        InitialStart.TrySetResult(res);
         OnDaemonExit -= handler;
-        return res;
+        if (!res)
+        {
+            throw new Exception("Daemon start failed");
+        }
     }
 
     public void InitiateStart()
@@ -501,9 +508,9 @@ public class BoltzDaemon(
                 if (line != null)
                 {
                     {
-                        if (line.Contains("error") || line.Contains("fatal"))
+                        if (line.Contains("ERROR") || line.Contains("FATAL") || line.Contains("WARN"))
                         {
-                            logger.LogError(line);
+                            logger.LogWarning(line);
                         }
 
                         if (_output.Count >= MaxLogLines)

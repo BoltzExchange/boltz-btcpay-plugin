@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    @if(Daemon.Error is not null)
+    @if(!string.IsNullOrEmpty(Daemon.Error))
     {
         <div class="alert alert-danger">
             @Daemon.Error

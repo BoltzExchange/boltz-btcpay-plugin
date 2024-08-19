@@ -343,7 +343,7 @@ public class BoltzController(
     {
         vm.IsAdmin = IsAdmin;
 
-        if (boltzDaemon.Error is not null && vm.IsAdmin)
+        if (!string.IsNullOrEmpty(boltzDaemon.Error) && vm.IsAdmin)
         {
             return RedirectToAction(nameof(Admin), new { storeId });
         }

@@ -8,64 +8,62 @@
 @{
     var storeId = Context.GetImplicitStoreId();
     var client = BoltzService.GetClient(storeId);
+    if (client is null) return;
 }
 
 <div id="StoreBoltzInfo-@Model.StoreId" class="widget flex-column gap-3" style="grid-column-start: 1; grid-column-end: 13">
-    @if (client is not null)
+    <header>
+        <h4>Boltz</h4>
+        <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
+            Manage
+        </a>
+    </header>
+
+    @if (BoltzService.Daemon.UpdateAvailable)
     {
-        <header>
-            <h4>Boltz</h4>
-            <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
-                Manage
-            </a>
-        </header>
+        <div class="alert alert-warning">
+            <p>
+                New version available
+            </p>
+        </div>
+    }
 
-        @if (BoltzService.Daemon.UpdateAvailable)
+    @try
+    {
+        /*
+        var info = await client.GetInfo();
+        @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
         {
-            <div class="alert alert-warning">
-                <p>
-                    New version available
-                </p>
+        }
+        */
+
+        if (await client.IsAutoSwapConfigured())
+        {
+            var status = await client.GetAutoSwapStatus();
+            <div class="d-flex gap-2 flex-column mb-2">
+                @if (!string.IsNullOrEmpty(status.Lightning?.Description))
+                {
+                    var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
+                    <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
+                }
+
+                @if (!string.IsNullOrEmpty(status.Chain?.Description))
+                {
+                    var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
+                    <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
+                }
             </div>
         }
 
-        try
-        {
-            /*
-            var info = await client.GetInfo();
-            @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
-            {
-            }
-            */
-
-            if (await client.IsAutoSwapConfigured())
-            {
-                var status = await client.GetAutoSwapStatus();
-                <div class="d-flex gap-2 flex-column mb-2">
-                    @if (!string.IsNullOrEmpty(status.Lightning?.Description))
-                    {
-                        var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
-                        <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
-                    }
-
-                    @if (!string.IsNullOrEmpty(status.Chain?.Description))
-                    {
-                        var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
-                        <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
-                    }
-                </div>
-            }
-
-            var stats = await client.GetStats();
-            <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(stats)"/>
-        }
-        catch (RpcException)
-        {
-            <div class="alert alert-warning">
-                <p>
-                    Client connection not working.
-                </p>
-            </div>
-        }
+        var stats = await client.GetStats();
+        <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(stats)"/>
+    }
+    catch (RpcException)
+    {
+        <div class="alert alert-warning">
+            <p>
+                Client connection not working.
+            </p>
+        </div>
     }
 </div>
