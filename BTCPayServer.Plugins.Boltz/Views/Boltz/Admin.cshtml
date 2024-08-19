@@ -19,6 +19,9 @@
             }
             @if (boltzCredsSet)
             {
+                <button name="command" type="submit" value="Start" class="btn btn-secondary">
+                    @(Daemon.Running ? "Restart" : "Start")
+                </button>
                 <button name="command" type="submit" value="Clear" class="btn btn-danger">
                     Disconnect
                 </button>
@@ -27,10 +30,15 @@
         </div>
     </div>
 
-    @if (boltzCredsSet)
+    @if(Daemon.Error is not null)
+    {
+        <div class="alert alert-danger">
+            @Daemon.Error
+        </div>
+    } else if (Daemon.Running)
     {
         <p>
-            Connected to Boltz Client @Model?.Info?.Version
+            Running Boltz Client @Daemon.CurrentVersion
         </p>
     }
 

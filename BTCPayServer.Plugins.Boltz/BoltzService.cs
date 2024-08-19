@@ -36,9 +36,10 @@ public class BoltzService(
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
+    private GetPairsResponse? _pairs;
 
     public BoltzDaemon Daemon => daemon;
-    public BoltzClient AdminClient => daemon.AdminClient!;
+    public BoltzClient? AdminClient => daemon.AdminClient;
 
     public BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     public BTCPayWallet BtcWallet => btcPayWalletProvider.GetWallet(BtcNetwork);
@@ -110,13 +111,12 @@ public class BoltzService(
             return;
         }
 
-        var address = await GenerateNewAddress(store);
-        var client = found.Value.Value.Client!;
-
+        var client = daemon.GetClient(found.Value.Value)!;
         var (ln, chain) = await client.GetAutoSwapConfig();
 
         if (chain?.ToAddress == swap.ChainSwap?.ToData.Address)
         {
+            var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapChainConfig(
                 new ChainConfig { ToAddress = address, },
                 ["to_address"]
@@ -125,6 +125,7 @@ public class BoltzService(
 
         if (ln?.StaticAddress == swap.ReverseSwap?.ClaimAddress)
         {
+            var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapLightningConfig(
                 new LightningConfig { StaticAddress = address, },
                 ["static_address"]
@@ -145,11 +146,10 @@ public class BoltzService(
     }
 
 
-    private async Task<BoltzClient?> CheckSettings(BoltzSettings settings)
+    private async Task CheckSettings(BoltzSettings settings)
     {
-        var client = settings.Client!;
+        var client = daemon.GetClient(settings)!;
         await client.GetInfo();
-        return client;
     }
 
     public async Task SetMacaroon(string storeId, BoltzSettings settings)
@@ -160,11 +160,11 @@ public class BoltzService(
             Tenant tenant;
             try
             {
-                tenant = await AdminClient.GetTenant(tenantName);
+                tenant = await AdminClient!.GetTenant(tenantName);
             }
             catch (RpcException)
             {
-                tenant = await AdminClient.CreateTenant(tenantName);
+                tenant = await AdminClient!.CreateTenant(tenantName);
             }
 
             var response = await AdminClient.BakeMacaroon(tenant.Id);
@@ -192,7 +192,7 @@ public class BoltzService(
 
     public BoltzClient? GetClient(string? storeId)
     {
-        return GetSettings(storeId)?.Client;
+        return daemon.GetClient(GetSettings(storeId));
     }
 
     public bool StoreConfigured(string? storeId)
@@ -233,7 +233,7 @@ public class BoltzService(
             _settings!.Remove(storeId, out var oldSettings);
             if (oldSettings is not null && oldSettings.Mode == BoltzMode.Rebalance)
             {
-                await AdminClient.ResetLnConfig();
+                await AdminClient!.ResetLnConfig();
             }
 
             var boltzUrl = GetLightningClient(oldSettings)?.ToString();
@@ -267,7 +267,7 @@ public class BoltzService(
             await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);
         }
-        
+
         await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
     }
 
@@ -276,5 +276,19 @@ public class BoltzService(
         var store = _settings?.ToList()
             .Find(pair => pair.Value.Mode == BoltzMode.Rebalance);
         return store is null ? null : await storeRepository.FindStore(store.Value.Key);
+    }
+
+    public async Task<PairInfo?> GetPairInfo(Pair pair, SwapType swapType)
+    {
+        if (AdminClient is null) return null;
+        _pairs = await AdminClient.GetPairs();
+        var search = swapType switch
+        {
+            SwapType.Reverse => _pairs.Reverse,
+            SwapType.Submarine => _pairs.Submarine,
+            SwapType.Chain => _pairs.Chain,
+            _ => throw new ArgumentOutOfRangeException(nameof(swapType), swapType, null)
+        };
+        return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To);
     }
 }

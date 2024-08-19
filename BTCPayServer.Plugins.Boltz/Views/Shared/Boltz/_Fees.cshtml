@@ -1,11 +1,11 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
-@inject BoltzDaemon BoltzDaemon
+@inject BoltzService BoltzService
 @model FeesModel
 @{
-    if (BoltzDaemon.AdminClient is null) return;
+    var pairInfo = await BoltzService.GetPairInfo(Model.Pair!, Model.SwapType!.Value);
+    if (pairInfo is null) return;
 
-    var pairInfo = await BoltzDaemon.AdminClient.GetPairInfo(Model.Pair!, Model.SwapType!.Value);
     var stats = new List<Stat>
     {
         new() { Name = "Boltz Service Fee", Value = pairInfo.Fees.Percentage, Unit = Unit.Percent },
@@ -15,4 +15,4 @@
     };
 }
 
-    <partial name="Boltz/_Stats" model="stats"/>
+<partial name="Boltz/_Stats" model="stats"/>

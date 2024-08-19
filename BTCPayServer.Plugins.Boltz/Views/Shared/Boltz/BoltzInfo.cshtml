@@ -10,7 +10,7 @@
     var client = BoltzService.GetClient(storeId);
 }
 
-<div id="StoreBoltzInfo-@Model.StoreId" class="widget flex-column gap-3" style="grid-column-start: 1; grid-column-end: 4">
+<div id="StoreBoltzInfo-@Model.StoreId" class="widget flex-column gap-3" style="grid-column-start: 1; grid-column-end: 13">
     @if (client is not null)
     {
         <header>
@@ -31,29 +31,30 @@
 
         try
         {
+            /*
             var info = await client.GetInfo();
             @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
             {
             }
+            */
 
-            var (ln, chain) = await client.GetAutoSwapConfig();
-            <div class="d-flex gap-2 flex-column">
-                @if (ln is not null || chain is not null)
-                {
-                    var status = await client.GetAutoSwapStatus();
-                    if (ln is not null)
+            if (await client.IsAutoSwapConfigured())
+            {
+                var status = await client.GetAutoSwapStatus();
+                <div class="d-flex gap-2 flex-column mb-2">
+                    @if (!string.IsNullOrEmpty(status.Lightning?.Description))
                     {
                         var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
                         <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
                     }
 
-                    if (chain is not null)
+                    @if (!string.IsNullOrEmpty(status.Chain?.Description))
                     {
                         var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
                         <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
                     }
-                }
-            </div>
+                </div>
+            }
 
             var stats = await client.GetStats();
             <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(stats)"/>

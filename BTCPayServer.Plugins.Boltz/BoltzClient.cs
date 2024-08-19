@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,9 +22,9 @@ public class BoltzClient : IDisposable
     private readonly Metadata _metadata;
     private readonly Boltzrpc.Boltz.BoltzClient _client;
     private readonly AutoSwap.AutoSwapClient _autoClient;
-    private readonly GrpcChannel _channel;
 
     private static readonly Dictionary<Uri, GrpcChannel> Channels = new();
+    private static GetPairsResponse? _pairs;
 
     public BoltzClient(Uri grpcEndpoint, string? macaroon = null, ulong? tenantId = null)
     {
@@ -39,14 +40,14 @@ public class BoltzClient : IDisposable
             }
         };
 
-        if (!Channels.TryGetValue(grpcEndpoint, out _channel!))
+        if (!Channels.TryGetValue(grpcEndpoint, out var channel))
         {
-            _channel = GrpcChannel.ForAddress(grpcEndpoint, opt);
-            Channels.Add(grpcEndpoint, _channel);
+            channel = GrpcChannel.ForAddress(grpcEndpoint, opt);
+            Channels.Add(grpcEndpoint, channel);
         }
 
-        _client = new(_channel);
-        _autoClient = new(_channel);
+        _client = new(channel);
+        _autoClient = new(channel);
 
         _metadata = new Metadata();
         if (macaroon is not null)
@@ -58,7 +59,6 @@ public class BoltzClient : IDisposable
         {
             _metadata.Add("tenant", tenantId.Value.ToString());
         }
-
     }
 
     public async Task<GetInfoResponse> GetInfo(CancellationToken cancellationToken = default)
@@ -115,11 +115,21 @@ public class BoltzClient : IDisposable
 
     public async Task<PairInfo> GetPairInfo(Pair pair, SwapType swapType)
     {
-        return await _client.GetPairInfoAsync(new GetPairInfoRequest
+        _pairs ??= await GetPairs();
+        var search = swapType switch
         {
-            Pair = pair,
-            Type = swapType
-        }, _metadata);
+            SwapType.Reverse => _pairs.Reverse,
+            SwapType.Submarine => _pairs.Submarine,
+            SwapType.Chain => _pairs.Chain,
+            _ => throw new ArgumentOutOfRangeException(nameof(swapType), swapType, null)
+        };
+        return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To)!;
+    }
+
+    public async Task<GetPairsResponse> GetPairs()
+    {
+        _pairs = await _client.GetPairsAsync(new Empty(), _metadata);
+        return _pairs;
     }
 
     public async Task<SwapStats> GetStats()
@@ -323,6 +333,7 @@ public class BoltzClient : IDisposable
         {
             channel.Dispose();
         }
+
         Channels.Clear();
     }
 

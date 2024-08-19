@@ -37,8 +37,6 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
-
-    [JsonIgnore] public BoltzClient? Client => GrpcUrl is null ? null : new(GrpcUrl, Macaroon);
 }
 
 public class ProtoConverter<T> : JsonConverter<T> where T : IMessage, new()
