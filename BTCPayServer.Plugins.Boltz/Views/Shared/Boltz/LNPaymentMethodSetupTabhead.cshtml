@@ -21,7 +21,7 @@
 }
 else
 {
-    <input asp-for="LightningNodeType" value="Custom" type="radio" id="LightningNodeType-Boltz" data-bs-toggle="pill" data-bs-target="#BoltzSetup" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <input value="Custom" type="radio" id="LightningNodeType-Boltz" data-bs-toggle="pill" data-bs-target="#BoltzSetup" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <label for="LightningNodeType-Boltz">Use Boltz</label>
     <input asp-for="ConnectionString" value="@lnClient.ToString()" type="hidden">
-    <label asp-for="LightningNodeType" for="LightningNodeType-Boltz">Use Boltz wallet</label>
 }
