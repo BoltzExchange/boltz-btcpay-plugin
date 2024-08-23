@@ -370,7 +370,7 @@ public class BoltzController(
 
         if (mode == BoltzMode.Rebalance)
         {
-            if (vm.IsAdmin)
+            if (!vm.IsAdmin)
             {
                 return new UnauthorizedResult();
             }

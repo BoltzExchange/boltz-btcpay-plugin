@@ -20,6 +20,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Octokit;
 using Org.BouncyCastle.Bcpg.OpenPgp;
+using EventHandler = System.EventHandler;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
 using SHA256 = System.Security.Cryptography.SHA256;
@@ -71,7 +72,7 @@ public class BoltzDaemon(
         _ => throw new NotSupportedException("Unsupported architecture")
     };
 
-    public async Task<bool> Wait(CancellationToken cancellationToken)
+    public async Task Wait(CancellationToken cancellationToken)
     {
         try
         {
@@ -95,7 +96,8 @@ public class BoltzDaemon(
                     logger.LogInformation("Running");
                     AdminClient = client;
                     AdminClient.SwapUpdate += SwapUpdate;
-                    return true;
+                    Error = null;
+                    return;
                 }
                 catch (RpcException)
                 {
@@ -105,10 +107,14 @@ public class BoltzDaemon(
         }
         catch (TaskCanceledException)
         {
-            await Stop();
+            Error = "Start failed";
+        }
+        catch (Exception e)
+        {
+            Error = e.Message;
         }
 
-        return false;
+        await Stop();
     }
 
     public async Task<Release> GetLatestRelease()
@@ -259,29 +265,20 @@ public class BoltzDaemon(
 
     public async Task TryConfigure(ILightningClient? node)
     {
-        Error = null;
-        NodeError = null;
         if (node != null)
         {
-            try
+            _output.Clear();
+            await Configure(node);
+            if (String.IsNullOrEmpty(Error))
             {
-                await Configure(node);
+                Node = node;
                 return;
             }
-            catch (Exception e)
-            {
-                NodeError = e.Message.Contains("start") ? RecentOutput : e.Message;
-            }
+            logger.LogInformation("Could not connect to node: " + Error);
+            NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
         }
 
-        try
-        {
-            await Configure(null);
-        }
-        catch (Exception e)
-        {
-            Error = e.Message;
-        }
+        await Configure(null);
     }
 
     private string GetConfig(ILightningClient? node)
@@ -360,13 +357,15 @@ public class BoltzDaemon(
             await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
             await Start();
         }
+        catch (Exception e)
+        {
+            Error = e.Message;
+        }
         finally
         {
             _configSemaphore.Release();
         }
     }
-
-    public event EventHandler? OnDaemonExit;
 
     public async Task Init()
     {
@@ -402,50 +401,39 @@ public class BoltzDaemon(
         _daemonCancel = new CancellationTokenSource();
         _ = Task.Factory.StartNew(async () =>
         {
-            while (!_daemonCancel.Token.IsCancellationRequested)
+            _output.Clear();
+            using var process = StartProcess(DaemonBinary, $"--datadir {DataDir}");
+
+            MonitorStream(process.StandardOutput, _daemonCancel.Token);
+            MonitorStream(process.StandardError, _daemonCancel.Token);
+
+            try
             {
-                _output.Clear();
-                using var process = StartProcess(DaemonBinary, $"--datadir {DataDir}");
+                await process.WaitForExitAsync(_daemonCancel.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                process.Kill();
+                throw;
+            }
 
-                MonitorStream(process.StandardOutput, _daemonCancel.Token);
-                MonitorStream(process.StandardError, _daemonCancel.Token);
-
-                try
-                {
-                    await process.WaitForExitAsync(_daemonCancel.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    process.Kill();
-                    throw;
-                }
-
-                OnDaemonExit?.Invoke(this, EventArgs.Empty);
-
+            if (Running)
+            {
+                AdminClient = null;
                 if (process.ExitCode != 0)
                 {
-                    logger.LogError($"Process exited with code {process.ExitCode}\n{RecentOutput}");
+                    Error = $"Process exited with code {process.ExitCode}";
+                    logger.LogError(Error);
                     await Task.Delay(5000, _daemonCancel.Token);
-                }
-                else
-                {
-                    await _daemonCancel.CancelAsync();
-                    _daemonCancel = null;
-                    return;
+                    InitiateStart();
                 }
             }
-        }, _daemonCancel.Token);
 
-        var source = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        EventHandler handler = (_, _) => { source.Cancel(); };
-        OnDaemonExit += handler;
-        var res = await Wait(source.Token);
-        InitialStart.TrySetResult(res);
-        OnDaemonExit -= handler;
-        if (!res)
-        {
-            throw new Exception("Daemon start failed");
-        }
+            await _daemonCancel.CancelAsync();
+            _daemonCancel = null;
+        }, _daemonCancel.Token);
+        await Wait(_daemonCancel.Token);
+        InitialStart.TrySetResult(Running);
     }
 
     public void InitiateStart()
@@ -508,7 +496,7 @@ public class BoltzDaemon(
                 if (line != null)
                 {
                     {
-                        if (line.Contains("ERROR") || line.Contains("FATAL") || line.Contains("WARN"))
+                        if (line.Contains("ERROR") || line.Contains("WARN"))
                         {
                             logger.LogWarning(line);
                         }
