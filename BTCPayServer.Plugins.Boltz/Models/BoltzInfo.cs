@@ -47,8 +47,9 @@ public class BoltzConfig
 
 public class AutoSwapStatus
 {
+
     public Status Status { get; init; } = new();
-    public string? Name { get; set; }
+    public SwapperType SwapperType { get; init; }
     public bool Compact { get; set; }
     public List<Stat>? Stats { get; set; }
 }
@@ -61,7 +62,7 @@ public class BoltzInfo
 
     public ListSwapsResponse? Swaps { get; set; }
 
-    public Wallets? Wallets { get; set; }
+    public Wallet? StandaloneWallet { get; set; }
 
     public GetStatusResponse? Status { get; set; }
 

@@ -5,47 +5,45 @@
     var status = Model.Status;
     var statusClass = status.Error != "" ? "disabled" : status.Running ? "enabled" : "pending";
     var statusString = status.Error != "" ? "Error" : status.Running ? "Running" : "Disabled";
+    var name = Model.SwapperType + " Swaps";
 }
-@if (Model.Compact)
-{
+<div class="d-flex flex flex-column gap-2">
     <div class="d-flex align-items-center justify-content-start gap-2">
-        <span class="btcpay-status btcpay-status--@(statusClass)"></span>
-        <h6 class="text-truncate">@Model.Name @statusString</h6>
-    </div>
-}
-else
-{
-    <div class="d-flex flex flex-column gap-2">
-        <div class="d-flex align-items-center justify-content-start gap-2">
-            <h4 class="my-0">@Model.Name</h4>
+        @if (Model.Compact)
+        {
+            <span class="btcpay-status btcpay-status--@(statusClass)"></span>
+            <h6 class="text-truncate">@name @statusString</h6>
+        }
+        else
+        {
+            <h4 class="my-0">@name</h4>
             <span class="btcpay-status btcpay-status--@(statusClass)"></span>
             <h6 class="text-truncate">@statusString</h6>
-        </div>
-        @if (status.Description != "")
-        {
-            <p class="my-1">
-                @status.Description
-            </p>
-        }
-        @if (status.Error != "")
-        {
-            <p class="my-1">
-                @status.Error
-            </p>
-        }
-        @if (status.Budget != null)
-        {
-            var stats = new List<Stat>
-            {
-                new() { Name = "Total Budget", Value = status.Budget.Total, Unit = Unit.Sat },
-                new() { Name = "Remaining Budget", Value = (ulong)status.Budget.Remaining, Unit = Unit.Sat },
-            }.Concat(BoltzClient.ParseStats(status.Budget.Stats));
-            if (Model.Stats is not null)
-            {
-                stats = stats.Concat(Model.Stats);
-            }
-
-            <partial name="Boltz/_Stats" model="stats.ToList()"/>
         }
     </div>
-}
+    @if (status.Description != "" && !Model.Compact)
+    {
+        <p class="my-1">
+            @status.Description
+        </p>
+    }
+    @if (status.Error != "")
+    {
+        <p class="my-1">
+            @status.Error
+        </p>
+    }
+    @if (status.Budget != null)
+    {
+        var stats = new List<Stat>
+        {
+            new() { Name = "Remaining Budget", Value = status.Budget.Remaining, Unit = Unit.Sat },
+        }.Concat(BoltzClient.ParseStats(status.Budget.Stats));
+        if (Model.Stats is not null)
+        {
+            stats = stats.Concat(Model.Stats);
+        }
+
+        <partial name="Boltz/_Stats" model="stats.ToList()"/>
+    }
+</div>

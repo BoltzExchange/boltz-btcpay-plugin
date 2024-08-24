@@ -13,7 +13,7 @@
             <span>@ViewData["Title"]</span>
         </h3>
         <div class="d-flex gap-3 mt-3 mt-sm-0">
-            @if (Daemon.UpdateAvailable)
+            @if (Daemon.UpdateAvailable && !Daemon.Updating)
             {
                 <button name="command" type="submit" value="Update" class="btn btn-primary">Update</button>
             }

@@ -15,7 +15,11 @@
 
 @if (User.IsInRole(Roles.ServerAdmin))
 {
-    if (Daemon.UpdateAvailable)
+    if(Daemon.Updating) {
+        <div class="alert alert-info">
+            <span>Boltz Client is being updated...</span>
+        </div>
+    } else if (Daemon.UpdateAvailable)
     {
         <div class="alert alert-info mt-2 mb-4 d-flex align-items-center justify-content-between">
             <a class="text-white" href="@Daemon.LatestRelease!.HtmlUrl">A newer version of boltz-client is available.</a>
@@ -30,11 +34,6 @@
         </div>
     }
 
-    if(Daemon.Updating) {
-        <div class="alert alert-info">
-            <span>Boltz Client is being updated...</span>
-        </div>
-    }
 
 }
 @RenderBody()

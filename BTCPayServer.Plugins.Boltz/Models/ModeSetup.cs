@@ -112,7 +112,7 @@ public class BalanceSetup
 
 public enum SwapperType
 {
-    Ln,
+    Lightning,
     Chain
 }
 

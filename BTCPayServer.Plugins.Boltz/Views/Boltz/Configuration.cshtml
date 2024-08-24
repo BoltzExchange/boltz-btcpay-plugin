@@ -142,6 +142,13 @@
                 <span asp-validation-for="Chain.MaxBalance" class="text-danger"></span>
             </div>
 
+            <div class="form-group">
+                <label asp-for="Chain.ReserveBalance" class="form-label">Reserve Balance (satoshis)</label>
+                <input type="number" asp-for="Chain.ReserveBalance" class="form-control" />
+                <span asp-validation-for="Chain.ReserveBalance" class="text-danger"></span>
+            </div>
+
+
             <input type="hidden" asp-for="Chain.ToAddress"/>
 
             <div class="form-group mt-4">

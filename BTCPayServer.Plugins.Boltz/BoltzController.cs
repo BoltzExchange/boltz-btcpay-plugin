@@ -111,7 +111,10 @@ public class BoltzController(
             data.Info = await Boltz.GetInfo();
             data.Swaps = await Boltz.ListSwaps();
             data.Stats = await Boltz.GetStats();
-            data.Wallets = await Boltz.GetWallets(true);
+            if(Settings?.Mode == BoltzMode.Standalone)
+            {
+                data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
+            }
             (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
             if (data.Ln is not null || data.Chain is not null)
             {
@@ -665,7 +668,7 @@ public class BoltzController(
             LightningSetup = setup;
             return RedirectToAction(nameof(SetupBudget), new
             {
-                storeId, swapperType = SwapperType.Ln
+                storeId, swapperType = SwapperType.Lightning
             });
         }
 
@@ -697,7 +700,7 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            if (vm.SwapperType == SwapperType.Ln)
+            if (vm.SwapperType == SwapperType.Lightning)
             {
                 if (LightningSetup is null)
                 {

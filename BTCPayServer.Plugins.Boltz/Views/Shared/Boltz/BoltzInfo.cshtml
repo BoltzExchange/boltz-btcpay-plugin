@@ -1,6 +1,7 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Security
+@using Google.Protobuf
 @using Grpc.Core
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @inject BoltzService BoltzService
@@ -8,10 +9,22 @@
 @{
     var storeId = Context.GetImplicitStoreId();
     var client = BoltzService.GetClient(storeId);
-    if (client is null) return;
+    var settings = BoltzService.GetSettings(storeId);
+    if (client is null || settings is null) return;
 }
 
-<div id="StoreBoltzInfo-@Model.StoreId" class="widget flex-column gap-3" style="grid-column-start: 1; grid-column-end: 13">
+<style>
+
+@@media (min-width: 1400px) {
+    .widget.boltz-lightning {
+        grid-column-start: 1;
+        grid-column-end: 13;
+    }
+}
+</style>
+
+
+<div id="StoreBoltzInfo-@Model.StoreId" class="widget boltz-lightning flex-column gap-3">
     <header>
         <h4>Boltz</h4>
         <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
@@ -30,6 +43,7 @@
 
     @try
     {
+        var stats = await client.GetStats();
         /*
         var info = await client.GetInfo();
         @if (info.ClaimableSwaps.Count > 0 || info.RefundableSwaps.Count > 0)
@@ -37,26 +51,34 @@
         }
         */
 
-        if (await client.IsAutoSwapConfigured())
-        {
-            var status = await client.GetAutoSwapStatus();
-            <div class="d-flex gap-2 flex-column mb-2">
+        <div class="d-flex row-gap-2 column-gap-5 flex-wrap flex-row">
+            @if (await client.IsAutoSwapConfigured())
+            {
+                var status = await client.GetAutoSwapStatus();
                 @if (!string.IsNullOrEmpty(status.Lightning?.Description))
                 {
-                    var lnStatus = new AutoSwapStatus { Name = "Lightning", Status = status.Lightning, Compact = true };
+                    var lnStatus = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = status.Lightning, Compact = true };
                     <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
                 }
 
                 @if (!string.IsNullOrEmpty(status.Chain?.Description))
                 {
-                    var chainStatus = new AutoSwapStatus { Name = "Chain", Status = status.Chain, Compact = true };
+                    var chainStatus = new AutoSwapStatus { SwapperType = SwapperType.Chain, Status = status.Chain, Compact = true };
                     <partial name="Boltz/_AutoSwapStatus" model="chainStatus"/>
                 }
-            </div>
-        }
+            }
 
-        var stats = await client.GetStats();
-        <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(stats)"/>
+            @if (settings.Mode == BoltzMode.Standalone)
+            {
+                <div class="d-flex flex flex-column gap-2">
+                    <div class="d-flex align-items-center justify-content-start gap-2">
+                        <span class="btcpay-status btcpay-status--enabled"></span>
+                        <h6 class="text-truncate">Lightning Payments</h6>
+                    </div>
+                    <partial name="Boltz/_Stats" model="@BoltzClient.ParseStats(stats)"/>
+                </div>
+            }
+        </div>
     }
     catch (RpcException)
     {

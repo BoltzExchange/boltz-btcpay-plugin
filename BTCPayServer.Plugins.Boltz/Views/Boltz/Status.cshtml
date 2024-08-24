@@ -14,18 +14,42 @@
     var chainRecommendation = Model.Recommendations?.Chain.FirstOrDefault();
 }
 
-<div class="d-flex flex-column gap-3">
+<div class="d-grid gap-3">
+    @if (settings?.Mode == BoltzMode.Standalone)
+    {
+        var stats = BoltzClient.ParseStats(Model.Stats!);
+        stats.Insert(0, new Stat { Name = "Balance", Unit = Unit.Sat, Value = Model.StandaloneWallet?.Balance.Total });
+        <div class="widget">
+            <header>
+                <h4>Lightning Payments</h4>
+            </header>
+            <div class="d-flex flex-column gap-2 align-items-start">
+                <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
+                <h5 class="mb-0">Wallet</h5>
+                <partial name="Boltz/_Stats" model="stats"/>
+                <div class="btn-group gap-0">
+                    <button class="btn btn-secondary">Receive</button>
+                    <button class="btn btn-secondary">Send</button>
+                    <button class="btn btn-secondary">Show credentials</button>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (Model.Status is not null)
     {
         @if (Model.Ln is not null)
         {
-            var ln = new AutoSwapStatus { Name = "Lightning", Status = Model.Status.Lightning };
+            var ln = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = Model.Status.Lightning };
             <div class="widget d-flex gap-3 flex-column">
                 <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-                <div>
-                    <h5>Recommendations</h5>
-                    <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations!.Lightning"></partial>
-                </div>
+                @if (Model.Recommendations is not null)
+                {
+                    <div>
+                        <h5>Recommendations</h5>
+                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
+                    </div>
+                }
 
                 @if (Model.Ln.SwapType != "normal")
                 {
@@ -51,11 +75,16 @@
         {
             var chain = new AutoSwapStatus
             {
-                Name = "Chain", Status = Model.Status.Chain, Stats = new List<Stat>
-                {
-                    new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Confirmed, Unit = Unit.Sat },
-                }
+                SwapperType = SwapperType.Chain, Status = Model.Status.Chain
             };
+            if (settings?.Mode == BoltzMode.Rebalance)
+            {
+                chain.Stats = new List<Stat>
+                {
+                    new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Total, Unit = Unit.Sat },
+                };
+            }
+
             var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
 
             <div class="widget d-flex gap-3 flex-column">
@@ -73,20 +102,6 @@
                 </div>
             </div>
         }
-    }
-    @if (Model.Stats is not null)
-    {
-        <div class="widget">
-            <h4 class="mb-3">Total Swap Stats</h4>
-            <partial name="Boltz/_Stats" model="BoltzClient.ParseStats(Model.Stats)"/>
-        </div>
-    }
-    @if (settings?.Mode == BoltzMode.Standalone)
-    {
-        <div class="widget">
-            <h4 class="mb-3">Lightning Payments</h4>
-            <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
-        </div>
     }
 
     @if (Model.Swaps is not null)
