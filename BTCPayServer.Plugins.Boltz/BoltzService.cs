@@ -53,7 +53,17 @@ public class BoltzService(
         _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>("Boltz"))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
 
-        daemon.SwapUpdate += OnSwap;
+        daemon.SwapUpdate += async (_, response) =>
+        {
+            try
+            {
+                await OnSwap(response);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Could not handle swap update");
+            }
+        };
         await daemon.Init();
         await daemon.TryConfigure(InternalLightning);
 
@@ -90,13 +100,12 @@ public class BoltzService(
         }
     }
 
-    private async void OnSwap(object? sender, GetSwapInfoResponse swap)
+    private async Task OnSwap(GetSwapInfoResponse swap)
     {
         if (swap.ChainSwap is null && swap.ReverseSwap is null) return;
 
         var status = swap.ReverseSwap?.Status ?? swap.ChainSwap!.Status;
-        // TODO
-        var isAuto = true;
+        var isAuto = swap.ReverseSwap?.IsAuto ?? swap.ChainSwap!.IsAuto;
         if (status != "swap.created" || !isAuto) return;
 
         var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap!.TenantId;
@@ -114,7 +123,8 @@ public class BoltzService(
         var client = daemon.GetClient(found.Value.Value)!;
         var (ln, chain) = await client.GetAutoSwapConfig();
 
-        if (chain?.ToAddress == swap.ChainSwap?.ToData.Address)
+        var chainAddress = chain?.ToAddress;
+        if (!string.IsNullOrEmpty(chainAddress) && chainAddress == swap.ChainSwap?.ToData.Address)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapChainConfig(
@@ -123,7 +133,8 @@ public class BoltzService(
             );
         }
 
-        if (ln?.StaticAddress == swap.ReverseSwap?.ClaimAddress)
+        var lnAddress = ln?.StaticAddress;
+        if (!string.IsNullOrEmpty(lnAddress) && lnAddress == swap.ReverseSwap?.ClaimAddress)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapLightningConfig(
