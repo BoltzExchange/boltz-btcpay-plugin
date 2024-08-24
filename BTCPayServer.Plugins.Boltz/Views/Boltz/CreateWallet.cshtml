@@ -29,9 +29,9 @@
 
 <form method="post" asp-action="CreateWallet" asp-all-route-data="@Model.RouteData">
     <div class="form-group">
-        <label asp-for="WalletParams.Name" class="form-label">Wallet Name</label>
-        <input required value="@defaultName" asp-for="WalletParams.Name" class="form-control"></input>
-        <span asp-validation-for="WalletParams.Name" class="text-danger"></span>
+        <label asp-for="WalletName" class="form-label">Wallet Name</label>
+        <input required value="@defaultName" asp-for="WalletName" class="form-control"></input>
+        <span asp-validation-for="WalletName" class="text-danger"></span>
     </div>
 
     @switch (Model.ImportMethod)

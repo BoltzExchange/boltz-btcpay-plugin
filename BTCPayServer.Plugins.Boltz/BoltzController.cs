@@ -461,14 +461,21 @@ public class BoltzController(
         return RedirectSetup();
     }
 
+
     [HttpPost("setup/wallet/{flow}/{currency}")]
-    public async Task<RedirectToActionResult> SetupWallet(WalletSetup vm, string? walletName)
+    public async Task<RedirectToActionResult> SetupWallet(WalletSetup vm, string storeId)
     {
         if (Boltz != null)
         {
             try
             {
-                walletName ??= String.Empty;
+                var walletName = vm.WalletName ?? String.Empty;
+                var wallet = await Boltz.GetWallet(walletName);
+                if (wallet.Balance is null)
+                {
+                    return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
+                }
+
                 switch (vm.Flow)
                 {
                     case WalletSetupFlow.Standalone:
@@ -478,7 +485,7 @@ public class BoltzController(
                         }
 
                         SetupSettings = await SetStandaloneWallet(SetupSettings!, walletName);
-                        return RedirectToAction(nameof(SetupChain), new { storeId = vm.StoreId });
+                        return RedirectToAction(nameof(SetupChain), new { storeId });
                     case WalletSetupFlow.Lightning:
                         if (LightningSetup is null)
                         {
@@ -491,18 +498,18 @@ public class BoltzController(
                             SwapType = vm.SwapType ?? String.Empty,
                             Wallet = walletName,
                         };
-                        return RedirectToAction(nameof(SetupThresholds), new { storeId = vm.StoreId });
+                        return RedirectToAction(nameof(SetupThresholds), new { storeId });
                     case WalletSetupFlow.Chain:
                         if (ChainSetup is null)
                         {
-                            return RedirectToAction(nameof(SetupChain), new { storeId = vm.StoreId });
+                            return RedirectToAction(nameof(SetupChain), new { storeId });
                         }
 
                         ChainSetup = new ChainConfig(ChainSetup) { ToWallet = walletName };
                         return RedirectToAction(nameof(SetupBudget),
-                            new { storeId = vm.StoreId, swapperType = SwapperType.Chain });
+                            new { storeId, swapperType = SwapperType.Chain });
                     case WalletSetupFlow.Manual:
-                        return RedirectToAction(nameof(Configuration), new { storeId = vm.StoreId });
+                        return RedirectToAction(nameof(Configuration), new { storeId });
                 }
             }
             catch (Exception e)
@@ -526,6 +533,58 @@ public class BoltzController(
         return RedirectSetup();
     }
 
+
+    [HttpGet("setup/wallet/{flow}/{currency}/subaccount")]
+    public async Task<IActionResult> SetupSubaccount(WalletSetup vm)
+    {
+        if (Boltz != null)
+        {
+            if (!vm.InitialRender)
+            {
+                try
+                {
+                    var wallet = await Boltz.GetWallet(vm.WalletName!);
+                    var response = await Boltz.GetSubaccounts(wallet.Id);
+                    vm.Subaccounts = response.Subaccounts.ToList()
+                        .FindAll(account => account.Balance.Total > 0 || account.Type == "p2wpkh");
+                    if (vm.Subaccounts.Count == 0)
+                    {
+                        return await SetupSubaccount(vm, null);
+                    }
+                }
+                catch (RpcException e)
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+                }
+            }
+
+            return View(vm);
+        }
+
+        return RedirectSetup();
+    }
+
+    [HttpPost("setup/wallet/{flow}/{currency}/subaccount")]
+    public async Task<IActionResult> SetupSubaccount(WalletSetup vm, ulong? subaccount)
+    {
+        if (Boltz != null)
+        {
+            try
+            {
+                var wallet = await Boltz.GetWallet(vm.WalletName!);
+                await Boltz.SetSubaccount(wallet.Id, subaccount);
+            }
+            catch (RpcException e)
+            {
+                TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+            }
+
+            return await SetupWallet(vm, vm.StoreId!);
+        }
+
+        return RedirectSetup();
+    }
+
     [HttpPost("setup/wallet/{flow}/{currency}/create")]
     public async Task<IActionResult> CreateWallet(WalletSetup vm)
     {
@@ -533,11 +592,11 @@ public class BoltzController(
         {
             try
             {
-                vm.WalletParams.Currency = vm.Currency!.Value;
+                var walletParams = new WalletParams { Currency = vm.Currency ?? Currency.Lbtc, Name = vm.WalletName };
                 if (vm.ImportMethod is null)
                 {
-                    var response = await Boltz.CreateWallet(vm.WalletParams);
-                    var next = await SetupWallet(vm, response.Wallet.Name);
+                    var response = await Boltz.CreateWallet(walletParams);
+                    var next = await SetupWallet(vm, vm.StoreId!);
                     return this.RedirectToRecoverySeedBackup(new RecoverySeedBackupViewModel
                     {
                         Mnemonic = response.Mnemonic,
@@ -546,8 +605,8 @@ public class BoltzController(
                     });
                 }
 
-                var wallet = await Boltz.ImportWallet(vm.WalletParams, vm.WalletCredentials);
-                return await SetupWallet(vm, wallet.Name);
+                await Boltz.ImportWallet(walletParams, vm.WalletCredentials);
+                return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
             }
             catch (RpcException e)
             {

@@ -1,0 +1,63 @@
+@using BTCPayServer.Client
+@model BTCPayServer.Plugins.Boltz.Models.WalletSetup
+@{
+    Layout = "_LayoutSetup";
+    ViewData["Title"] = "Choose your wallet subaccount";
+}
+
+<div id="Subaccounts">
+    @if (Model.InitialRender)
+    {
+        <div class="loading d-flex justify-content-center p-3">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <script>
+            (async () => {
+                const url = @Safe.Json(Url.Action("SetupSubaccount", "Boltz", Model.RouteData));
+                const response = await fetch(url);
+                if (response.ok) {
+                    document.body.outerHTML = await response.text();
+                }
+            })();
+        </script>
+    }
+    else if (Model.Subaccounts is not null)
+    {
+        <div class="list-group">
+            @foreach (var wallet in Model.Subaccounts)
+            {
+                var type = wallet.Type switch
+                {
+                    "p2wpkh" => "SegWit",
+                    "p2sh-p2wpkh" => "Legacy SegWit",
+                    "p2pkh" => "Legacy",
+                    _ => wallet.Type
+                };
+                <form method="post">
+                    <input asp-for="@Model.Subaccount" type="hidden" value="@wallet.Pointer"/>
+                    <button type="submit" class="list-group-item list-group-item-action">
+                        <div class="content">
+                            <h4>@type</h4>
+                            <p class="mb-0 text-secondary">Balance: @wallet.Balance.Total sats (Pointer: @wallet.Pointer)</p>
+                        </div>
+                        <vc:icon symbol="caret-right"/>
+                    </button>
+                </form>
+            }
+
+            <form method="post">
+                <button type="submit" class="list-group-item list-group-item-action">
+                    <div class="image">
+                        <vc:icon symbol="new-wallet"/>
+                    </div>
+                    <div class="content">
+                        <h4>New SegWit</h4>
+                    </div>
+                    <vc:icon symbol="caret-right"/>
+                </button>
+            </form>
+        </div>
+    }
+</div>

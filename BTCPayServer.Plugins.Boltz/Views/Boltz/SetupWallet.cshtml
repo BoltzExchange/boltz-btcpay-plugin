@@ -24,7 +24,8 @@
     {
         <form asp-controller="Boltz" asp-action="SetupWallet" asp-all-route-data="@routeData" class="mt-4" method="post">
             <div class="list-group">
-                <button name="walletName" type="submit" value="@wallet.Value" class="list-group-item list-group-item-action">
+                <input asp-for="@Model.WalletName" type="hidden" value="@wallet.Name"/>
+                <button type="submit" class="list-group-item list-group-item-action">
                     <div class="image">
                         <vc:icon symbol="existing-wallet"/>
                     </div>

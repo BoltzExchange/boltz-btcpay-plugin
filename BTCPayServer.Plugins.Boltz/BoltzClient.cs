@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Plugins.Boltz.Models;
+using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -92,6 +93,22 @@ public class BoltzClient : IDisposable
         return await _client.GetWalletAsync(new GetWalletRequest { Name = name }, _metadata);
     }
 
+    public async Task<GetSubaccountsResponse> GetSubaccounts(ulong walletId)
+    {
+        return await _client.GetSubaccountsAsync(new GetSubaccountsRequest() { WalletId = walletId }, _metadata);
+    }
+
+    public async Task SetSubaccount(ulong walletId, ulong? subaccount)
+    {
+        var request = new SetSubaccountRequest { WalletId = walletId };
+        if (subaccount.HasValue)
+        {
+            request.Subaccount = subaccount.Value;
+        }
+
+        await _client.SetSubaccountAsync(request, _metadata);
+    }
+
     public async Task<Wallet> GetWallet(ulong id)
     {
         return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
@@ -134,7 +151,7 @@ public class BoltzClient : IDisposable
 
     public async Task<SwapStats> GetStats()
     {
-        return (await _client.GetStatsAsync(new GetStatsRequest(), _metadata)).Stats;
+        return (await _client.GetStatsAsync(new GetStatsRequest { Include = IncludeSwaps.Manual }, _metadata)).Stats;
     }
 
     public async Task ResetLnConfig()

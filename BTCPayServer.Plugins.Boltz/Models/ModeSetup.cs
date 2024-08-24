@@ -5,6 +5,7 @@ using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Data;
 using BTCPayServer.Payments.Lightning;
+using Google.Protobuf.Collections;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
 
@@ -28,8 +29,6 @@ public class ModeSetup
                 : "No internal node available"
             : $"Internal Node is already being rebalanced in store {RebalanceStore.StoreName}"
         : "Only available for admins";
-
-
 }
 
 public enum WalletImportMethod
@@ -65,7 +64,7 @@ public class WalletSetup
 
     public WalletSetupFlow Flow { get; set; }
     public Currency? Currency { get; set; }
-    public WalletParams WalletParams { get; set; } = new() { Currency = Boltzrpc.Currency.Lbtc };
+    public string? WalletName { get; set; }
     public WalletCredentials WalletCredentials { get; set; } = new();
     public WalletImportMethod? ImportMethod { get; set; }
     public string? SwapType { get; set; }
@@ -77,6 +76,10 @@ public class WalletSetup
 
     public bool IsImport => ImportMethod.HasValue;
 
+    public List<Subaccount>? Subaccounts { get; set; }
+    public bool InitialRender { get; set; }
+    public ulong? Subaccount { get; set; }
+
     public Dictionary<string, string?> RouteData => new()
     {
         { "storeId", StoreId },
@@ -84,6 +87,7 @@ public class WalletSetup
         { "flow", Flow.ToString() },
         { "currency", Currency.ToString() },
         { "importMethod", ImportMethod.ToString() },
+        { "walletName", WalletName },
     };
 
     public Dictionary<string, string?> GetRouteData(string key, object value)
@@ -114,7 +118,7 @@ public enum SwapperType
 
 public class BudgetSetup
 {
-    public SwapperType SwapperType {get; set; }
+    public SwapperType SwapperType { get; set; }
     public ulong Budget { get; set; }
     public ulong BudgetIntervalDays { get; set; }
     public float MaxFeePercent { get; set; }
