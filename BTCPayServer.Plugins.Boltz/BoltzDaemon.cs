@@ -18,6 +18,7 @@ using BTCPayServer.Lightning.LND;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NBitcoin;
 using Octokit;
 using Org.BouncyCastle.Bcpg.OpenPgp;
 using EventHandler = System.EventHandler;
@@ -92,10 +93,11 @@ public class BoltzDaemon(
             {
                 try
                 {
-                    await client.GetInfo(cancellationToken);
+                    var info = await client.GetInfo(cancellationToken);
                     logger.LogInformation("Running");
                     AdminClient = client;
                     AdminClient.SwapUpdate += SwapUpdate;
+                    CurrentVersion = info.Version.Split("-").First();
                     Error = null;
                     return;
                 }
@@ -117,10 +119,18 @@ public class BoltzDaemon(
         await Stop();
     }
 
-    public async Task<Release> GetLatestRelease()
+    private async Task CheckLatestRelease()
     {
-        return await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
+        try
+        {
+            LatestRelease = await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning($"Could not get latest release from github: {e.Message}");
+        }
     }
+
 
     public async Task TryDownload(string version)
     {
@@ -130,8 +140,8 @@ public class BoltzDaemon(
         }
         catch (Exception e)
         {
-            logger.LogTrace(e, $"Failed to download client version {version}");
-            Error = e.Message;
+            Error = $"Failed to download client version {version}: {e.Message}";
+            logger.LogError(e, Error);
         }
     }
 
@@ -173,8 +183,6 @@ public class BoltzDaemon(
         _downloadStream = null;
 
         await CheckBinaries(version);
-
-        CurrentVersion = version;
     }
 
     private string ReleaseUrl(string version)
@@ -274,6 +282,7 @@ public class BoltzDaemon(
                 Node = node;
                 return;
             }
+
             logger.LogInformation("Could not connect to node: " + Error);
             NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
         }
@@ -375,22 +384,20 @@ public class BoltzDaemon(
             Directory.CreateDirectory(DataDir);
         }
 
-        LatestRelease = await GetLatestRelease();
+
+        await CheckLatestRelease();
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                await CheckLatestRelease();
+                await Task.Delay(TimeSpan.FromMinutes(5));
+            }
+        });
+
         if (!File.Exists(DaemonBinary))
         {
             await TryDownload();
-        }
-        else
-        {
-            var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
-            if (code != 0)
-            {
-                await TryDownload();
-            }
-            else
-            {
-                CurrentVersion = stdout.Split("\n").First().Split("-").First();
-            }
         }
     }
 
@@ -474,16 +481,6 @@ public class BoltzDaemon(
         Process process = new Process { StartInfo = processStartInfo };
         process.Start();
         return process;
-    }
-
-    async Task<(int, string, string)> RunCommand(string fileName, string args,
-        CancellationToken cancellationToken = default)
-    {
-        using Process process = StartProcess(fileName, args);
-        await process.WaitForExitAsync(cancellationToken);
-        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
-        return (process.ExitCode, stdout, stderr);
     }
 
     private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken)
