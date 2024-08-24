@@ -34,6 +34,8 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
+    private static readonly Version MinClientVersion = new("2.1.2");
+
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
     private Stream? _downloadStream;
@@ -63,6 +65,7 @@ public class BoltzDaemon(
     public ILightningClient? Node;
     public string? NodeError { get; private set; }
     public string? Error { get; private set; }
+    public bool HasError => !string.IsNullOrEmpty(Error);
     public string RecentOutput => string.Join("\n", _output);
     public bool UpdateAvailable => LatestRelease!.TagName != CurrentVersion;
 
@@ -132,29 +135,36 @@ public class BoltzDaemon(
     }
 
 
-    public async Task TryDownload(string version)
+    public async Task<bool> TryDownload()
     {
+        var version = LatestRelease!.TagName;
         try
         {
             await Download(version);
+            return true;
         }
         catch (Exception e)
         {
             Error = $"Failed to download client version {version}: {e.Message}";
             logger.LogError(e, Error);
         }
-    }
 
-    public async Task TryDownload()
-    {
-        await TryDownload(LatestRelease!.TagName);
+        return false;
     }
 
     private async Task Update()
     {
-        await Stop();
-        await TryDownload();
-        await Start();
+        try
+        {
+            await Stop();
+            await Download(LatestRelease!.TagName);
+            await Start();
+        }
+        catch (Exception e)
+        {
+            Error = $"Failed to update: {e.Message}";
+            logger.LogError(e, Error);
+        }
     }
 
     public void StartUpdate()
@@ -361,6 +371,11 @@ public class BoltzDaemon(
     private async Task Configure(ILightningClient? node)
     {
         await _configSemaphore.WaitAsync();
+        if (!File.Exists(DaemonBinary))
+        {
+            await Update();
+        }
+
         try
         {
             await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
@@ -384,62 +399,80 @@ public class BoltzDaemon(
             Directory.CreateDirectory(DataDir);
         }
 
-
         await CheckLatestRelease();
-        _ = Task.Run(async () =>
-        {
-            while (true)
-            {
-                await CheckLatestRelease();
-                await Task.Delay(TimeSpan.FromMinutes(5));
-            }
-        });
 
         if (!File.Exists(DaemonBinary))
         {
             await TryDownload();
         }
+        else
+        {
+            var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
+            if (code != 0)
+            {
+                await TryDownload();
+            }
+            else
+            {
+                CurrentVersion = stdout.Split("\n").First().Split("-").First();
+            }
+        }
+    }
+
+    private async Task<bool> CheckVersion()
+    {
+        Version.TryParse(CurrentVersion?.Remove(0, 1), out var current);
+        if (current == null || current.CompareTo(MinClientVersion) < 0)
+        {
+            logger.LogInformation("Client version too old, updating");
+            return await TryDownload();
+        }
+
+        return true;
     }
 
     private async Task Start()
     {
         await Stop();
-        logger.LogInformation("Starting daemon");
-        _daemonCancel = new CancellationTokenSource();
-        _ = Task.Factory.StartNew(async () =>
+        if (await CheckVersion())
         {
-            _output.Clear();
-            using var process = StartProcess(DaemonBinary, $"--datadir {DataDir}");
-
-            MonitorStream(process.StandardOutput, _daemonCancel.Token);
-            MonitorStream(process.StandardError, _daemonCancel.Token);
-
-            try
+            logger.LogInformation("Starting daemon");
+            _daemonCancel = new CancellationTokenSource();
+            _ = Task.Factory.StartNew(async () =>
             {
-                await process.WaitForExitAsync(_daemonCancel.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                process.Kill();
-                throw;
-            }
+                _output.Clear();
+                using var process = StartProcess(DaemonBinary, $"--datadir {DataDir}");
 
-            if (Running)
-            {
-                AdminClient = null;
-                if (process.ExitCode != 0)
+                MonitorStream(process.StandardOutput, _daemonCancel.Token);
+                MonitorStream(process.StandardError, _daemonCancel.Token);
+
+                try
                 {
-                    Error = $"Process exited with code {process.ExitCode}";
-                    logger.LogError(Error);
-                    await Task.Delay(5000, _daemonCancel.Token);
-                    InitiateStart();
+                    await process.WaitForExitAsync(_daemonCancel.Token);
                 }
-            }
+                catch (OperationCanceledException)
+                {
+                    process.Kill();
+                    throw;
+                }
 
-            await _daemonCancel.CancelAsync();
-            _daemonCancel = null;
-        }, _daemonCancel.Token);
-        await Wait(_daemonCancel.Token);
+                if (Running)
+                {
+                    AdminClient = null;
+                    if (process.ExitCode != 0)
+                    {
+                        Error = $"Process exited with code {process.ExitCode}";
+                        logger.LogError(Error);
+                        await Task.Delay(5000, _daemonCancel.Token);
+                        InitiateStart();
+                    }
+                }
+
+                await _daemonCancel.CancelAsync();
+                _daemonCancel = null;
+            }, _daemonCancel.Token);
+            await Wait(_daemonCancel.Token);
+        }
         InitialStart.TrySetResult(Running);
     }
 
@@ -481,6 +514,16 @@ public class BoltzDaemon(
         Process process = new Process { StartInfo = processStartInfo };
         process.Start();
         return process;
+    }
+
+    async Task<(int, string, string)> RunCommand(string fileName, string args,
+        CancellationToken cancellationToken = default)
+    {
+        using Process process = StartProcess(fileName, args);
+        await process.WaitForExitAsync(cancellationToken);
+        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+        return (process.ExitCode, stdout, stderr);
     }
 
     private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken)

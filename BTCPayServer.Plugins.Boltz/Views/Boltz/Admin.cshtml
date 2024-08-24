@@ -30,10 +30,10 @@
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(Daemon.Error))
+    @if (Daemon.HasError)
     {
         <div class="alert alert-danger">
-            Daemon not running: @Daemon.Error
+            Boltz Client not running: @Daemon.Error
         </div>
         <pre>@Daemon.RecentOutput</pre>
     }

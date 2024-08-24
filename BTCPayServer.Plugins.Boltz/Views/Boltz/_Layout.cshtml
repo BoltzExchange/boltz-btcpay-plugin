@@ -12,28 +12,6 @@
  */
 </style>
 
+<partial name="Boltz/_Notification"/>
 
-@if (User.IsInRole(Roles.ServerAdmin))
-{
-    if(Daemon.Updating) {
-        <div class="alert alert-info">
-            <span>Boltz Client is being updated...</span>
-        </div>
-    } else if (Daemon.UpdateAvailable)
-    {
-        <div class="alert alert-info mt-2 mb-4 d-flex align-items-center justify-content-between">
-            <a class="text-white" href="@Daemon.LatestRelease!.HtmlUrl">A newer version of boltz-client is available.</a>
-            <form method="post" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetImplicitStoreId()">
-                <button class="btn btn-info" name="command" value="Update">Update</button>
-            </form>
-        </div>
-    }
-    if(Daemon.Starting) {
-        <div class="alert alert-info">
-            <span>Boltz Client is Starting...</span>
-        </div>
-    }
-
-
-}
 @RenderBody()

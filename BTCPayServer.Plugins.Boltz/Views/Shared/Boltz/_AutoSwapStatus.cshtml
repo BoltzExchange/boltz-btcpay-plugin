@@ -1,5 +1,7 @@
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.Boltz.Models.AutoSwapStatus
 @{
     var status = Model.Status;
@@ -12,7 +14,10 @@
         @if (Model.Compact)
         {
             <span class="btcpay-status btcpay-status--@(statusClass)"></span>
-            <h6 class="text-truncate">@name @statusString</h6>
+            <h6 class="text-truncate flex-grow-1">@name @statusString</h6>
+            <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@Context.GetImplicitStoreId()">
+                Manage
+            </a>
         }
         else
         {

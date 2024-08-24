@@ -316,7 +316,6 @@ public class BoltzController(
             case "Update":
             {
                 boltzDaemon.StartUpdate();
-                TempData[WellKnownTempData.SuccessMessage] = "Boltz update initiated";
                 break;
             }
             case "Clear":
