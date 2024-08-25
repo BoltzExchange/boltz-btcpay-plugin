@@ -44,7 +44,7 @@ public class BoltzDaemon(
     private static CancellationTokenSource? _daemonCancel;
     private readonly List<string> _output = new();
     private readonly HttpClient _httpClient = new();
-    private const int MaxLogLines = 200;
+    private const int MaxLogLines = 150;
     private string DataDir => Path.Combine(dataDirectories.Value.DataDir, "Plugins", "Boltz");
     private string ConfigPath => Path.Combine(DataDir, "boltz.toml");
     private string DaemonBinary => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzd");
@@ -379,7 +379,7 @@ public class BoltzDaemon(
         try
         {
             await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
-            await Start();
+            await Start(node == null);
         }
         catch (Exception e)
         {
@@ -431,7 +431,7 @@ public class BoltzDaemon(
         return true;
     }
 
-    private async Task Start()
+    private async Task Start(bool logOutput = true)
     {
         await Stop();
         if (await CheckVersion())
@@ -456,13 +456,19 @@ public class BoltzDaemon(
                     throw;
                 }
 
-                if (Running)
+                var wasRunning = Running;
+                AdminClient = null;
+                if (process.ExitCode != 0)
                 {
-                    AdminClient = null;
-                    if (process.ExitCode != 0)
+                    Error = $"Process exited with code {process.ExitCode}";
+                    logger.LogError(Error);
+                    if (logOutput || wasRunning)
                     {
-                        Error = $"Process exited with code {process.ExitCode}";
-                        logger.LogError(Error);
+                        logger.LogInformation(RecentOutput);
+                    }
+
+                    if (wasRunning)
+                    {
                         await Task.Delay(5000, _daemonCancel.Token);
                         InitiateStart();
                     }
@@ -470,7 +476,7 @@ public class BoltzDaemon(
 
                 await _daemonCancel.CancelAsync();
                 _daemonCancel = null;
-            }, _daemonCancel.Token);
+            }, _daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             await Wait(_daemonCancel.Token);
         }
         InitialStart.TrySetResult(Running);
