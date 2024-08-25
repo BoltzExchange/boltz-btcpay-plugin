@@ -83,6 +83,11 @@ public class BoltzClient : IDisposable
         return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = id }, _metadata);
     }
 
+    public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id)
+    {
+        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata);
+    }
+
     public async Task<Wallets> GetWallets(bool includeReadonly)
     {
         return await _client.GetWalletsAsync(new GetWalletsRequest { IncludeReadonly = includeReadonly }, _metadata);
@@ -269,9 +274,9 @@ public class BoltzClient : IDisposable
         return await _client.CreateReverseSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
-    public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request)
+    public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request, CancellationToken cancellation = default)
     {
-        return await _client.CreateSwapAsync(request, _metadata);
+        return await _client.CreateSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
     public async Task<Tenant> CreateTenant(string name)

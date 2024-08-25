@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Boltzrpc;
 using BTCPayServer.Lightning;
+using Grpc.Core;
+using Microsoft.AspNetCore.JsonPatch.Operations;
 using NBitcoin;
 using Newtonsoft.Json;
 using LightningChannel = BTCPayServer.Lightning.LightningChannel;
@@ -129,7 +131,8 @@ public class BoltzLightningClient(
     public async Task<LightningPayment> GetPayment(string paymentHash,
         CancellationToken cancellation = new CancellationToken())
     {
-        throw new NotImplementedException();
+        var payments = await ListPayments(cancellation);
+        return payments.ToList().Find(payment => payment.PaymentHash == paymentHash)!;
     }
 
     public async Task<LightningPayment[]> ListPayments(CancellationToken cancellation = new CancellationToken())
@@ -232,9 +235,14 @@ public class BoltzLightningClient(
         throw new NotImplementedException();
     }
 
-    public async Task<PayResponse> Pay(string bolt11, PayInvoiceParams payParams,
-        CancellationToken cancellation = new CancellationToken())
+    public async Task<PayResponse> Pay(string bolt11, CancellationToken cancellation = default)
     {
+        var invoice = BOLT11PaymentRequest.Parse(bolt11, network);
+        if (invoice.MinimumAmount == 0)
+        {
+            throw new ArgumentException("0 amount invoices are not supported");
+        }
+
         var client = await GetClient();
         var response = await client.CreateSwap(new CreateSwapRequest
         {
@@ -242,22 +250,46 @@ public class BoltzLightningClient(
             SendFromInternal = true,
             WalletId = walletId,
             Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
-        });
-        return new PayResponse(PayResult.Ok, new PayDetails
+        }, cancellation);
+        var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        cancellation.Register(source.Cancel);
+        var payDetails = new PayDetails
         {
-            TotalAmount = LightMoney.Satoshis(response.ExpectedAmount),
+            TotalAmount = invoice.MinimumAmount,
             Status = LightningPaymentStatus.Pending,
-            /*
-            FeeAmount = LightMoney.Satoshis(response.ServiceFee),
-            Preimage = response.Preimage,
-            PaymentHash = response.PaymentHash,
-            */
-        });
+            FeeAmount = LightMoney.Satoshis(response.ExpectedAmount) - invoice.MinimumAmount,
+            PaymentHash = invoice.PaymentHash
+        };
+        try
+        {
+            using var stream = client.GetSwapInfoStream(response.Id);
+            while (await stream.ResponseStream.MoveNext(source.Token))
+            {
+                var swap = stream.ResponseStream.Current.Swap;
+                if (swap.State == SwapState.Successful)
+                {
+                    payDetails.Status = LightningPaymentStatus.Complete;
+                    return new PayResponse(PayResult.Ok, payDetails);
+                }
+
+                if (swap.State == SwapState.Error || swap.State == SwapState.ServerError)
+                {
+                    throw new Exception($"payment failed: {swap.Error}");
+                }
+            }
+        }
+        catch (RpcException) when(source.IsCancellationRequested)
+        {
+            source.Token.ThrowIfCancellationRequested();
+        }
+
+        return new PayResponse(PayResult.Unknown, "payment is waiting for confirmation");
     }
 
-    public async Task<PayResponse> Pay(string bolt11, CancellationToken cancellation = new CancellationToken())
+    public async Task<PayResponse> Pay(string bolt11, PayInvoiceParams payParams,
+        CancellationToken cancellation = default)
     {
-        throw new NotImplementedException();
+        return await Pay(bolt11, cancellation);
     }
 
     public async Task<OpenChannelResponse> OpenChannel(OpenChannelRequest openChannelRequest,
