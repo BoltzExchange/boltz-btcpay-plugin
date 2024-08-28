@@ -1,0 +1,46 @@
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using Boltzrpc
+@using BTCPayServer.Abstractions.TagHelpers
+@model Boltzrpc.GetSwapInfoResponse
+@{
+    var storeId = Context.GetImplicitStoreId();
+
+    var common = Model.Swap != null ? new
+        {
+            Type = SwapType.Submarine, Model.Swap.Id
+        }
+        : Model.ReverseSwap != null ? new
+        {
+            Type = SwapType.Reverse, Model.ReverseSwap.Id
+        }
+        : Model.ChainSwap != null ? new
+        {
+            Type = SwapType.Chain, Model.ChainSwap.Id
+        } : null;
+    if (common is null) return;
+}
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const source = new EventSource("@Url.Action("SwapInfoStream", "Boltz", new { id = common.Id, storeId })");
+        source.
+        source.onmessage = async () => {
+            const url = @Safe.Json(Url.Action("SwapInfoPartial", "Boltz", new { id = common.Id, storeId }));
+            const response = await fetch(url);
+            if (response.ok) {
+                document.getElementById('swap-info').innerHTML = await response.text();
+            }
+        };
+    })
+</script>
+
+
+@if (!ViewData.ContainsKey("Title"))
+{
+    ViewData["Title"] = $"{common.Type} Swap";
+    <h3 class="text-center mx-auto">@ViewData["Title"]</h3>
+}
+
+
+<partial name="_SwapInfoPartial" model="@Model"/>

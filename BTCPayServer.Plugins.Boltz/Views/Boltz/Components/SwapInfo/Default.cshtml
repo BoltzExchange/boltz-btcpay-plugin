@@ -1,0 +1,191 @@
+@using Boltzrpc
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Components.TruncateCenter
+@using BTCPayServer.Components.QRCode
+@model Boltzrpc.GetSwapInfoResponse
+@inject BoltzService BoltzService
+@{
+    var common = Model.Swap != null ? new
+        {
+            Type = SwapType.Submarine, Model.Swap.Id, Model.Swap.Status, Model.Swap.State, Model.Swap.Error
+        }
+        : Model.ReverseSwap != null ? new
+        {
+            Type = SwapType.Reverse, Model.ReverseSwap.Id, Model.ReverseSwap.Status, Model.ReverseSwap.State, Model.ReverseSwap.Error
+        }
+        : Model.ChainSwap != null ? new
+        {
+            Type = SwapType.Chain, Model.ChainSwap.Id, Model.ChainSwap.Status, Model.ChainSwap.State, Model.ChainSwap.Error
+        } : null;
+
+    string qrData = null;
+    string transaction = null;
+    string qrLabel = "";
+    if (common is null) return;
+}
+
+
+
+<h3 class="text-center mx-auto">@common.Type Swap @common.Id</h3>
+
+@{
+    var alertClass = common.State switch
+    {
+        SwapState.Error => "danger",
+        SwapState.ServerError => "danger",
+        SwapState.Successful => "success",
+        SwapState.Abandoned => "secondary",
+        _ => "info"
+    };
+    var instruction = common.Type switch
+    {
+        SwapType.Submarine => $"Send {Model.Swap?.ExpectedAmount} sats to",
+        SwapType.Chain => $"Send {Model.ChainSwap?.FromData.Amount} sats to",
+        SwapType.Reverse => $"Pay the invoice",
+        _ => ""
+    };
+
+    if (common.Type == SwapType.Reverse)
+    {
+        var swap = Model.ReverseSwap!;
+        if (swap.Status == "swap.created")
+        {
+            instruction = "Pay the invoice";
+            qrData = swap.Invoice;
+        }
+
+        if (swap.Status == "transaction.mempool")
+        {
+            instruction = "Transaction is in the mempool";
+            transaction = swap.LockupTransactionId;
+        }
+
+        if (swap.Status == "invoice.settled")
+        {
+            instruction = "Invoice settled";
+        }
+    }
+
+    if (common.Type == SwapType.Chain)
+    {
+        var swap = Model.ChainSwap!;
+        var fromData = swap.FromData;
+
+        if (swap.Status == "swap.created")
+        {
+            instruction = $"Send {Model.ChainSwap?.FromData.Amount} sats to";
+            var bip21 = BoltzService.BtcNetwork.GenerateBIP21(fromData.LockupAddress, fromData.Amount);
+            bip21.QueryParams.Add("Label", "Boltz Swap");
+            qrData = bip21.ToString();
+        }
+
+        if (swap.Status == "transaction.user.mempool")
+        {
+            instruction = "Waiting for confirmation of user lockup";
+            transaction = fromData.LockupTransactionId;
+        }
+
+        if (swap.Status == "transaction.server.mempool")
+        {
+            instruction = "Waiting for confirmation of server lockup";
+            transaction = swap.ToData.LockupTransactionId;
+        }
+
+        if (swap.Status == "transaction.claimed")
+        {
+            instruction = "Funds were successfully claimed";
+            transaction = swap.ToData.TransactionId;
+        }
+    }
+
+    if (common.Type == SwapType.Submarine)
+    {
+        var swap = Model.Swap!;
+
+        if (swap.Status == "swap.created")
+        {
+            var bip21 = BoltzService.BtcNetwork.GenerateBIP21(swap.LockupAddress, swap.ExpectedAmount);
+            bip21.QueryParams.Add("Label", "Boltz Swap");
+            qrData = bip21.ToString();
+            instruction = $"Send {swap.ExpectedAmount} sats to";
+        }
+
+        if (swap.Status == "transaction.mempool")
+        {
+            instruction = "Waiting for confirmation of lockup transaction";
+            transaction = swap.LockupTransactionId;
+        }
+
+        if (swap.Status == "transaction.claimed")
+        {
+            instruction = "Waiting for confirmation of lockup transaction";
+            transaction = swap.LockupTransactionId;
+        }
+
+        if (swap.State == SwapState.Successful)
+        {
+            instruction = "Invoice was paid";
+        }
+    }
+}
+
+<div class="alert alert-@alertClass mx-auto p-2" style="max-width: fit-content">
+    @common.Status
+</div>
+
+<h5 class="mb-2 text-center mx-auto">
+    @instruction
+</h5>
+
+<div class="payment-box">
+
+    <div class="d-flex flex-row gap-2 mb-2">
+        @{
+            var statusClass = common.State switch
+            {
+                SwapState.Error => "disabled",
+                SwapState.ServerError => "disabled",
+                SwapState.Successful => "enabled",
+                SwapState.Abandoned => "pending",
+                _ => "swap-pending"
+            };
+        }
+        <span class="btcpay-status text- btcpay-status--swap-pending btcpay-status--@(statusClass)"></span>
+        <div class="alert-">
+
+        </div>
+        <h6 class="text-secondary mb-0">
+            @common.Status
+        </h6>
+    </div>
+    @if (!string.IsNullOrEmpty(common.Error))
+    {
+        <div class="alert alert-danger">
+            @common.Error
+        </div>
+    }
+
+    @if (transaction != null)
+    {
+        <div class="input-group mt-3">
+            <div class="form-floating">
+                <vc:truncate-center text="@transaction" padding="15" elastic="true" classes="form-control-plaintext" id="Transaction"/>
+                <label for="Transaction">Transaction</label>
+            </div>
+        </div>
+    }
+
+    @if (qrData != null)
+    {
+        var label = common.Type == SwapType.Reverse ? "Invoice" : "BIP21";
+        <div class="qr-container" data-clipboard="@qrData">
+            <vc:qr-code data="@qrData"/>
+        </div>
+        <div class="input-group mt-3">
+            <div class="form-floating">
+                <vc:truncate-center text="@qrData" padding="15" elastic="true" classes="form-control-plaintext" id="@label"/>
+                <label for="@label">@label</label>
+            </div>
+        </div>
+    }
+</div>

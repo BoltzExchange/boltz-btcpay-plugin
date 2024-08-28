@@ -1,0 +1,371 @@
+@using Boltzrpc
+@using BTCPayServer.Abstractions.TagHelpers
+@using BTCPayServer.Common
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Components.TruncateCenter
+@using BTCPayServer.Components.QRCode
+@using BTCPayServer.Payments
+@using BTCPayServer.Security
+@using BTCPayServer.Services
+@model Boltzrpc.GetSwapInfoResponse
+@inject BoltzService BoltzService
+@inject TransactionLinkProviders TransactionLinkProviders
+@{
+    var common = Model.Swap != null ? new
+        {
+            Type = SwapType.Submarine, Model.Swap.Id, Model.Swap.Status, Model.Swap.State, Model.Swap.Error, Model.Swap.CreatedAt,
+        }
+        : Model.ReverseSwap != null ? new
+        {
+            Type = SwapType.Reverse, Model.ReverseSwap.Id, Model.ReverseSwap.Status, Model.ReverseSwap.State, Model.ReverseSwap.Error, Model.ReverseSwap.CreatedAt,
+        }
+        : Model.ChainSwap != null ? new
+        {
+            Type = SwapType.Chain, Model.ChainSwap.Id, Model.ChainSwap.Status, Model.ChainSwap.State, Model.ChainSwap.Error, Model.ChainSwap.CreatedAt,
+        } : null;
+
+    PaymentUrlBuilder bip21 = null;
+    string invoice = null;
+    string transaction = null;
+    var transactionCurrency = Currency.Btc;
+    string storeId = Context.GetImplicitStoreId();
+    if (common is null) return;
+}
+
+
+@if (Context.GetRouteValue("update") == null)
+{
+    if (common.State != SwapState.Successful && common.State != SwapState.ServerError)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", async () => {
+                const source = new EventSource("@Url.Action("SwapInfoStream", "Boltz", new { id = common.Id, storeId })");
+                source.onmessage = async () => {
+                    const url = @Safe.Json(Url.Action("SwapInfoPartial", "Boltz", new { id = common.Id, storeId, update = true }));
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        document.getElementById('swap-info').innerHTML = await response.text();
+                    }
+                };
+            })
+        </script>
+    }
+
+
+    <style>
+
+    #posData td > table:last-child {
+        margin-bottom: 0 !important;
+    }
+
+    #posData table > tbody > tr:first-child > td > h4 {
+        margin-top: 0 !important;
+    }
+
+    .invoice-information {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--btcpay-space-xl) var(--btcpay-space-xxl);
+    }
+
+    .invoice-information > div {
+        max-width: 540px;
+    }
+
+    .invoice-information > div table th {
+        width: 200px;
+        font-weight: var(--btcpay-font-weight-semibold);
+    }
+    .invoiceId-col {
+        min-width: 8rem;
+    }
+    .invoice-details-row > td  {
+        padding: 1.5rem 1rem 0 2.65rem;
+    }
+    .dropdown > .btn {
+        min-width: 7rem;
+        padding-left: 1rem;
+        text-align: left;
+    }
+    @@media (max-width: 568px) {
+        #SearchText {
+            width: 100%;
+        }
+    }
+</style>
+}
+
+@{
+    var lockupFailed = "Lockup transaction failed";
+    var fundsClaimed = "Funds were successfully claimed";
+    var refunded = "Funds were refunded";
+    var waitingLockup = "Waiting for confirmation of lockup transaction";
+
+    var alertClass = common.State switch
+    {
+        SwapState.Error => "danger",
+        SwapState.ServerError => "danger",
+        SwapState.Successful => "success",
+        SwapState.Abandoned => "secondary",
+        _ => "info"
+    };
+
+    var instruction = "";
+    if (common.Type == SwapType.Reverse)
+    {
+        var swap = Model.ReverseSwap!;
+        if (swap.Status == "swap.created")
+        {
+            if (swap.ExternalPay)
+            {
+                instruction = "Pay the invoice";
+                invoice = swap.Invoice;
+            }
+            else
+            {
+                instruction = "Invoice is being paid";
+            }
+        }
+
+        if (swap.Status == "transaction.mempool")
+        {
+            instruction = waitingLockup;
+            transaction = swap.LockupTransactionId;
+            transactionCurrency = swap.Pair.To;
+        }
+
+        if (swap.State == SwapState.Successful)
+        {
+            instruction = fundsClaimed;
+            transaction = swap.ClaimAddress;
+            transactionCurrency = swap.Pair.To;
+        }
+    }
+
+    if (common.Type == SwapType.Chain)
+    {
+        var swap = Model.ChainSwap!;
+        var fromData = swap.FromData;
+        var toData = swap.ToData;
+
+        if (swap.Status == "swap.created")
+        {
+            if (fromData.HasWalletId)
+            {
+                instruction = "Transaction has been sent from internal wallet";
+                transaction = fromData.LockupTransactionId;
+                transactionCurrency = swap.Pair.From;
+            }
+            else
+            {
+                instruction = $"Send {Model.ChainSwap?.FromData.Amount} sats to";
+                bip21 = BoltzService.GenerateBIP21(swap.Pair.From, fromData.LockupAddress, fromData.Amount);
+            }
+        }
+
+        if (swap.Status == "transaction.mempool")
+        {
+            instruction = waitingLockup;
+            transaction = fromData.LockupTransactionId;
+            transactionCurrency = swap.Pair.From;
+        }
+
+        if (swap.Status == "transaction.lockupFailed")
+        {
+            instruction = swap.State == SwapState.Refunded ? refunded : lockupFailed;
+            transaction = swap.State == SwapState.Refunded ? fromData.TransactionId : fromData.LockupTransactionId;
+            transactionCurrency = swap.Pair.From;
+        }
+
+        if (swap.Status == "transaction.server.mempool")
+        {
+            instruction = "Waiting for confirmation of server lockup";
+            transaction = swap.ToData.LockupTransactionId;
+            transactionCurrency = swap.Pair.From;
+        }
+
+        if (swap.Status == "transaction.claimed")
+        {
+            instruction = fundsClaimed;
+            transaction = swap.ToData.TransactionId;
+            transactionCurrency = swap.Pair.To;
+        }
+    }
+
+    if (common.Type == SwapType.Submarine)
+    {
+        var swap = Model.Swap!;
+
+        if (swap.Status == "swap.created")
+        {
+            if (swap.HasWalletId)
+            {
+                instruction = "Transaction has been sent from internal wallet";
+                transaction = swap.LockupTransactionId;
+                transactionCurrency = swap.Pair.From;
+            }
+            else
+            {
+                bip21 = BoltzService.GenerateBIP21(swap.Pair.From, swap.LockupAddress, swap.ExpectedAmount);
+                instruction = $"Send {swap.ExpectedAmount} sats to";
+            }
+        }
+
+        if (swap.Status == "transaction.mempool")
+        {
+            instruction = waitingLockup;
+            transaction = swap.LockupTransactionId;
+            transactionCurrency = swap.Pair.From;
+        }
+
+        if (swap.Status == "transaction.lockupFailed")
+        {
+            instruction = swap.State == SwapState.Refunded ? refunded : lockupFailed;
+            transaction = swap.State == SwapState.Refunded ? swap.RefundTransactionId : swap.LockupTransactionId;
+            transactionCurrency = swap.Pair.From;
+        }
+
+        if (swap.State == SwapState.Successful)
+        {
+            instruction = "Invoice was paid";
+        }
+    }
+}
+
+
+<div class="payment-box text-start" id="swap-info">
+    <div class="alert alert-@alertClass mx-auto p-1" style="max-width: fit-content">
+        @common.Status
+    </div>
+
+    @if (!string.IsNullOrEmpty(instruction))
+    {
+        <h5 class="mb-2 text-center mx-auto">
+            @instruction
+        </h5>
+    }
+
+    @if (!string.IsNullOrEmpty(common.Error))
+    {
+        if (common.Status == "transaction.lockupFailed")
+        {
+            <form class="mb-3" method="post" asp-controller="Boltz" asp-action="RefundSwap" asp-route-id="@common.Id" asp-route-storeId="@Context.GetImplicitStoreId()">
+                <div class="form-group">
+                    <label for="address" class="form-label">Refund Address</label>
+                    <input required id="address" name="address" placeholder="Enter your address..." class="form-control"/>
+                    <span for="address" class="text-danger"></span>
+                </div>
+                <button class="btn btn-primary" type="submit">Refund</button>
+            </form>
+        }
+        else
+        {
+            <div class="alert alert-danger">
+                @common.Error
+            </div>
+        }
+    }
+
+
+    @if (bip21 != null || invoice != null)
+    {
+        var label = invoice != null ? "Invoice" : "BIP21";
+        var qrData = invoice ?? bip21.ToString();
+        <div class="qr-container" data-clipboard="@qrData">
+            <vc:qr-code data="@qrData"/>
+        </div>
+
+        <div class="input-group mt-3">
+            <div class="form-floating">
+                <vc:truncate-center text="@qrData" padding="15" elastic="true" classes="form-control-plaintext" id="@label"/>
+                <label for="@label">@label</label>
+            </div>
+        </div>
+
+        @if (bip21 != null)
+        {
+            <div class="input-group">
+                <div class="form-floating">
+                    <vc:truncate-center text="@(bip21.Host!)" padding="15" elastic="true" classes="form-control-plaintext" id="Address"/>
+                    <label for="Address">Address</label>
+                </div>
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(transaction))
+    {
+        var type = common.State switch
+        {
+            SwapState.Successful => "Claim",
+            SwapState.Refunded => "Refund",
+            _ => "Lockup"
+        };
+    var link = BoltzService.GetTransactionLink(transactionCurrency, transaction);
+        <div class="input-group mt-3">
+            <div class="form-floating">
+                <vc:truncate-center text="@transaction" link="@link" padding="15" elastic="true" classes="form-control-plaintext" id="Transaction"/>
+                <label for="Transaction">@type Transaction</label>
+            </div>
+        </div>
+    }
+
+    <div class="input-group">
+        <div class="form-floating">
+            <vc:truncate-center text="@common.Id" padding="15" elastic="true" classes="form-control-plaintext" id="SwapId"/>
+            <label for="SwapId">Swap ID</label>
+        </div>
+    </div>
+
+    <div class="my-4">
+        <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0" type="button" data-bs-toggle="collapse" data-bs-target="#Details" aria-expanded="false" aria-controls="Details">
+            <vc:icon symbol="caret-down"/>
+            <span class="ms-1">Details</span>
+        </button>
+        <div id="Details" class="collapse">
+            <div class="invoice-details invoice-information mb-5">
+                <table class="table mb-0">
+                    <tr>
+                        <th>Created Date</th>
+                        <td>@(DateTimeOffset.FromUnixTimeSeconds(common.CreatedAt).ToBrowserDate())</td>
+                    </tr>
+                    @if (common.Type == SwapType.Chain)
+                    {
+                        <tr>
+                            <th>Preimage</th>
+                            <td class="py-0">
+                                <vc:truncate-center text="@Model.ChainSwap.Preimage" padding="10" classes="form-control-plaintext"/>
+                            </td>
+                        </tr>
+                    }
+                    @if (common.Type == SwapType.Reverse)
+                    {
+                        <tr>
+                            <th>Preimage</th>
+                            <td class="py-0">
+                                <vc:truncate-center text="@Model.ReverseSwap.Preimage" padding="10" classes="form-control-plaintext"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Invoice</th>
+                            <td class="py-0">
+                                <vc:truncate-center text="@Model.ReverseSwap.Invoice" padding="10" classes="form-control-plaintext"/>
+                            </td>
+                        </tr>
+                    }
+                    @if (common.Type == SwapType.Submarine)
+                    {
+                        <tr>
+                            <th>Preimage</th>
+                            <td class="py-0">
+                                <vc:truncate-center text="@Model.Swap.Preimage" padding="10" classes="form-control-plaintext"/>
+                            </td>
+                        </tr>
+                    }
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>

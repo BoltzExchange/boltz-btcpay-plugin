@@ -8,7 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Boltzrpc;
 using BTCPayServer.Lightning;
+using Google.Protobuf;
 using Grpc.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch.Operations;
 using NBitcoin;
 using Newtonsoft.Json;
@@ -76,7 +78,7 @@ public class BoltzLightningClient(
             },
             CreatedAt = DateTimeOffset.FromUnixTimeSeconds(info.CreatedAt),
             Fee = LightMoney.Satoshis(info.OnchainFee) + LightMoney.Satoshis(info.ServiceFee),
-            AmountSent = info.ExpectedAmount,
+            AmountSent = LightMoney.Satoshis(info.ExpectedAmount),
         };
     }
 
@@ -163,25 +165,29 @@ public class BoltzLightningClient(
     public async Task<LightningInvoice> CreateInvoice(LightMoney amount, string description, TimeSpan expiry,
         CancellationToken cancellation = new())
     {
+        return await CreateInvoice(new CreateInvoiceParams(amount, description, expiry), cancellation);
+    }
+
+    public async Task<LightningInvoice> CreateInvoice(CreateInvoiceParams createInvoiceRequest,
+        CancellationToken cancellation = new())
+    {
         var client = await GetClient();
-        var response = await client.CreateReverseSwap(new CreateReverseSwapRequest
+        var request = new CreateReverseSwapRequest
         {
             AcceptZeroConf = true,
-            Amount = (ulong)amount.MilliSatoshi / 1000,
+            Amount = (ulong)createInvoiceRequest.Amount.MilliSatoshi / 1000,
             WalletId = walletId,
             ExternalPay = true,
             Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
-            Description = description,
-        }, cancellation);
+            Description = createInvoiceRequest.Description,
+        };
+        if (createInvoiceRequest.DescriptionHashOnly)
+        {
+            request.DescriptionHash = ByteString.CopyFrom(createInvoiceRequest.DescriptionHash.ToBytes());
+        }
+        var response = await client.CreateReverseSwap(request, cancellation);
 
         return await GetInvoice(response.Id, cancellation);
-    }
-
-    public Task<LightningInvoice> CreateInvoice(CreateInvoiceParams createInvoiceRequest,
-        CancellationToken cancellation = new())
-    {
-        return CreateInvoice(createInvoiceRequest.Amount, createInvoiceRequest.Description, createInvoiceRequest.Expiry,
-            cancellation);
     }
 
     public async Task<ILightningInvoiceListener> Listen(CancellationToken cancellation = new CancellationToken())
@@ -278,7 +284,7 @@ public class BoltzLightningClient(
                 }
             }
         }
-        catch (RpcException) when(source.IsCancellationRequested)
+        catch (RpcException) when (source.IsCancellationRequested)
         {
             source.Token.ThrowIfCancellationRequested();
         }

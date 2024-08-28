@@ -11,18 +11,31 @@ using BTCPayServer.Client;
 using BTCPayServer.Data;
 using System.IO;
 using System.Net;
+using System.Threading;
+using BTCPayServer.Abstractions.Extensions;
 using BTCPayServer.Models.StoreViewModels;
+using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Services.Invoices;
+using Google.Apis.Util;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.ViewEngines;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.DependencyInjection;
 using NBitcoin;
 using Newtonsoft.Json;
 using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.AuthenticationSchemes;
 using ChainConfig = Autoswaprpc.ChainConfig;
 using LightningConfig = Autoswaprpc.LightningConfig;
 using RpcException = Grpc.Core.RpcException;
+using StringWriter = System.IO.StringWriter;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -31,6 +44,7 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
+            InvoiceRepository invoiceRepository,
     BTCPayNetworkProvider btcPayNetworkProvider)
     : Controller
 {
@@ -96,7 +110,8 @@ public class BoltzController(
 
     // GET
     [HttpGet("status")]
-    public async Task<IActionResult> Status(string storeId)
+    [HttpGet("status/swap/{swapId}")]
+    public async Task<IActionResult> Status(string storeId, string swapId)
     {
         ClearSetup();
         if (!Configured || Boltz is null)
@@ -108,18 +123,27 @@ public class BoltzController(
         var data = new BoltzInfo();
         try
         {
-            data.Info = await Boltz.GetInfo();
-            data.Swaps = await Boltz.ListSwaps();
-            data.Stats = await Boltz.GetStats();
-            if(Settings?.Mode == BoltzMode.Standalone)
+            if (!string.IsNullOrEmpty(swapId))
             {
-                data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
+                //invoiceRepository.GetInvoices()
+                data.SwapInfo = await Boltz.GetSwapInfo(swapId);
             }
-            (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
-            if (data.Ln is not null || data.Chain is not null)
+            else
             {
-                data.Status = await Boltz.GetAutoSwapStatus();
-                data.Recommendations = await Boltz.GetAutoSwapRecommendations();
+                data.Info = await Boltz.GetInfo();
+                data.Swaps = await Boltz.ListSwaps();
+                data.Stats = await Boltz.GetStats();
+                if (Settings?.Mode == BoltzMode.Standalone)
+                {
+                    data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
+                }
+
+                (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
+                if (data.Ln is not null || data.Chain is not null)
+                {
+                    data.Status = await Boltz.GetAutoSwapStatus();
+                    data.Recommendations = await Boltz.GetAutoSwapRecommendations();
+                }
             }
         }
         catch (RpcException e)
@@ -129,6 +153,7 @@ public class BoltzController(
 
         return View(data);
     }
+
 
     [HttpGet("configuration")]
     public async Task<IActionResult> Configuration(string storeId)
@@ -162,6 +187,302 @@ public class BoltzController(
         }
 
         return View(data);
+    }
+
+    [HttpGet("wallet/{walletId}/send")]
+    public async Task<IActionResult> WalletSend(ulong walletId, string? swapId, string? transactionId)
+    {
+        var vm = new WalletSendModel();
+
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            vm.Wallet = await Boltz.GetWallet(walletId);
+            vm.TransactionId = transactionId;
+            if (swapId is not null)
+            {
+                vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
+            }
+        }
+        catch (RpcException)
+        {
+            return NotFound();
+        }
+
+        return View(vm);
+    }
+
+    [HttpGet("wallet/{walletId}/credentials")]
+    public async Task<IActionResult> WalletCredentials(ulong walletId, string storeId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+        try
+        {
+            var creds = await Boltz.GetWalletCredentials(walletId);
+            if (string.IsNullOrEmpty(creds.Mnemonic))
+            {
+                TempData[WellKnownTempData.ErrorMessage] = "Wallet credentials not available";
+                return RedirectToAction(nameof(Status), new { storeId, walletId });
+            }
+            return this.RedirectToRecoverySeedBackup(new RecoverySeedBackupViewModel
+            {
+                Mnemonic = creds.Mnemonic,
+                ReturnUrl = Url.Action(nameof(Status), new {storeId}),
+                IsStored = true,
+                RequireConfirm = false,
+            });
+        }
+        catch (RpcException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost("wallet/{walletId}/send")]
+    public async Task<IActionResult> WalletSend(WalletSendModel vm, ulong walletId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            var storeId = CurrentStore.Id;
+            switch (vm.SendType)
+            {
+                case SendType.Native:
+                    var sendRequest = new WalletSendRequest
+                    {
+                        Address = vm.Destination,
+                        Amount = vm.Amount!.Value,
+                        Id = walletId,
+                    };
+
+                    if (vm.FeeRate.HasValue)
+                    {
+                        sendRequest.SatPerVbyte = vm.FeeRate.Value;
+                    }
+
+                    var sendResponse = await Boltz.WalletSend(sendRequest);
+                    return RedirectToAction(nameof(WalletSend),
+                        new { storeId, walletId, transactionId = sendResponse.TxId });
+                case SendType.Lightning:
+                    var request = new CreateSwapRequest
+                    {
+                        Amount = vm.Amount ?? 0,
+                        Invoice = vm.Destination,
+                        Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
+                        SendFromInternal = true,
+                        WalletId = walletId,
+                        ZeroConf = true,
+                    };
+                    if (vm.FeeRate.HasValue)
+                    {
+                        request.SatPerVbyte = vm.FeeRate.Value;
+                    }
+
+                    var swap = await Boltz.CreateSwap(request);
+                    return RedirectToAction(nameof(WalletSend), new { storeId, walletId, swapId = swap.Id });
+                case SendType.Chain:
+                    var chainRequest = new CreateChainSwapRequest
+                    {
+                        Amount = vm.Amount!.Value,
+                        ToAddress = vm.Destination,
+                        Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
+                        FromWalletId = walletId,
+                        LockupZeroConf = true,
+                        AcceptZeroConf = true,
+                    };
+                    if (vm.FeeRate.HasValue)
+                    {
+                        chainRequest.SatPerVbyte = vm.FeeRate.Value;
+                    }
+
+                    var chainSwap = await Boltz.CreateChainSwap(chainRequest);
+                    return RedirectToAction(nameof(WalletSend), new { storeId, walletId, swapId = chainSwap.Id });
+            }
+
+            vm.Wallet = await Boltz.GetWallet(walletId);
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+        }
+
+        return RedirectToAction(nameof(WalletSend), new { storeId = CurrentStore.Id, walletId });
+    }
+
+    [HttpGet("wallet/{walletId}/receive")]
+    public async Task<IActionResult> WalletReceive(WalletReceiveModel vm, ulong walletId, string? swapId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            vm.Wallet = await Boltz.GetWallet(walletId);
+            if (swapId is not null)
+            {
+                vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
+            }
+
+            return View(vm);
+        }
+        catch (RpcException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost("wallet/{walletId}/receive")]
+    public async Task<IActionResult> WalletReceive(WalletReceiveModel vm, ulong walletId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+
+        try
+        {
+            vm.Wallet = await Boltz.GetWallet(walletId);
+            var storeId = CurrentStore.Id;
+
+            switch (vm.SendType)
+            {
+                case SendType.Native:
+                    var receiveResponse = await Boltz.WalletReceive(walletId);
+                    return RedirectToAction(nameof(WalletReceive),
+                        new { storeId, walletId, address = receiveResponse.Address });
+                case SendType.Lightning:
+                    var request = new CreateReverseSwapRequest
+                    {
+                        Amount = vm.AmountLn!.Value,
+                        Pair = new Pair { From = Currency.Btc, To = vm.Wallet.Currency },
+                        WalletId = walletId,
+                        AcceptZeroConf = true,
+                    };
+                    var reverseSwap = await Boltz.CreateReverseSwap(request);
+                    return RedirectToAction(nameof(WalletReceive), new { storeId, walletId, swapId = reverseSwap.Id });
+                case SendType.Chain:
+                    var chainRequest = new CreateChainSwapRequest
+                    {
+                        Amount = vm.AmountChain!.Value,
+                        Pair = new Pair
+                        {
+                            From = vm.Wallet.Currency == Currency.Lbtc ? Currency.Btc : Currency.Lbtc,
+                            To = vm.Wallet.Currency
+                        },
+                        ToWalletId = walletId,
+                        ExternalPay = true,
+                        AcceptZeroConf = true,
+                    };
+                    var chainSwap = await Boltz.CreateChainSwap(chainRequest);
+                    return RedirectToAction(nameof(WalletReceive), new { storeId, walletId, swapId = chainSwap.Id });
+            }
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+        }
+
+        return RedirectToAction(nameof(WalletReceive), new { storeId = CurrentStore.Id, walletId });
+    }
+
+
+    [HttpGet("swap/{id}")]
+    public async Task<IActionResult> SwapInfo(string id)
+    {
+        if (Boltz != null)
+        {
+            try
+            {
+                var info = await Boltz.GetSwapInfo(id);
+                return View(info);
+            }
+            catch (RpcException e)
+            {
+                return NotFound();
+            }
+        }
+
+        return RedirectSetup();
+    }
+
+    [HttpGet("swap/{id}/partial")]
+    public async Task<IActionResult> SwapInfoPartial(string id)
+    {
+        if (Boltz != null)
+        {
+            try
+            {
+                var info = await Boltz.GetSwapInfo(id);
+                return PartialView("_SwapInfoPartial", info);
+            }
+            catch (RpcException)
+            {
+                return NotFound();
+            }
+        }
+
+        return RedirectSetup();
+    }
+
+    [HttpGet("swap/{id}/sse")]
+    public async Task SwapInfoStream(string id, string storeId)
+    {
+        if (Boltz is null)
+        {
+            Response.Redirect(Url.Action(nameof(SetupMode), new { storeId })!);
+            return;
+        }
+
+        var stream = Boltz.GetSwapInfoStream(id);
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.Headers.Append("Cache-Control", "no-cache");
+        Response.Headers.Append("Connection", "keep-alive");
+        while (await stream.ResponseStream.MoveNext(CancellationToken.None))
+        {
+            var info = stream.ResponseStream.Current;
+            var swapId = info.Swap?.Id ?? info.ReverseSwap?.Id ?? info.ChainSwap?.Id ?? "";
+            await Response.WriteAsync($"data: {swapId}\r\r");
+            await Response.Body.FlushAsync();
+        }
+    }
+
+    [HttpPost("swap/{id}/refund")]
+    public async Task<IActionResult> RefundSwap(string id, string address, string storeId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            await Boltz.RefundSwap(new RefundSwapRequest
+            {
+                Id = id,
+                Address = address
+            });
+            TempData[WellKnownTempData.SuccessMessage] = "Swap refunded";
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+        }
+
+        return RedirectToAction(nameof(Status), new { storeId, swapId = id });
     }
 
     private async Task<BoltzSettings> SetStandaloneWallet(BoltzSettings settings, string name)
@@ -315,7 +636,20 @@ public class BoltzController(
             }
             case "Update":
             {
-                boltzDaemon.StartUpdate();
+                if (!boltzDaemon.UpdateAvailable)
+                {
+                    await boltzDaemon.CheckLatestRelease();
+                }
+
+                if (boltzDaemon.UpdateAvailable)
+                {
+                    boltzDaemon.StartUpdate();
+                }
+                else
+                {
+                    TempData[WellKnownTempData.SuccessMessage] = "No update available";
+                }
+
                 break;
             }
             case "Clear":

@@ -5,6 +5,7 @@
     ViewData.SetActivePage("Boltz", "Admin", "Admin");
 
     var boltzCredsSet = Model.Settings?.CredentialsPopulated() ?? false;
+    var updateText = Daemon.UpdateAvailable ? "Update" : "Check Update";
 }
 
 <form method="post">
@@ -13,15 +14,12 @@
             <span>@ViewData["Title"]</span>
         </h3>
         <div class="d-flex gap-3 mt-3 mt-sm-0">
-            @if (Daemon.UpdateAvailable && !Daemon.Updating)
-            {
-                <button name="command" type="submit" value="Update" class="btn btn-primary">Update</button>
-            }
+            <button name="command" type="submit" value="Start" class="btn btn-secondary">
+                @(Daemon.Running ? "Restart" : "Start")
+            </button>
+            <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
             @if (boltzCredsSet)
             {
-                <button name="command" type="submit" value="Start" class="btn btn-secondary">
-                    @(Daemon.Running ? "Restart" : "Start")
-                </button>
                 <button name="command" type="submit" value="Clear" class="btn btn-danger">
                     Disconnect
                 </button>

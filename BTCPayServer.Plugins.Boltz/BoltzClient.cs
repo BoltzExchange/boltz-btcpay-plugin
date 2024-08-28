@@ -119,6 +119,11 @@ public class BoltzClient : IDisposable
         return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
     }
 
+    public async Task<WalletCredentials> GetWalletCredentials(ulong id)
+    {
+        return await _client.GetWalletCredentialsAsync(new GetWalletCredentialsRequest { Id = id }, _metadata);
+    }
+
     public async Task<CreateWalletResponse> CreateWallet(WalletParams @params)
     {
         return await _client.CreateWalletAsync(new CreateWalletRequest { Params = @params }, _metadata);
@@ -128,6 +133,16 @@ public class BoltzClient : IDisposable
     {
         return await _client.ImportWalletAsync(new ImportWalletRequest { Params = @params, Credentials = credentials },
             _metadata);
+    }
+
+    public async Task<WalletSendResponse> WalletSend(WalletSendRequest request)
+    {
+        return await _client.WalletSendAsync(request, _metadata);
+    }
+
+    public async Task<WalletReceiveResponse> WalletReceive(ulong id)
+    {
+        return await _client.WalletReceiveAsync(new WalletReceiveRequest{Id = id}, _metadata);
     }
 
     public async Task<GetRecommendationsResponse> GetAutoSwapRecommendations()
@@ -274,9 +289,20 @@ public class BoltzClient : IDisposable
         return await _client.CreateReverseSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
+    public async Task<ChainSwapInfo> CreateChainSwap(CreateChainSwapRequest request,
+        CancellationToken cancellation = default)
+    {
+        return await _client.CreateChainSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+    }
+
     public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request, CancellationToken cancellation = default)
     {
         return await _client.CreateSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+    }
+
+    public async Task<GetSwapInfoResponse> RefundSwap(RefundSwapRequest request, CancellationToken cancellation = default)
+    {
+        return await _client.RefundSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
     public async Task<Tenant> CreateTenant(string name)
@@ -289,9 +315,9 @@ public class BoltzClient : IDisposable
         return await _client.GetTenantAsync(new GetTenantRequest { Name = name }, _metadata);
     }
 
-    public async Task Stop()
+    public async Task Stop(CancellationToken cancellationToken = default)
     {
-        await _client.StopAsync(new Empty(), _metadata);
+        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
     }
 
     public async Task<BakeMacaroonResponse> BakeMacaroon(ulong tenantId)

@@ -1,0 +1,137 @@
+@using Boltzrpc
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Models
+@model BTCPayServer.Plugins.Boltz.Models.WalletReceiveModel
+@inject BoltzService BoltzService
+@{
+    Layout = "_LayoutSetup";
+
+    var currency = Model.Wallet.Currency;
+    var currencyName = BoltzClient.CurrencyName(currency);
+    ViewData["Title"] = $"Receive to {currencyName} Wallet";
+}
+
+
+@if (Model.SwapInfo != null)
+{
+    <partial name="_SwapInfoPartial" model="Model.SwapInfo"/>
+}
+else
+{
+    var pair = new Pair { From = currency, To = Currency.Btc };
+    var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Submarine))!;
+    var chainInfo = (await BoltzService.GetPairInfo(new Pair
+    {
+        From = currency == Currency.Btc ? Currency.Lbtc : Currency.Btc,
+        To = currency
+    }, SwapType.Chain))!;
+
+    @section PageFootContent {
+        <partial name="_ValidationScriptsPartial"/>
+        <script>
+        $(document).ready(() => {
+            $('#Destination').on('paste', e => {
+                console.log(e.target.value)
+            })
+
+            const amount = $('#Amount')
+            const lnLimits = @Safe.Json(lnInfo.Limits)
+            const chainLimits = @Safe.Json(chainInfo.Limits)
+            const balance = @Safe.Json(Model.Wallet.Balance.Confirmed)
+            let prev = "";
+
+            const update = (sendType) => {
+                if (prev === sendType) return;
+                prev = sendType;
+                let limits = sendType === '@SendType.Lightning' ? lnLimits : sendType === '@SendType.Chain' ? chainLimits : {minimal: 0, maximal: balance};
+                amount.attr({
+                    min: limits.minimal,
+                    max: Math.min(balance, limits.maximal)
+                })
+            }
+            update('@SendType.Native');
+            $('form').on('change', e => {
+                const formData = new FormData(e.target)
+                update(formData.get('SendType'))
+            })
+        })
+    </script>
+    }
+
+    <form method="post" class="mt-3">
+        <div id="SendTypeTablist" class="nav btcpay-pills align-items-center justify-content-center mb-3" role="tablist">
+            <input asp-for="SendType" value="@SendType.Native" type="radio" id="SendType-@SendType.Native" data-bs-toggle="pill" data-bs-target="#@SendType.Native" role="tab" aria-controls="InternalSetup" aria-selected="@(Model.SendType == SendType.Native ? "true" : "false")" class="@(Model.SendType == SendType.Native ? "active" : "")">
+            <label for="@($"SendType-{SendType.Native}")">Native</label>
+
+            <input asp-for="SendType" value="@SendType.Lightning" type="radio" id="SendType-@SendType.Lightning" data-bs-toggle="pill" data-bs-target="#@SendType.Lightning" role="tab" aria-controls="InternalSetup" aria-selected="@(Model.SendType == SendType.Lightning ? "true" : "false")" class="@(Model.SendType == SendType.Lightning ? "active" : "")">
+            <label for="@($"SendType-{SendType.Lightning}")">Lightning</label>
+
+            <input asp-for="SendType" value="@SendType.Chain" type="radio" id="SendType-@SendType.Chain" data-bs-toggle="pill" data-bs-target="#@SendType.Chain" role="tab" aria-controls="InternalSetup" aria-selected="@(Model.SendType == SendType.Chain ? "true" : "false")" class="@(Model.SendType == SendType.Chain ? "active" : "")">
+            <label for="@($"SendType-{SendType.Chain}")">Chain</label>
+        </div>
+
+
+        <div class="tab-content mb-3">
+            <div class="tab-pane show active" id="@SendType.Native" role="tabpanel">
+                @if (string.IsNullOrEmpty(Model.Address))
+                {
+                    <div class="d-grid gap-3 col-sm-10 col-md-8 col-lg-7 col-xxl-6 mx-auto">
+                        <button class="btn btn-primary" type="submit" name="command">Generate next available address</button>
+                    </div>
+                }
+                else
+                {
+                    var uri = BoltzService.GenerateBIP21(currency, Model.Address).ToString();
+                    <div class="payment-box">
+                        <div class="qr-container" data-clipboard=@uri>
+                            <vc:qr-code data="@uri"/>
+                        </div>
+                        <div class="input-group mt-3">
+                            <div class="form-floating">
+                                <vc:truncate-center text="@uri" padding="15" elastic="true" classes="form-control-plaintext" id="PaymentLink"/>
+                                <label for="PaymentLink">Payment Link</label>
+                            </div>
+                        </div>
+                        <div class="input-group mt-3">
+                            <div class="form-floating">
+                                <vc:truncate-center text="@Model.Address" padding="15" elastic="true" classes="form-control-plaintext" id="Address"/>
+                                <label for="Address">Address</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="payment-box">
+                        <div class="d-grid gap-3 mt-4">
+                            <button type="submit" name="command" value="generate-new-address" class="btn btn-primary w-100">Generate another address</button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="tab-pane" id="@SendType.Lightning" role="tabpanel">
+                <partial name="Boltz/_Stats" model="BoltzService.PairStats(lnInfo)"/>
+
+                <div class="form-group mt-3">
+                    <label asp-for="AmountLn" class="form-label">Amount (satoshi)</label>
+                    <input required min="@lnInfo.Limits.Minimal" max="@lnInfo.Limits.Maximal" asp-for="AmountLn" type="number" placeholder="How much to send" class="form-control"/>
+                    <span asp-validation-for="AmountLn" class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-success">
+                    Continue
+                </button>
+            </div>
+            <div class="tab-pane" id="@SendType.Chain" role="tabpanel">
+                <partial name="Boltz/_Stats" model="BoltzService.PairStats(chainInfo)"/>
+
+                <div class="form-group mt-3">
+                    <label asp-for="AmountChain" class="form-label">Amount (satoshi)</label>
+                    <input required min="@chainInfo.Limits.Minimal" max="@chainInfo.Limits.Maximal" asp-for="AmountChain" type="number" placeholder="How much to send" class="form-control"/>
+                    <span asp-validation-for="AmountChain" class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-success">
+                    Continue
+                </button>
+            </div>
+        </div>
+    </form>
+}

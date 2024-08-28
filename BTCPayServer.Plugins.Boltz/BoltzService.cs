@@ -1,17 +1,21 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
+using BTCPayServer.Common;
 using BTCPayServer.Configuration;
 using BTCPayServer.Data;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
+using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Services;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
 using Google.Protobuf.WellKnownTypes;
@@ -19,6 +23,8 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin;
+using NBitcoin.Altcoins;
+using NBitcoin.Altcoins.Elements;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -30,7 +36,8 @@ public class BoltzService(
     BTCPayNetworkProvider btcPayNetworkProvider,
     IOptions<LightningNetworkOptions> lightningNetworkOptions,
     IOptions<ExternalServicesOptions> externalServiceOptions,
-    BoltzDaemon daemon
+    BoltzDaemon daemon,
+    TransactionLinkProviders transactionLinkProviders
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
@@ -289,6 +296,7 @@ public class BoltzService(
         return store is null ? null : await storeRepository.FindStore(store.Value.Key);
     }
 
+
     public async Task<PairInfo?> GetPairInfo(Pair pair, SwapType swapType)
     {
         if (AdminClient is null) return null;
@@ -302,4 +310,43 @@ public class BoltzService(
         };
         return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To);
     }
+
+    public PaymentUrlBuilder GenerateBIP21(Currency currency, string cryptoInfoAddress, decimal? cryptoInfoDue = null,
+        string? label = null)
+    {
+        var isLbtc = currency != Currency.Lbtc;
+        var prefix = isLbtc
+            ? BtcNetwork.NBitcoinNetwork.ChainName == ChainName.Mainnet ? "liquidnetwork" : "liquidtestnet"
+            : "bitcoin";
+        var builder = new PaymentUrlBuilder(prefix);
+        builder.Host = cryptoInfoAddress;
+        if (cryptoInfoDue is not null && cryptoInfoDue.Value != 0.0m)
+        {
+            builder.QueryParams.Add("amount", cryptoInfoDue.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        builder.QueryParams.Add("label", label ?? "Send to BTCPayserver");
+
+        if (!isLbtc)
+        {
+            builder.QueryParams.Add("assetid", ElementsParams<Liquid.LiquidRegtest>.PeggedAssetId.ToString());
+        }
+
+
+        return builder;
+    }
+
+    public string? GetTransactionLink(Currency currency, string txId)
+    {
+        return transactionLinkProviders.GetTransactionLink(
+            new PaymentMethodId(currency.ToString().ToUpper(), PaymentTypes.BTCLike), txId);
+    }
+
+    public static List<Stat> PairStats(PairInfo pairInfo) =>
+    [
+        new() { Name = "Boltz Service Fee", Value = pairInfo.Fees.Percentage, Unit = Unit.Percent },
+        new() { Name = "Network Fee", Value = pairInfo.Fees.MinerFees, Unit = Unit.Sat },
+        new() { Name = "Min Amount", Value = pairInfo.Limits.Minimal, Unit = Unit.Sat },
+        new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
+    ];
 }

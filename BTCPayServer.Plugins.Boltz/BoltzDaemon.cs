@@ -24,6 +24,7 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 using EventHandler = System.EventHandler;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
+using OperationCanceledException = System.OperationCanceledException;
 using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
@@ -41,7 +42,8 @@ public class BoltzDaemon(
     private Stream? _downloadStream;
     private Task? _updateTask;
     private Task? _startTask;
-    private static CancellationTokenSource? _daemonCancel;
+    private CancellationTokenSource? _daemonCancel;
+    private Task? _daemonTask;
     private readonly List<string> _output = new();
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
@@ -122,7 +124,7 @@ public class BoltzDaemon(
         await Stop();
     }
 
-    private async Task CheckLatestRelease()
+    public async Task CheckLatestRelease()
     {
         try
         {
@@ -436,15 +438,25 @@ public class BoltzDaemon(
         await Stop();
         if (await CheckVersion())
         {
-            logger.LogInformation("Starting daemon");
+            logger.LogInformation("Starting client process");
             _daemonCancel = new CancellationTokenSource();
-            _ = Task.Factory.StartNew(async () =>
+            _daemonTask = Task.Factory.StartNew(async () =>
             {
                 _output.Clear();
-                using var process = StartProcess(DaemonBinary, $"--datadir {DataDir}");
+                using var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
+                try
+                {
+                    process.Start();
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "Failed to start client process");
+                    Error = $"Failed to start process {e.Message}";
+                    return;
+                }
 
                 MonitorStream(process.StandardOutput, _daemonCancel.Token);
-                MonitorStream(process.StandardError, _daemonCancel.Token);
+                MonitorStream(process.StandardError, _daemonCancel.Token, true);
 
                 try
                 {
@@ -457,7 +469,9 @@ public class BoltzDaemon(
                 }
 
                 var wasRunning = Running;
+                AdminClient?.Dispose();
                 AdminClient = null;
+
                 if (process.ExitCode != 0)
                 {
                     Error = $"Process exited with code {process.ExitCode}";
@@ -469,16 +483,15 @@ public class BoltzDaemon(
 
                     if (wasRunning)
                     {
-                        await Task.Delay(5000, _daemonCancel.Token);
+                        logger.LogInformation("Restarting in 10 seconds");
+                        await Task.Delay(10000, _daemonCancel.Token);
                         InitiateStart();
                     }
                 }
-
-                await _daemonCancel.CancelAsync();
-                _daemonCancel = null;
             }, _daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             await Wait(_daemonCancel.Token);
         }
+
         InitialStart.TrySetResult(Running);
     }
 
@@ -492,21 +505,33 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        if (_daemonCancel is not null)
+        if (_daemonTask is not null)
         {
+            var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
             {
-                logger.LogInformation("Stopping gracefully");
-                await AdminClient.Stop();
-                AdminClient.Dispose();
-                AdminClient = null;
+                try
+                {
+                    logger.LogInformation("Stopping gracefully");
+                    await AdminClient.Stop(source.Token);
+                }
+                catch (RpcException)
+                {
+                    logger.LogInformation("Graceful stop timed out, killing client process");
+                    logger.LogInformation(RecentOutput);
+                }
             }
 
-            await _daemonCancel.CancelAsync();
+            if (_daemonCancel is not null)
+            {
+                await _daemonCancel.CancelAsync();
+            }
+
+            await _daemonTask;
         }
     }
 
-    private Process StartProcess(string fileName, string args)
+    private Process NewProcess(string fileName, string args)
     {
         var processStartInfo = new ProcessStartInfo
         {
@@ -517,22 +542,21 @@ public class BoltzDaemon(
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        Process process = new Process { StartInfo = processStartInfo };
-        process.Start();
-        return process;
+        return new Process { StartInfo = processStartInfo };
     }
 
     async Task<(int, string, string)> RunCommand(string fileName, string args,
         CancellationToken cancellationToken = default)
     {
-        using Process process = StartProcess(fileName, args);
+        using Process process = NewProcess(fileName, args);
+        process.Start();
         await process.WaitForExitAsync(cancellationToken);
         var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
         return (process.ExitCode, stdout, stderr);
     }
 
-    private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken)
+    private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken, bool logAll = false)
     {
         Task.Factory.StartNew(async () =>
         {
@@ -547,7 +571,7 @@ public class BoltzDaemon(
                             logger.LogWarning(line);
                         }
 
-                        if (_output.Count >= MaxLogLines)
+                        if (_output.Count >= MaxLogLines && !logAll)
                         {
                             _output.RemoveAt(0);
                         }

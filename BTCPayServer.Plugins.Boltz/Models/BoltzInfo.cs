@@ -68,6 +68,8 @@ public class BoltzInfo
 
     public LightningConfig? Ln { get; set; }
     public ChainConfig? Chain { get; set; }
+
+    public GetSwapInfoResponse? SwapInfo { get; set; }
 }
 
 public class FeesModel
