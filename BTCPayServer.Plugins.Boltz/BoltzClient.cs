@@ -12,6 +12,8 @@ using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
+using Microsoft.Extensions.Logging;
+using NLog;
 using GetInfoResponse = Boltzrpc.GetInfoResponse;
 using ImportWalletRequest = Boltzrpc.ImportWalletRequest;
 using UpdateChainConfigRequest = Autoswaprpc.UpdateChainConfigRequest;
@@ -26,8 +28,9 @@ public class BoltzClient : IDisposable
 
     private static readonly Dictionary<Uri, GrpcChannel> Channels = new();
     private static GetPairsResponse? _pairs;
+    private readonly ILogger<BoltzClient> _logger;
 
-    public BoltzClient(Uri grpcEndpoint, string? macaroon = null, ulong? tenantId = null)
+    public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string? macaroon = null, ulong? tenantId = null)
     {
         var opt = new GrpcChannelOptions
         {
@@ -47,6 +50,7 @@ public class BoltzClient : IDisposable
             Channels.Add(grpcEndpoint, channel);
         }
 
+        _logger = logger;
         _client = new(channel);
         _autoClient = new(channel);
 
@@ -83,9 +87,9 @@ public class BoltzClient : IDisposable
         return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = id }, _metadata);
     }
 
-    public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id)
+    public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id, CancellationToken cancellationToken = default)
     {
-        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata);
+        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata, cancellationToken: cancellationToken);
     }
 
     public async Task<Wallets> GetWallets(bool includeReadonly)
@@ -142,7 +146,7 @@ public class BoltzClient : IDisposable
 
     public async Task<WalletReceiveResponse> WalletReceive(ulong id)
     {
-        return await _client.WalletReceiveAsync(new WalletReceiveRequest{Id = id}, _metadata);
+        return await _client.WalletReceiveAsync(new WalletReceiveRequest { Id = id }, _metadata);
     }
 
     public async Task<GetRecommendationsResponse> GetAutoSwapRecommendations()
@@ -295,12 +299,14 @@ public class BoltzClient : IDisposable
         return await _client.CreateChainSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
-    public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request, CancellationToken cancellation = default)
+    public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request,
+        CancellationToken cancellation = default)
     {
         return await _client.CreateSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
 
-    public async Task<GetSwapInfoResponse> RefundSwap(RefundSwapRequest request, CancellationToken cancellation = default)
+    public async Task<GetSwapInfoResponse> RefundSwap(RefundSwapRequest request,
+        CancellationToken cancellation = default)
     {
         return await _client.RefundSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
     }
@@ -367,11 +373,22 @@ public class BoltzClient : IDisposable
     private async Task InvoiceStream()
     {
         _invoiceStreamCancel = new CancellationTokenSource();
-        using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), _metadata,
-            cancellationToken: _invoiceStreamCancel.Token);
-        while (await stream.ResponseStream.MoveNext())
+        while (!_invoiceStreamCancel.IsCancellationRequested)
         {
-            _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
+            try
+            {
+                using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), _metadata,
+                    cancellationToken: _invoiceStreamCancel.Token);
+                while (await stream.ResponseStream.MoveNext(_invoiceStreamCancel.Token))
+                {
+                    _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error in swap stream");
+                await Task.Delay(3000);
+            }
         }
     }
 

@@ -50,7 +50,7 @@ public class BoltzLightningClient(
     private async Task<BoltzClient> GetClient()
     {
         await daemon.InitialStart.Task;
-        return new(grpcEndpoint, macaroon);
+        return daemon.GetClient(new BoltzSettings { GrpcUrl = grpcEndpoint, Macaroon = macaroon })!;
     }
 
     // TODO
@@ -185,6 +185,7 @@ public class BoltzLightningClient(
         {
             request.DescriptionHash = ByteString.CopyFrom(createInvoiceRequest.DescriptionHash.ToBytes());
         }
+
         var response = await client.CreateReverseSwap(request, cancellation);
 
         return await GetInvoice(response.Id, cancellation);
@@ -325,57 +326,46 @@ public class BoltzLightningClient(
         throw new NotImplementedException();
     }
 
-    public class BoltzInvoiceListener : ILightningInvoiceListener
+    public class BoltzInvoiceListener(BoltzLightningClient boltzLightningClient, CancellationToken cancellationToken)
+        : ILightningInvoiceListener
     {
-        private readonly CancellationToken _cancellationToken;
-        private readonly BoltzLightningClient _boltzLightningClient;
         private BoltzClient? _client;
-
-        public BoltzInvoiceListener(BoltzLightningClient boltzLightningClient, CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-            _boltzLightningClient = boltzLightningClient;
-
-            Task.Run(async () =>
-            {
-                _client = await boltzLightningClient.GetClient();
-                _client.SwapUpdate += OnSwapUpdate;
-            }, _cancellationToken);
-        }
+        private AsyncServerStreamingCall<GetSwapInfoResponse>? _stream;
 
         private readonly ConcurrentQueue<Task<LightningInvoice>> _invoices = new();
 
-        private void OnSwapUpdate(object? sender, GetSwapInfoResponse e)
-        {
-            var reverse = e.ReverseSwap;
-            if (reverse?.State == SwapState.Successful)
-            {
-                _invoices.Enqueue(_boltzLightningClient.GetInvoice(reverse.Id, _cancellationToken));
-            }
-        }
-
         public void Dispose()
         {
-            if (_client is not null)
+            if (_stream is not null)
             {
-                _client.SwapUpdate -= OnSwapUpdate;
+                _stream.Dispose();
             }
         }
 
         public async Task<LightningInvoice> WaitInvoice(CancellationToken cancellation)
         {
-            while (cancellation.IsCancellationRequested is not true)
+            if (_stream is null)
             {
-                if (_invoices.TryDequeue(out var task))
-                {
-                    return await task.WithCancellation(cancellation);
-                }
-
-                await Task.Delay(100, cancellation);
+                _client = await boltzLightningClient.GetClient();
+                _stream = _client.GetSwapInfoStream("");
             }
-
-            cancellation.ThrowIfCancellationRequested();
-            return null;
+            try
+            {
+                while (await _stream.ResponseStream.MoveNext(cancellation))
+                {
+                    var id = _stream.ResponseStream.Current.ReverseSwap?.Id;
+                    if (id != null)
+                    {
+                        return await boltzLightningClient.GetInvoice(id, cancellationToken);
+                    }
+                }
+                throw new Exception("stream ended");
+            }
+            catch (Exception)
+            {
+                _stream = null;
+                throw;
+            }
         }
     }
 }

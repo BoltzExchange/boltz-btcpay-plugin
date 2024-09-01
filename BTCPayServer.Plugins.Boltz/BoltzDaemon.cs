@@ -32,6 +32,7 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzDaemon(
     IOptions<DataDirectories> dataDirectories,
     ILogger<BoltzDaemon> logger,
+    ILogger<BoltzClient> clientLogger,
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
@@ -78,6 +79,29 @@ public class BoltzDaemon(
         _ => throw new NotSupportedException("Unsupported architecture")
     };
 
+    private CancellationTokenSource _invoiceStreamCancel = new();
+
+    private async Task SwapUpdateStream()
+    {
+        _invoiceStreamCancel = new CancellationTokenSource();
+        while (!_invoiceStreamCancel.IsCancellationRequested)
+        {
+            try
+            {
+                var stream = AdminClient!.GetSwapInfoStream("", _invoiceStreamCancel.Token);
+                while (await stream.ResponseStream.MoveNext(_invoiceStreamCancel.Token))
+                {
+                    SwapUpdate?.Invoke(this, stream.ResponseStream.Current);
+                }
+            }
+            catch (Exception e) when (!_invoiceStreamCancel.IsCancellationRequested)
+            {
+                logger.LogError(e, "Error in swap stream");
+                await Task.Delay(3000, _invoiceStreamCancel.Token);
+            }
+        }
+    }
+
     public async Task Wait(CancellationToken cancellationToken)
     {
         try
@@ -92,7 +116,7 @@ public class BoltzDaemon(
 
             var reader = await File.ReadAllBytesAsync(path, cancellationToken);
             AdminMacaroon = Convert.ToHexString(reader).ToLower();
-            var client = new BoltzClient(_defaultUri, AdminMacaroon);
+            var client = new BoltzClient(clientLogger, _defaultUri, AdminMacaroon);
 
             while (true)
             {
@@ -101,6 +125,7 @@ public class BoltzDaemon(
                     var info = await client.GetInfo(cancellationToken);
                     logger.LogInformation("Running");
                     AdminClient = client;
+                    _ = SwapUpdateStream();
                     AdminClient.SwapUpdate += SwapUpdate;
                     CurrentVersion = info.Version.Split("-").First();
                     Error = null;
@@ -488,8 +513,12 @@ public class BoltzDaemon(
                         InitiateStart();
                     }
                 }
+
+                await _daemonCancel.CancelAsync();
             }, _daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            await Wait(_daemonCancel.Token);
+            var wait = CancellationTokenSource.CreateLinkedTokenSource(_daemonCancel.Token);
+            wait.CancelAfter(TimeSpan.FromSeconds(60));
+            await Wait(wait.Token);
         }
 
         InitialStart.TrySetResult(Running);
@@ -507,6 +536,8 @@ public class BoltzDaemon(
     {
         if (_daemonTask is not null)
         {
+            await _invoiceStreamCancel.CancelAsync();
+
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
             {
@@ -519,12 +550,11 @@ public class BoltzDaemon(
                 {
                     logger.LogInformation("Graceful stop timed out, killing client process");
                     logger.LogInformation(RecentOutput);
+                    if (_daemonCancel is not null)
+                    {
+                        await _daemonCancel.CancelAsync();
+                    }
                 }
-            }
-
-            if (_daemonCancel is not null)
-            {
-                await _daemonCancel.CancelAsync();
             }
 
             await _daemonTask;
@@ -540,8 +570,9 @@ public class BoltzDaemon(
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
         };
+        //processStartInfo.EnvironmentVariables.Add("GRPC_GO_LOG_VERBOSITY_LEVEL", "99");
+        //processStartInfo.EnvironmentVariables.Add("GRPC_GO_LOG_SEVERITY_LEVEL", "info");
         return new Process { StartInfo = processStartInfo };
     }
 
@@ -587,7 +618,7 @@ public class BoltzDaemon(
     {
         if (settings is null) return null;
         return settings.CredentialsPopulated() && (settings.GrpcUrl != _defaultUri || Running)
-            ? new BoltzClient(settings.GrpcUrl!, settings.Macaroon!)
+            ? new BoltzClient(clientLogger, settings.GrpcUrl!, settings.Macaroon!)
             : null;
     }
 }

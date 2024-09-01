@@ -24,9 +24,9 @@
 else
 {
     <div class="d-grid gap-3">
-        @if (settings?.Mode == BoltzMode.Standalone)
+        @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null)
         {
-            var stats = BoltzClient.ParseStats(Model.Stats!);
+            var stats = BoltzClient.ParseStats(Model.Stats);
 
             var balance = Model.StandaloneWallet?.Balance;
             var walletId = Model.StandaloneWallet?.Id;
