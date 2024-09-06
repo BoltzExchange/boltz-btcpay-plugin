@@ -44,7 +44,7 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
-            InvoiceRepository invoiceRepository,
+    InvoiceRepository invoiceRepository,
     BTCPayNetworkProvider btcPayNetworkProvider)
     : Controller
 {
@@ -207,6 +207,12 @@ public class BoltzController(
             {
                 vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
             }
+
+            var chainConfig = await Boltz.GetChainConfig();
+            if (chainConfig != null)
+            {
+                vm.ReserveBalance = chainConfig.ReserveBalance;
+            }
         }
         catch (RpcException)
         {
@@ -223,6 +229,7 @@ public class BoltzController(
         {
             return RedirectSetup();
         }
+
         try
         {
             var creds = await Boltz.GetWalletCredentials(walletId);
@@ -231,10 +238,11 @@ public class BoltzController(
                 TempData[WellKnownTempData.ErrorMessage] = "Wallet credentials not available";
                 return RedirectToAction(nameof(Status), new { storeId, walletId });
             }
+
             return this.RedirectToRecoverySeedBackup(new RecoverySeedBackupViewModel
             {
                 Mnemonic = creds.Mnemonic,
-                ReturnUrl = Url.Action(nameof(Status), new {storeId}),
+                ReturnUrl = Url.Action(nameof(Status), new { storeId }),
                 IsStored = true,
                 RequireConfirm = false,
             });

@@ -19,6 +19,7 @@ public class WalletSendModel
     public string? Destination { get; set; }
     public ulong? Amount { get; set; }
     public double? FeeRate { get; set; }
+    public ulong ReserveBalance { get; set; } = 0;
 
     public string? TransactionId { get; set; }
     public GetSwapInfoResponse? SwapInfo { get; set; }

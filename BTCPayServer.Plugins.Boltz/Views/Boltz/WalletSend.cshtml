@@ -85,6 +85,20 @@ else
                 const formData = new FormData(e.currentTarget)
                 update(formData.get('SendType'))
             })
+
+            $(".crypto-fee-link").on("click", function (elem) {
+                $(this).parent().children().removeClass("active");
+                const val = $(this).addClass("active").val();
+                $("#FeeSatoshiPerByte").val(val);
+                return false;
+            });
+
+            $(".crypto-balance-link").on("click", function (elem) {
+                const val = $(this).text();
+                const parentContainer = $(this).parents(".form-group");
+                const outputAmountElement = parentContainer.find("#Amount");
+                outputAmountElement.val(val);
+            });
         })
     </script>
     }
@@ -94,11 +108,18 @@ else
             @foreach (var sendType in Enum.GetValues(typeof(SendType)).Cast<SendType>())
             {
                 var enabled = Model.SendType == sendType;
+                var name = sendType switch
+                {
+                    SendType.Native => BoltzClient.CurrencyName(pair.From),
+                    SendType.Lightning => "Lightning",
+                    SendType.Chain => BoltzClient.CurrencyName(pair.To),
+                    _ => throw new ArgumentOutOfRangeException()
+                };
                 <input
                     asp-for="SendType" value="@sendType" type="radio"
                     id="SendType-@sendType" data-bs-toggle="pill" data-bs-target="#@sendType" role="tab"
                     aria-controls="@sendType" aria-selected="@enabled" class="@(enabled ? "active" : "")"/>
-                <label for="SendType-@sendType">@sendType</label>
+                <label for="SendType-@sendType">@name</label>
             }
         </div>
 
@@ -125,7 +146,12 @@ else
             <label asp-for="Amount" class="form-label">Amount (satoshi)</label>
             <input id="Amount" asp-for="Amount" type="number" placeholder="How much to send" class="form-control"/>
             <span asp-validation-for="Amount" class="text-danger"></span>
+            <div class="form-text crypto-info">
+                Max send (@Model.ReserveBalance sats reverse) is
+                <button type="button" class="crypto-balance-link btn btn-link p-0 align-baseline">@(balance - Model.ReserveBalance)</button> <span>sats</span>.
+            </div>
         </div>
+
 
         <button type="submit" class="btn btn-success">
             Send
