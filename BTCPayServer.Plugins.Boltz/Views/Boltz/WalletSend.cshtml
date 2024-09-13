@@ -150,7 +150,7 @@ else
             <input id="Amount" asp-for="Amount" type="number" placeholder="How much to send" class="form-control"/>
             <span asp-validation-for="Amount" class="text-danger"></span>
             <div class="form-text crypto-info">
-                Max send (@Model.ReserveBalance sats reverse) is
+                Max send (@Model.ReserveBalance sats reserve) is
                 <button type="button" class="crypto-balance-link btn btn-link p-0 align-baseline">@maxSend</button> <span>sats</span>.
             </div>
         </div>
