@@ -48,6 +48,7 @@ else
 {
     var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Submarine))!;
     var chainInfo = (await BoltzService.GetPairInfo(pair, SwapType.Chain))!;
+    var maxSend = Math.Max((long)(balance - Model.ReserveBalance), 0);
     lnInfo.Limits.Maximal = Math.Min(lnInfo.Limits.Maximal, balance);
     chainInfo.Limits.Maximal = Math.Min(chainInfo.Limits.Maximal, balance);
 
@@ -150,7 +151,7 @@ else
             <span asp-validation-for="Amount" class="text-danger"></span>
             <div class="form-text crypto-info">
                 Max send (@Model.ReserveBalance sats reverse) is
-                <button type="button" class="crypto-balance-link btn btn-link p-0 align-baseline">@(balance - Model.ReserveBalance)</button> <span>sats</span>.
+                <button type="button" class="crypto-balance-link btn btn-link p-0 align-baseline">@maxSend</button> <span>sats</span>.
             </div>
         </div>
 
