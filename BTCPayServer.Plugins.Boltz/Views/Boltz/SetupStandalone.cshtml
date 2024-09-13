@@ -15,12 +15,12 @@
 </p>
 
 <div>
-    <h4>Current Pair Info</h4>
+    <h4>Fees and Amounts</h4>
     <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
 </div>
 
 <p class="text-secondary my-3">
-    Note: Boltz swaps are non-custodial, but the Liquid Network is run a by a federation and requires trusting the entities in the federation to guard L-BTC, the Liquid representation of Bitcoin. Learn more about the Liquid network here.
+    Note: Boltz swaps are non-custodial, but the Liquid Network is run a by a federation and requires trusting the entities in the federation to guard L-BTC, the Liquid representation of Bitcoin. Learn more about the Liquid network <a href="https://liquid.net/" target="_blank">here</a>.
 </p>
 
 <a asp-controller="Boltz" asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Standalone" class="btn btn-success">
