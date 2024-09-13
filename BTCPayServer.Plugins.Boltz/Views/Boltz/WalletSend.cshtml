@@ -12,7 +12,9 @@
 @{
     Layout = "_LayoutSetup";
     var currency = Model.Wallet.Currency;
-    ViewData["Title"] = $"Send From {BoltzClient.CurrencyName(currency)} Wallet";
+    var currencyName = BoltzClient.CurrencyName(currency);
+    var pair = new Pair { From = currency, To = Currency.Btc };
+    ViewData["Title"] = $"Send From {currencyName} Wallet";
     var balance = Model.Wallet.Balance.Confirmed;
 }
 
@@ -22,6 +24,7 @@
 }
 else if (balance == 0)
 {
+    ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(pair.To)} to swap out of your {currencyName} wallet";
     <div class="alert alert-warning">
         You have no confirmed balance in your wallet
     </div>
@@ -43,7 +46,6 @@ else if (Model.TransactionId != null)
 }
 else
 {
-    var pair = new Pair { From = currency, To = Currency.Btc };
     var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Submarine))!;
     var chainInfo = (await BoltzService.GetPairInfo(pair, SwapType.Chain))!;
     lnInfo.Limits.Maximal = Math.Min(lnInfo.Limits.Maximal, balance);

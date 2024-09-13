@@ -45,8 +45,8 @@ else
                     <h5 class="mb-0">Wallet</h5>
                     <partial name="Boltz/_Stats" model="stats"/>
                     <div class="btn-group gap-0">
-                        <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive</a>
-                        <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(balance?.Confirmed == 0 ? "disabled" : "")">Send</a>
+                        <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive / Swap In</a>
+                        <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(balance?.Confirmed == 0 ? "disabled" : "")">Send / Swap Out</a>
                         <a asp-action="WalletCredentials" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Show seed</a>
                     </div>
                 </div>
@@ -116,63 +116,6 @@ else
                     <div>
                         <h5>Swap Info</h5>
                         <partial name="Boltz/_Fees" model="fees"/>
-                    </div>
-                </div>
-            }
-        }
-
-        @if (Model.Swaps is not null)
-        {
-            var swaps = Model.Swaps;
-            var reverseSwaps = swaps.ReverseSwaps.ToList()
-                .Select(info => (info.Id, Type: SwapType.Reverse, info.Pair, info.State, info.Status, Amount: (ulong)info.OnchainAmount, info.CreatedAt)).ToList();
-            var normal = swaps.Swaps.ToList()
-                .Select(info => (info.Id, Type: SwapType.Submarine, info.Pair, info.State, info.Status, Amount: info.ExpectedAmount, info.CreatedAt));
-            var chain = swaps.ChainSwaps.ToList()
-                .Select(info => (info.Id, Type: SwapType.Chain, info.Pair, info.State, info.Status, info.FromData.Amount, info.CreatedAt));
-            reverseSwaps.AddRange(normal);
-            reverseSwaps.AddRange(chain);
-            reverseSwaps.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
-
-            @if (reverseSwaps.Count > 0)
-            {
-                <div class="widget">
-                    <h4>Swaps</h4>
-                    <div class="table-responsive my-0">
-                        <table class="table table-hover my-0">
-                            <thead>
-                            <tr>
-                                <th class="text-nowrap">ID</th>
-                                <th>Type</th>
-                                <th>From</th>
-                                <th>To</th>
-                                <th>Date</th>
-                                <th>State</th>
-                                <th class="text-nowrap">Status</th>
-                                <th>Amount</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            @foreach (var payment in reverseSwaps)
-                            {
-                                <tr>
-                                    <td>
-                                        <a asp-action="Status" asp-controller="Boltz" asp-route-storeId="@storeId" asp-route-swapId="@payment.Id">
-                                            @payment.Id
-                                        </a>
-                                    </td>
-                                    <td>@payment.Type</td>
-                                    <td>@BoltzClient.CurrencyName(payment.Pair.From)</td>
-                                    <td>@BoltzClient.CurrencyName(payment.Pair.To)</td>
-                                    <td>@(DateTimeOffset.FromUnixTimeSeconds(payment.CreatedAt).ToBrowserDate())</td>
-                                    <td>@payment.State</td>
-                                    <td>@payment.Status</td>
-                                    <td>@payment.Amount</td>
-                                </tr>
-                            }
-
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             }

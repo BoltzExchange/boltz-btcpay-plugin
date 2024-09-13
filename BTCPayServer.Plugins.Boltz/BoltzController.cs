@@ -110,8 +110,7 @@ public class BoltzController(
 
     // GET
     [HttpGet("status")]
-    [HttpGet("status/swap/{swapId}")]
-    public async Task<IActionResult> Status(string storeId, string swapId)
+    public async Task<IActionResult> Status(string storeId)
     {
         ClearSetup();
         if (!Configured || Boltz is null)
@@ -123,27 +122,18 @@ public class BoltzController(
         var data = new BoltzInfo();
         try
         {
-            if (!string.IsNullOrEmpty(swapId))
+            data.Info = await Boltz.GetInfo();
+            data.Stats = await Boltz.GetStats();
+            if (Settings?.Mode == BoltzMode.Standalone)
             {
-                //invoiceRepository.GetInvoices()
-                data.SwapInfo = await Boltz.GetSwapInfo(swapId);
+                data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
             }
-            else
-            {
-                data.Info = await Boltz.GetInfo();
-                data.Swaps = await Boltz.ListSwaps();
-                data.Stats = await Boltz.GetStats();
-                if (Settings?.Mode == BoltzMode.Standalone)
-                {
-                    data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
-                }
 
-                (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
-                if (data.Ln is not null || data.Chain is not null)
-                {
-                    data.Status = await Boltz.GetAutoSwapStatus();
-                    data.Recommendations = await Boltz.GetAutoSwapRecommendations();
-                }
+            (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
+            if (data.Ln is not null || data.Chain is not null)
+            {
+                data.Status = await Boltz.GetAutoSwapStatus();
+                data.Recommendations = await Boltz.GetAutoSwapRecommendations();
             }
         }
         catch (RpcException e)
@@ -152,6 +142,39 @@ public class BoltzController(
         }
 
         return View(data);
+    }
+
+    [HttpGet("swaps/{swapId?}")]
+    public async Task<IActionResult> Swaps(SwapsModel vm, string? swapId)
+    {
+        ClearSetup();
+        if (!Configured || Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            if (!string.IsNullOrEmpty(swapId))
+            {
+                vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
+            }
+            else
+            {
+                vm.Swaps = await Boltz.ListSwaps(new ListSwapsRequest
+                {
+                    Limit = (ulong)vm.Count,
+                    Offset = (ulong)vm.Skip,
+                    Unify = true,
+                });
+            }
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+        }
+
+        return View(vm);
     }
 
 

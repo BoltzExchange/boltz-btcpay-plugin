@@ -19,6 +19,7 @@
         <nav id="SectionNav">
             <div class="nav">
                 <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" asp-route-swapId="" class="nav-link @ViewData.IsActivePage("Boltz", null, "Status")">Status</a>
+                <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Swaps" asp-route-storeId="@storeId" asp-route-swapId="" class="nav-link @ViewData.IsActivePage("Boltz", null, "Swaps")">Swaps</a>
                 <a permission="@Policies.CanViewStoreSettings" asp-controller="Boltz" asp-action="Configuration" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Configuration")">Configuration</a>
                 <a permission="@Policies.CanModifyServerSettings" asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@storeId" class="nav-link @ViewData.IsActivePage("Boltz", null, "Admin")">Admin</a>
             </div>

@@ -1,0 +1,71 @@
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Models
+@using BTCPayServer.Security
+@using Boltzrpc
+@model BTCPayServer.Plugins.Boltz.Models.SwapsModel
+@inject BoltzService BoltzService
+@{
+    ViewData.SetActivePage("Boltz", "Swaps", "Swaps");
+
+    var storeId = Context.GetImplicitStoreId();
+}
+
+@if (Model.SwapInfo != null)
+{
+    var type = Model.SwapInfo.ChainSwap != null ? SwapType.Chain : Model.SwapInfo.ReverseSwap != null ? SwapType.Reverse : SwapType.Submarine;
+    ViewData["Title"] = $"{type} Swap";
+    <h3 class="text-center mx-auto">@ViewData["Title"]</h3>
+    <partial name="_SwapInfoPartial" model="Model.SwapInfo"/>
+}
+else if (Model.Swaps is not null)
+{
+    var reverseSwaps = Model.Swaps.AllSwaps;
+    <h4>Swaps</h4>
+    @if (reverseSwaps.Count > 0)
+    {
+        <div class="table-responsive my-0">
+            <table class="table table-hover my-0">
+                <thead>
+                <tr>
+                    <th class="text-nowrap">ID</th>
+                    <th>Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Date</th>
+                    <th>State</th>
+                    <th class="text-nowrap">Status</th>
+                    <th>Amount</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var payment in reverseSwaps)
+                {
+                    <tr>
+                        <td>
+                            <a asp-action="Swaps" asp-controller="Boltz" asp-route-storeId="@storeId" asp-route-swapId="@payment.Id">
+                                @payment.Id
+                            </a>
+                        </td>
+                        <td>@payment.Type</td>
+                        <td>@BoltzClient.CurrencyName(payment.Pair.From)</td>
+                        <td>@BoltzClient.CurrencyName(payment.Pair.To)</td>
+                        <td>@(DateTimeOffset.FromUnixTimeSeconds(payment.CreatedAt).ToBrowserDate())</td>
+                        <td>@payment.State</td>
+                        <td>@payment.Status</td>
+                        <td>@payment.FromAmount</td>
+                    </tr>
+                }
+
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="text-secondary mt-3">
+            There are no swaps.
+        </p>
+    }
+
+    <vc:pager view-model="Model"/>
+}

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Autoswaprpc;
 using Boltzrpc;
+using BTCPayServer.Models;
 using BTCPayServer.Models.ServerViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -70,6 +71,13 @@ public class BoltzInfo
     public ChainConfig? Chain { get; set; }
 
     public GetSwapInfoResponse? SwapInfo { get; set; }
+}
+
+public class SwapsModel : BasePagingViewModel
+{
+    public ListSwapsResponse? Swaps { get; set; }
+    public GetSwapInfoResponse? SwapInfo { get; set; }
+    public override int CurrentPageCount => Swaps?.AllSwaps.Count ?? 0;
 }
 
 public class FeesModel
