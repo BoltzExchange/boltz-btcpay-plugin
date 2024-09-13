@@ -181,7 +181,7 @@
         {
             instruction = "Waiting for confirmation of Boltz lockup transaction";
             transaction = swap.ToData.LockupTransactionId;
-            transactionCurrency = swap.Pair.From;
+            transactionCurrency = swap.Pair.To;
         }
 
         if (swap.Status == "transaction.claimed")
