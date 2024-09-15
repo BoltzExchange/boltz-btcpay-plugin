@@ -7,9 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
+using BTCPayServer.Client.Models;
 using BTCPayServer.Common;
 using BTCPayServer.Configuration;
 using BTCPayServer.Data;
+using BTCPayServer.Data.Payouts.LightningLike;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
@@ -25,6 +27,10 @@ using Microsoft.Extensions.Options;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using NBitcoin.Altcoins.Elements;
+using Newtonsoft.Json.Linq;
+using MarkPayoutRequest = BTCPayServer.HostedServices.MarkPayoutRequest;
+using PullPaymentHostedService = BTCPayServer.HostedServices.PullPaymentHostedService;
+using StoreData = BTCPayServer.Data.StoreData;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -37,7 +43,10 @@ public class BoltzService(
     IOptions<LightningNetworkOptions> lightningNetworkOptions,
     IOptions<ExternalServicesOptions> externalServiceOptions,
     BoltzDaemon daemon,
-    TransactionLinkProviders transactionLinkProviders
+    TransactionLinkProviders transactionLinkProviders,
+    PullPaymentHostedService pullPaymentHostedService,
+    BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
+    LightningLikePayoutHandler lightningLikePayoutHandler
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
@@ -109,13 +118,19 @@ public class BoltzService(
 
     private async Task OnSwap(GetSwapInfoResponse swap)
     {
-        if (swap.ChainSwap is null && swap.ReverseSwap is null) return;
+        if (swap is { ChainSwap: not null, ReverseSwap: not null })
+        {
+            var status = swap.ReverseSwap?.Status ?? swap.ChainSwap!.Status;
+            var isAuto = swap.ReverseSwap?.IsAuto ?? swap.ChainSwap!.IsAuto;
+            if (status != "swap.created" || !isAuto) return;
+        }
 
-        var status = swap.ReverseSwap?.Status ?? swap.ChainSwap!.Status;
-        var isAuto = swap.ReverseSwap?.IsAuto ?? swap.ChainSwap!.IsAuto;
-        if (status != "swap.created" || !isAuto) return;
+        if (swap.Swap is not null && swap.Swap.State != SwapState.Successful)
+        {
+            return;
+        }
 
-        var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap!.TenantId;
+        var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap?.TenantId ?? swap.Swap!.TenantId;
         var found = _settings?.ToList()
             .Find(pair => pair.Value.ActualTenantId == tenantId);
         if (found is null) return;
@@ -125,6 +140,38 @@ public class BoltzService(
         {
             logger.LogError("Could not find store {storeId}", found.Value.Key);
             return;
+        }
+
+        if (swap.Swap is not null)
+        {
+            var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
+            {
+                States = [PayoutState.InProgress],
+                Stores = [store.Id]
+            });
+            foreach (var payout in payouts)
+            {
+                if (payout.GetBlob(jsonSerializerSettings).Destination == swap.Swap.Invoice)
+                {
+                    var proof = lightningLikePayoutHandler.ParseProof(payout) as PayoutLightningBlob;
+                    if (proof != null)
+                    {
+                        proof.Preimage = swap.Swap.Preimage;
+                        payout.SetProofBlob(proof, null);
+                        await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
+                        {
+                            PayoutId = payout.Id, State = PayoutState.Completed,
+                            Proof = payout.GetProofBlobJson(),
+                        });
+                    }
+
+                    switch (proof)
+                    {
+                        case PayoutLightningBlob payoutLightningBlob:
+                            break;
+                    }
+                }
+            }
         }
 
         var client = daemon.GetClient(found.Value.Value)!;

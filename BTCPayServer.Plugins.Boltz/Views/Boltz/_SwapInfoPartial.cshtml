@@ -196,7 +196,7 @@
     {
         var swap = Model.Swap!;
 
-        if (swap.Status == "swap.created")
+        if (swap.Status == "swap.created" || swap.Status == "invoice.set")
         {
             if (swap.HasWalletId)
             {

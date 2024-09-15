@@ -251,15 +251,14 @@ public class BoltzLightningClient(
         }
 
         var client = await GetClient();
+        var wallet = await client.GetWallet(walletId);
         var response = await client.CreateSwap(new CreateSwapRequest
         {
             Invoice = bolt11,
-            SendFromInternal = true,
+            SendFromInternal = !wallet.Readonly,
             WalletId = walletId,
             Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
         }, cancellation);
-        var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        cancellation.Register(source.Cancel);
         var payDetails = new PayDetails
         {
             TotalAmount = invoice.MinimumAmount,
@@ -267,6 +266,13 @@ public class BoltzLightningClient(
             FeeAmount = LightMoney.Satoshis(response.ExpectedAmount) - invoice.MinimumAmount,
             PaymentHash = invoice.PaymentHash
         };
+        if (wallet.Readonly)
+        {
+            var message = $"wallet is readonly. manual funding required: {response.Bip21}";
+            return new PayResponse(PayResult.Ok, payDetails);
+        }
+        var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        cancellation.Register(source.Cancel);
         try
         {
             using var stream = client.GetSwapInfoStream(response.Id);

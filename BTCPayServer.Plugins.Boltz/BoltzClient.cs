@@ -30,7 +30,7 @@ public class BoltzClient : IDisposable
     private static GetPairsResponse? _pairs;
     private readonly ILogger<BoltzClient> _logger;
 
-    public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string? macaroon = null, ulong? tenantId = null)
+    public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string? macaroon = null, string? tenant = null)
     {
         var opt = new GrpcChannelOptions
         {
@@ -60,9 +60,9 @@ public class BoltzClient : IDisposable
             _metadata.Add("macaroon", macaroon);
         }
 
-        if (tenantId is not null)
+        if (tenant is not null)
         {
-            _metadata.Add("tenant", tenantId.Value.ToString());
+            _metadata.Add("tenant", tenant);
         }
     }
 

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Boltzrpc;
 using BTCPayServer.Configuration;
+using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Lightning.CLightning;
 using BTCPayServer.Lightning.LND;
@@ -116,7 +117,7 @@ public class BoltzDaemon(
 
             var reader = await File.ReadAllBytesAsync(path, cancellationToken);
             AdminMacaroon = Convert.ToHexString(reader).ToLower();
-            var client = new BoltzClient(clientLogger, _defaultUri, AdminMacaroon);
+            var client = new BoltzClient(clientLogger, _defaultUri, AdminMacaroon, "all");
 
             while (true)
             {
@@ -126,7 +127,6 @@ public class BoltzDaemon(
                     logger.LogInformation("Running");
                     AdminClient = client;
                     _ = SwapUpdateStream();
-                    AdminClient.SwapUpdate += SwapUpdate;
                     CurrentVersion = info.Version.Split("-").First();
                     Error = null;
                     return;

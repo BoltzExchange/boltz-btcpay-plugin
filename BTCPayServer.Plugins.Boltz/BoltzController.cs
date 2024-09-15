@@ -13,6 +13,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using BTCPayServer.Abstractions.Extensions;
+using BTCPayServer.HostedServices;
 using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
@@ -45,7 +46,8 @@ public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
     InvoiceRepository invoiceRepository,
-    BTCPayNetworkProvider btcPayNetworkProvider)
+    BTCPayNetworkProvider btcPayNetworkProvider
+    )
     : Controller
 {
     private BoltzClient? Boltz => boltzDaemon.GetClient(Settings);
