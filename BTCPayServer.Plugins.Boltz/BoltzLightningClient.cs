@@ -266,6 +266,11 @@ public class BoltzLightningClient(
             FeeAmount = LightMoney.Satoshis(response.ExpectedAmount) - invoice.MinimumAmount,
             PaymentHash = invoice.PaymentHash
         };
+        // swap was paid directly via onchain (magic routing hint)
+        if (response.Id == "")
+        {
+            return new PayResponse(PayResult.Ok, payDetails);
+        }
         if (wallet.Readonly)
         {
             var message = $"wallet is readonly. manual funding required: {response.Bip21}";
@@ -282,6 +287,7 @@ public class BoltzLightningClient(
                 if (swap.State == SwapState.Successful)
                 {
                     payDetails.Status = LightningPaymentStatus.Complete;
+                    payDetails.Preimage = uint256.Parse(swap.Preimage);
                     return new PayResponse(PayResult.Ok, payDetails);
                 }
 
