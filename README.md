@@ -1,50 +1,14 @@
 # BTCPay Server Boltz Plugin
 
-## Regtest setup
+[BTCPayServer](https://github.com/btcpayserver/btcpayserver) Plugin for [boltz](https://boltz.exchange). Docs are available at
 
-You will need to setup https://github.com/BoltzExchange/regtest first.
+## Documentation
 
-Then, clone this repository and build the plugin
+The official documentation is available [here](https://docs.boltz.exchange/v/boltz-client/).
 
-```
-git clone https://github.com/jackstar12/btcpayserver-boltz --recurse-submodules
-cd btcpayserver-boltz/
-dotnet build BTCPayServer.Plugins.Boltz
-```
+## Resources
 
-Then exit the directory and setup BTCPayServer
-
-```
-git clone https://github.com/btcpayserver/btcpayserver
-cd btcpayserver
-bash -c "cd BTCPayServer.Tests && docker compose -p btcpay up -d dev"
-cd BTCPayServer
-echo "{
-   "DEBUG_PLUGINS": "/home/jacksn/dev/btcpayserver-boltz/BTCPayServer.Plugins.Boltz/bin/Debug/net8.0/BTCPayServer.Plugins.Boltz.dll"
-}" > appsettings.dev.json
-dotnet run --launch-profile Bitcoin -c Debug
-```
-
-Where `/home/jacksn/dev/btcpayserver-boltz` is the path to this repository.
-
-You might have to update the client binaries to latest master.
-
-```
-git clone https://github.com/BoltzExchange/boltz-client
-cd boltz-client
-make
-cp ./boltzd ./boltzcli ~/.btcpayserver/RegTest/LocalStorage/Boltz/bin/linux_amd64/
-```
-
-If you want to run against a local lightning node from your btcpayserver repository.
-
-```
-cd BTCPayServer/Properties
-nano launchsettings.json
-```
-
-In the launchsettings, change the `BTCPAY_BTCLIGHTNING` entry to
-
-`type=clightning;server=unix://home/jacksn/regtest/data/cln1/regtest/lightning-rpc`
-
-Where `/home/jacksn/regtest` is the path of your https://github.com/BoltzExchange/regtest repository.
+- Get Help: [Discord](https://discord.gg/QBvZGcW)
+- Read our Blog: [Substack](https://blog.boltz.exchange/)
+- Follow us: [X/Twitter](https://twitter.com/Boltzhq) | [Nostr](https://snort.social/p/npub1psm37hke2pmxzdzraqe3cjmqs28dv77da74pdx8mtn5a0vegtlas9q8970)
+- Open a channel with us: [CLN](https://amboss.space/node/02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018) | [LND](https://amboss.space/node/026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2)&#x20;
