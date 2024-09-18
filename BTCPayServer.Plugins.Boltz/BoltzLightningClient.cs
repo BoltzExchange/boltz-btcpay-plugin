@@ -10,8 +10,6 @@ using Boltzrpc;
 using BTCPayServer.Lightning;
 using Google.Protobuf;
 using Grpc.Core;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.JsonPatch.Operations;
 using NBitcoin;
 using Newtonsoft.Json;
 using LightningChannel = BTCPayServer.Lightning.LightningChannel;
@@ -343,8 +341,6 @@ public class BoltzLightningClient(
     {
         private BoltzClient? _client;
         private AsyncServerStreamingCall<GetSwapInfoResponse>? _stream;
-
-        private readonly ConcurrentQueue<Task<LightningInvoice>> _invoices = new();
 
         public void Dispose()
         {

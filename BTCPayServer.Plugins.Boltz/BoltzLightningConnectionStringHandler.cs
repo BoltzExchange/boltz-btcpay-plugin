@@ -2,11 +2,13 @@
 using BTCPayServer.Lightning;
 using System;
 using System.Linq;
+using BTCPayServer.HostedServices;
 using Network = NBitcoin.Network;
 
 namespace BTCPayServer.Plugins.Boltz;
 
 public class BoltzLightningConnectionStringHandler(BoltzDaemon daemon) : ILightningConnectionStringHandler
+
 {
     public ILightningClient? Create(string connectionString, Network network, out string? error)
     {

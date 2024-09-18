@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
+using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Client.Models;
 using BTCPayServer.Common;
 using BTCPayServer.Configuration;
@@ -16,11 +17,11 @@ using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
+using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
-using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -48,7 +49,7 @@ public class BoltzService(
     BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
     LightningLikePayoutHandler lightningLikePayoutHandler
 )
-    : EventHostedServiceBase(eventAggregator, logger)
+    : EventHostedServiceBase(eventAggregator, logger), IPluginHookAction
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
@@ -396,4 +397,24 @@ public class BoltzService(
         new() { Name = "Min Amount", Value = pairInfo.Limits.Minimal, Unit = Unit.Sat },
         new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
     ];
+
+    public async Task Execute(object args)
+    {
+        var data = (BeforePayoutActionData)args;
+        foreach (var payout in data.Payouts)
+        {
+            // cancel 0 amount invoice
+            var bolt11 = payout.GetBlob(jsonSerializerSettings).Destination;
+            var invoice = BOLT11PaymentRequest.Parse(bolt11, BtcNetwork.NBitcoinNetwork);
+            if (invoice.MinimumAmount == 0)
+            {
+                await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
+                {
+                    PayoutId = payout.Id, State = PayoutState.Cancelled,
+                });
+            }
+        }
+    }
+
+    public string Hook => "before-automated-payout-processing";
 }
