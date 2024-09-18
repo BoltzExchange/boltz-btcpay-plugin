@@ -4,39 +4,25 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
 using BTCPayServer.Data;
-using System.IO;
-using System.Net;
 using System.Threading;
-using BTCPayServer.Abstractions.Extensions;
-using BTCPayServer.HostedServices;
 using BTCPayServer.Models.StoreViewModels;
-using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services.Invoices;
-using Google.Apis.Util;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Mvc.ViewEngines;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using Microsoft.Extensions.DependencyInjection;
 using NBitcoin;
 using Newtonsoft.Json;
 using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.AuthenticationSchemes;
 using ChainConfig = Autoswaprpc.ChainConfig;
 using LightningConfig = Autoswaprpc.LightningConfig;
 using RpcException = Grpc.Core.RpcException;
-using StringWriter = System.IO.StringWriter;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -443,7 +429,7 @@ public class BoltzController(
                 var info = await Boltz.GetSwapInfo(id);
                 return View(info);
             }
-            catch (RpcException e)
+            catch (RpcException)
             {
                 return NotFound();
             }

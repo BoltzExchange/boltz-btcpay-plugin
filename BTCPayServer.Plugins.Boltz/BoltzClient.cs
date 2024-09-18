@@ -402,12 +402,12 @@ public class BoltzClient : IDisposable
 
     public static List<Stat> ParseStats(SwapStats stats)
     {
-        return new List<Stat>
-        {
+        return
+        [
             new() { Name = "Fees", Value = stats.TotalFees, Unit = Unit.Sat },
             new() { Name = "Swap Volume", Value = stats.TotalAmount, Unit = Unit.Sat },
             new() { Name = "Successful Swap Count", Value = stats.SuccessCount, Unit = Unit.None }
-        };
+        ];
     }
 
     public static string CurrencyName(Currency currency)

@@ -1,12 +1,9 @@
-using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Abstractions.Services;
 using BTCPayServer.Hosting;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
-using BTCPayServer.Plugins.Boltz;
-using BTCPayServer.Plugins.Boltz.Services;
 using BTCPayServer.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

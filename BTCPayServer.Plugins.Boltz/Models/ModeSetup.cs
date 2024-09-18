@@ -5,7 +5,6 @@ using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Data;
 using BTCPayServer.Payments.Lightning;
-using Google.Protobuf.Collections;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
 
