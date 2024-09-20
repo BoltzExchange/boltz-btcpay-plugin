@@ -364,6 +364,7 @@ public class BoltzDaemon(
                     path = "/" + Path.Combine(split.Take(split.Length - 2).ToArray());
 
                     return $"""
+                            node = "cln"
                             {shared}
 
                             [CLN]
@@ -378,17 +379,37 @@ public class BoltzDaemon(
             case LndClient lnd:
                 var url = new Uri(lnd.SwaggerClient.BaseUrl);
                 var kv = LightningConnectionStringHelper.ExtractValues(lnd.ToString(), out _);
-                if (!kv.TryGetValue("macaroon", out var macaroon))
+                if (!kv.TryGetValue("macaroonfilepath", out var macaroon))
                 {
+                    if (!kv.TryGetValue("macaroon", out macaroon))
+                    {
+                        throw new Exception("No macaroon found in lnd connection string");
+                    }
+
                     throw new Exception("No macaroon found in lnd connection string");
                 }
 
+                if (!kv.TryGetValue("certfilepath", out var cert))
+                {
+                    var dir = Path.GetDirectoryName(macaroon);
+                    if (dir != null)
+                    {
+                        cert = Path.Combine(dir, "tls.cert");
+                    }
+                    else
+                    {
+                        throw new Exception("No cert found in lnd connection string");
+                    }
+                }
+
                 return $"""
+                        node = "lnd"
                         {shared}
 
                         [LND]
                         host = "{url.Host}"
                         macaroon = "{macaroon}"
+                        certificate = "{cert}"
                         """;
             default:
                 throw new Exception("Unsupported lightning client");
