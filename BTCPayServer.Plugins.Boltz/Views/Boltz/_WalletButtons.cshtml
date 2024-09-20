@@ -1,0 +1,15 @@
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model Boltzrpc.Wallet
+@{
+    var walletId = Model.Id;
+    var storeId = Context.GetImplicitStoreId();
+}
+<div class="btn-group gap-0 mt-2">
+    <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive / Swap In</a>
+    @if (!Model.Readonly)
+    {
+        <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(Model.Balance?.Confirmed == 0 ? "disabled" : "")">Send / Swap Out</a>
+        <a asp-action="WalletCredentials" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Show seed</a>
+    }
+</div>

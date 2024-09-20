@@ -129,6 +129,10 @@ public class BoltzController(
                 data.PendingAutoSwaps = response.AllSwaps.ToList();
                 data.Status = await Boltz.GetAutoSwapStatus();
                 data.Recommendations = await Boltz.GetAutoSwapRecommendations();
+                if (data.Ln != null)
+                {
+                    data.RebalanceWallet = await Boltz.GetWallet(data.Ln.Wallet);
+                }
             }
         }
         catch (RpcException e)
