@@ -77,25 +77,22 @@ public class BoltzDaemon(
         _ => throw new NotSupportedException("Unsupported architecture")
     };
 
-    private CancellationTokenSource _invoiceStreamCancel = new();
-
-    private async Task SwapUpdateStream()
+    private async Task SwapUpdateStream(CancellationToken cancellationToken)
     {
-        _invoiceStreamCancel = new CancellationTokenSource();
-        while (!_invoiceStreamCancel.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                var stream = AdminClient!.GetSwapInfoStream("", _invoiceStreamCancel.Token);
-                while (await stream.ResponseStream.MoveNext(_invoiceStreamCancel.Token))
+                var stream = AdminClient!.GetSwapInfoStream("", cancellationToken);
+                while (await stream.ResponseStream.MoveNext(cancellationToken))
                 {
                     SwapUpdate?.Invoke(this, stream.ResponseStream.Current);
                 }
             }
-            catch (Exception e) when (!_invoiceStreamCancel.IsCancellationRequested)
+            catch (Exception e) when (!cancellationToken.IsCancellationRequested)
             {
                 logger.LogError(e, "Error in swap stream");
-                await Task.Delay(3000, _invoiceStreamCancel.Token);
+                await Task.Delay(3000, cancellationToken);
             }
         }
     }
@@ -123,7 +120,6 @@ public class BoltzDaemon(
                     var info = await client.GetInfo(cancellationToken);
                     logger.LogInformation("Running");
                     AdminClient = client;
-                    _ = SwapUpdateStream();
                     CurrentVersion = info.Version.Split("-").First();
                     Error = null;
                     return;
@@ -461,7 +457,7 @@ public class BoltzDaemon(
         if (await CheckVersion())
         {
             logger.LogInformation("Starting client process");
-            _daemonCancel = new CancellationTokenSource();
+            var daemonCancel = new CancellationTokenSource();
             _daemonTask = Task.Factory.StartNew(async () =>
             {
                 _output.Clear();
@@ -477,12 +473,12 @@ public class BoltzDaemon(
                     return;
                 }
 
-                MonitorStream(process.StandardOutput, _daemonCancel.Token);
-                MonitorStream(process.StandardError, _daemonCancel.Token, true);
+                MonitorStream(process.StandardOutput, daemonCancel.Token);
+                MonitorStream(process.StandardError, daemonCancel.Token, true);
 
                 try
                 {
-                    await process.WaitForExitAsync(_daemonCancel.Token);
+                    await process.WaitForExitAsync(daemonCancel.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -511,11 +507,16 @@ public class BoltzDaemon(
                     }
                 }
 
-                await _daemonCancel.CancelAsync();
-            }, _daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            var wait = CancellationTokenSource.CreateLinkedTokenSource(_daemonCancel.Token);
+                await daemonCancel.CancelAsync();
+            }, daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
             wait.CancelAfter(TimeSpan.FromSeconds(60));
+            _daemonCancel = daemonCancel;
             await Wait(wait.Token);
+            if (Running)
+            {
+                _ = SwapUpdateStream(daemonCancel.Token);
+            }
         }
 
         InitialStart.TrySetResult(Running);
@@ -533,8 +534,6 @@ public class BoltzDaemon(
     {
         if (_daemonTask is not null)
         {
-            await _invoiceStreamCancel.CancelAsync();
-
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
             {
