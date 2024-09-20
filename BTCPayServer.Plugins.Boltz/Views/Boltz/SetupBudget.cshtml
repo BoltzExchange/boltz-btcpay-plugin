@@ -9,6 +9,7 @@
 <form method="post" class="mt-3">
     <div class="form-group">
         <label asp-for="Budget" class="form-label">Budget</label>
+        <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="The maximum amount of satoshis allowed to be spent on swap fees in total for the configured time interval."><vc:icon symbol="info"/></small>
         <input type="number" min="0" asp-for="Budget" class="form-control"></input>
         <span asp-validation-for="Budget" class="text-danger"></span>
     </div>
@@ -21,6 +22,7 @@
 
     <div class="form-group">
         <label asp-for="MaxFeePercent" class="form-label">Max Fee Percent</label>
+        <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="The maximum fee relative to the swap amount you are tolerating (boltz + network fee)"><vc:icon symbol="info"/></small>
         <input type="number" min="0" max="100" asp-for="MaxFeePercent" class="form-control"></input>
         <span asp-validation-for="MaxFeePercent" class="text-danger"></span>
     </div>

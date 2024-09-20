@@ -1149,7 +1149,8 @@ public class BoltzController(
             {
                 // TODO: remove buffer once proper sweep is implemented
                 MaxBalance = 10_000_000,
-                PairInfo = info
+                PairInfo = info,
+                ReserveBalance = 500_000,
             };
 
             if (Settings?.Mode == BoltzMode.Standalone)

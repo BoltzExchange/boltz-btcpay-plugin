@@ -125,5 +125,6 @@ public class BudgetSetup
 public class ChainSetup
 {
     public ulong MaxBalance { get; set; }
+    public ulong ReserveBalance { get; set; }
     public PairInfo? PairInfo { get; set; }
 }
