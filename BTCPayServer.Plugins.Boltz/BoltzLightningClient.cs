@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -249,11 +248,10 @@ public class BoltzLightningClient(
         }
 
         var client = await GetClient();
-        var wallet = await client.GetWallet(walletId);
         var response = await client.CreateSwap(new CreateSwapRequest
         {
             Invoice = bolt11,
-            SendFromInternal = !wallet.Readonly,
+            SendFromInternal = true,
             WalletId = walletId,
             Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
         }, cancellation);
@@ -269,11 +267,7 @@ public class BoltzLightningClient(
         {
             return new PayResponse(PayResult.Ok, payDetails);
         }
-        if (wallet.Readonly)
-        {
-            var message = $"wallet is readonly. manual funding required: {response.Bip21}";
-            return new PayResponse(PayResult.Ok, payDetails);
-        }
+
         var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         cancellation.Register(source.Cancel);
         try
@@ -357,6 +351,7 @@ public class BoltzLightningClient(
                 _client = await boltzLightningClient.GetClient();
                 _stream = _client.GetSwapInfoStream("");
             }
+
             try
             {
                 while (await _stream.ResponseStream.MoveNext(cancellation))
@@ -367,6 +362,7 @@ public class BoltzLightningClient(
                         return await boltzLightningClient.GetInvoice(id, cancellationToken);
                     }
                 }
+
                 throw new Exception("stream ended");
             }
             catch (Exception)

@@ -70,7 +70,8 @@ public class WalletSetup
 
     public List<ExistingWallet> ExistingWallets { get; set; } = new();
 
-    public bool AllowReadonly => Flow != WalletSetupFlow.Lightning || SwapType != "reverse";
+    public bool AllowReadonly =>
+        Flow == WalletSetupFlow.Chain || (Flow == WalletSetupFlow.Lightning && SwapType == "reverse");
 
     public bool IsImport => ImportMethod.HasValue;
 
