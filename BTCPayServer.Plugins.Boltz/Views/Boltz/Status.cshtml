@@ -60,8 +60,29 @@ else
             {
                 var ln = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = Model.Status.Lightning };
                 var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
+                var walletId = Model.RebalanceWallet?.Id;
+                var balance = Model.RebalanceWallet?.Balance;
+                if (balance is not null)
+                {
+                    ln.Stats =
+                    [
+                        new() { Name = "Wallet Balance", Value = balance.Total, Unit = Unit.Sat }
+                    ];
+                }
+
                 <div class="widget d-flex gap-3 flex-column">
-                    <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                    <div>
+                        <partial name="Boltz/_AutoSwapStatus" model="ln"/>
+                        @if (walletId != null)
+                        {
+                            <div class="btn-group gap-0 mt-2">
+                                <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive / Swap In</a>
+                                <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(balance?.Confirmed == 0 ? "disabled" : "")">Send / Swap Out</a>
+                                <a asp-action="WalletCredentials" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Show seed</a>
+                            </div>
+                        }
+                    </div>
+
                     @if (Model.Recommendations is not null)
                     {
                         <div>

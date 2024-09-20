@@ -65,6 +65,7 @@ public class BoltzInfo
     public ListSwapsResponse? Swaps { get; set; }
 
     public Wallet? StandaloneWallet { get; set; }
+    public Wallet? RebalanceWallet { get; set; }
 
     public GetStatusResponse? Status { get; set; }
 
