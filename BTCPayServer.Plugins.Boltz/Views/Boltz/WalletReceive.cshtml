@@ -8,7 +8,7 @@
 
     var currency = Model.Wallet.Currency;
     var currencyName = BoltzClient.CurrencyName(currency);
-    var pair = new Pair { From = currency, To = Currency.Btc };
+    var pair = new Pair { From = Currency.Btc, To = currency };
     ViewData["Title"] = $"Receive to {currencyName} Wallet";
 }
 
@@ -20,7 +20,7 @@
 else
 {
     ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(pair.To)} to swap into your {currencyName} wallet";
-    var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Submarine))!;
+    var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Reverse))!;
     var chainInfo = (await BoltzService.GetPairInfo(new Pair
     {
         From = currency == Currency.Btc ? Currency.Lbtc : Currency.Btc,

@@ -371,7 +371,7 @@ public class BoltzService(
     public PaymentUrlBuilder GenerateBIP21(Currency currency, string cryptoInfoAddress, decimal? cryptoInfoDue = null,
         string? label = null)
     {
-        var isLbtc = currency != Currency.Lbtc;
+        var isLbtc = currency == Currency.Lbtc;
         var prefix = isLbtc
             ? BtcNetwork.NBitcoinNetwork.ChainName == ChainName.Mainnet ? "liquidnetwork" : "liquidtestnet"
             : "bitcoin";
