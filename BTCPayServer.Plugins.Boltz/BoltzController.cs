@@ -33,7 +33,7 @@ public class BoltzController(
     BoltzDaemon boltzDaemon,
     InvoiceRepository invoiceRepository,
     BTCPayNetworkProvider btcPayNetworkProvider
-    )
+)
     : Controller
 {
     private BoltzClient? Boltz => boltzDaemon.GetClient(Settings);
@@ -824,11 +824,14 @@ public class BoltzController(
         {
             try
             {
-                var walletName = vm.WalletName ?? String.Empty;
-                var wallet = await Boltz.GetWallet(walletName);
-                if (wallet.Balance is null)
+                var walletName = vm.WalletName == null || vm.WalletName == BtcPayName ? String.Empty : vm.WalletName;
+                if (!string.IsNullOrEmpty(walletName))
                 {
-                    return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
+                    var wallet = await Boltz.GetWallet(walletName);
+                    if (wallet.Balance is null)
+                    {
+                        return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
+                    }
                 }
 
                 switch (vm.Flow)
