@@ -47,9 +47,10 @@ public class BoltzService(
     TransactionLinkProviders transactionLinkProviders,
     PullPaymentHostedService pullPaymentHostedService,
     BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
-    LightningLikePayoutHandler lightningLikePayoutHandler
+    LightningLikePayoutHandler lightningLikePayoutHandler,
+    PluginHookService pluginHookService
 )
-    : EventHostedServiceBase(eventAggregator, logger), IPluginHookAction
+    : EventHostedServiceBase(eventAggregator, logger)
 {
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
@@ -99,6 +100,14 @@ public class BoltzService(
             }
         }
 
+        pluginHookService.ActionInvoked += async (_, args) =>
+        {
+            if (args.hook == "before-automated-payout-processing")
+            {
+                await BeforePayoutAction((BeforePayoutActionData)args.args);
+            }
+        };
+
         await base.StartAsync(cancellationToken);
     }
 
@@ -134,7 +143,7 @@ public class BoltzService(
         var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap?.TenantId ?? swap.Swap!.TenantId;
         var found = _settings?.ToList()
             .Find(pair => pair.Value.ActualTenantId == tenantId);
-        if (found is null) return;
+        if (found?.Value is null) return;
 
         var store = await storeRepository.FindStore(found.Value.Key);
         if (store is null)
@@ -398,9 +407,8 @@ public class BoltzService(
         new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
     ];
 
-    public async Task Execute(object args)
+    private async Task BeforePayoutAction(BeforePayoutActionData data)
     {
-        var data = (BeforePayoutActionData)args;
         foreach (var payout in data.Payouts)
         {
             // cancel 0 amount invoice
