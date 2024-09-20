@@ -27,7 +27,7 @@
 }
 else
 {
-    var tooltip = Model.Tooltip;
+    var tooltip = "Coming soon";
 
     <div class="mt-4">
         <div class="list-group">
@@ -41,7 +41,7 @@ else
                         <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably process payments.</p>
                         @if (tooltip is not null)
                         {
-                            <small class="d-block text-danger mt-2 mt-lg-0">@tooltip</small>
+                            <small class="d-block text-info mt-2 mt-lg-0">@tooltip</small>
                         }
                     </div>
                 </div>
