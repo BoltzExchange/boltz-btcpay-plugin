@@ -700,53 +700,59 @@ public class BoltzController(
     public async Task<IActionResult> SetupMode(ModeSetup vm, BoltzMode? mode, string storeId)
     {
         vm.IsAdmin = IsAdmin;
+        vm.Enabled = IsAdmin || boltzService.AllowTenants;
 
-        if (!string.IsNullOrEmpty(boltzDaemon.Error) && vm.IsAdmin)
+        if (vm.Enabled)
         {
-            return RedirectToAction(nameof(Admin), new { storeId });
-        }
-
-        if (mode is null)
-        {
-            vm.ExistingSettings = SavedSettings;
-            vm.ConnectedNode = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
-                .OfType<LightningSupportedPaymentMethod>()
-                .FirstOrDefault();
-            vm.HasInternal = boltzService.InternalLightning is not null;
-            vm.ConnectedInternal = boltzService.Daemon.Node is not null;
-            if (vm.IsAdmin)
+            if (!string.IsNullOrEmpty(boltzDaemon.Error) && vm.IsAdmin)
             {
-                var store = await boltzService.GetRebalanceStore();
-                if (store?.Id != CurrentStore.Id)
+                return RedirectToAction(nameof(Admin), new { storeId });
+            }
+
+            if (mode is null)
+            {
+                vm.ExistingSettings = SavedSettings;
+                vm.ConnectedNode = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
+                    .OfType<LightningSupportedPaymentMethod>()
+                    .FirstOrDefault();
+                vm.HasInternal = boltzService.InternalLightning is not null;
+                vm.ConnectedInternal = boltzService.Daemon.Node is not null;
+                if (vm.IsAdmin)
                 {
-                    vm.RebalanceStore = store;
+                    var store = await boltzService.GetRebalanceStore();
+                    if (store?.Id != CurrentStore.Id)
+                    {
+                        vm.RebalanceStore = store;
+                    }
                 }
+
+                return View(vm);
             }
 
-            return View(vm);
-        }
-
-        if (mode == BoltzMode.Rebalance)
-        {
-            if (!vm.IsAdmin)
+            if (mode == BoltzMode.Rebalance)
             {
-                return new UnauthorizedResult();
+                if (!vm.IsAdmin)
+                {
+                    return new UnauthorizedResult();
+                }
+
+                LightningSetup = new LightningConfig();
             }
 
-            LightningSetup = new LightningConfig();
+
+            try
+            {
+                SetupSettings = await boltzService.InitializeStore(storeId, mode.Value);
+            }
+            catch (Exception e)
+            {
+                TempData[WellKnownTempData.ErrorMessage] = "Could not initialize store settings: " + e.Message;
+            }
+
+            return View(mode == BoltzMode.Rebalance ? "SetupRebalance" : "SetupStandalone", vm);
         }
 
-
-        try
-        {
-            SetupSettings = await boltzService.InitializeStore(storeId, mode.Value);
-        }
-        catch (Exception e)
-        {
-            TempData[WellKnownTempData.ErrorMessage] = "Could not initialize store settings: " + e.Message;
-        }
-
-        return View(mode == BoltzMode.Rebalance ? "SetupRebalance" : "SetupStandalone", vm);
+        return View(vm);
     }
 
     private async Task<List<ExistingWallet>> GetExistingWallets(bool allowReadonly, Currency? currency = null)

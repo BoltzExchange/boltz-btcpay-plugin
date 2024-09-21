@@ -12,7 +12,8 @@ public enum BoltzMode
 
 public class BoltzSettings
 {
-    [Display(Name = "GRPC Url")] public Uri? GrpcUrl { get; set; }
+    [Display(Name = "GRPC Url", Description = "Test")]
+    public Uri? GrpcUrl { get; set; }
 
     [Display(Name = "Macaroon")] public string? Macaroon { get; set; }
 
@@ -35,4 +36,7 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
+
+    [Display(Name = "Allow Plugin for non-admin users")]
+    public bool AllowTenants { get; set; }
 }

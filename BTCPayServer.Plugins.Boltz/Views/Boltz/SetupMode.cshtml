@@ -19,71 +19,79 @@
     You can use Boltz to automatically rebalance your existing Lightning node or start accepting Lightning payments without running a Lightning node.
 </p>
 
-@if (!BoltzService.Daemon.Running)
+@if (!Model.Enabled)
 {
-    <div class="alert alert-danger">
-        <p>Daemon is not yet running</p>
+    <div class="alert alert-warning">
+        <p>Plugin is not enabled for non-admin users. Ask a server admin to enable</p>
     </div>
 }
 else
 {
-    var tooltip = "Coming soon";
-
-    <div class="mt-4">
-        <div class="list-group">
-            <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Rebalance" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
-                <div class="image">
-                    <vc:icon symbol="existing-wallet"/>
-                </div>
-                <div class="content">
-                    <h4>Rebalance existing Lightning node</h4>
-                    <div class="d-flex flex-column gap-2">
-                        <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably process payments.</p>
-                        @if (tooltip is not null)
-                        {
-                            <small class="d-block text-info mt-2 mt-lg-0">@tooltip</small>
-                        }
-                    </div>
-                </div>
-                <vc:icon symbol="caret-right"/>
-            </a>
-        </div>
-    </div>
-    @if (!string.IsNullOrEmpty(BoltzService.Daemon.NodeError) && Model.IsAdmin)
+    @if (!BoltzService.Daemon.Running)
     {
-        <div class="mt-3">
-            <button class="d-inline-flex align-items-center btn btn-link text-danger fw-semibold p-0" type="button" id="NodeDetailsButton" data-bs-toggle="collapse" data-bs-target="#NodeDetails" aria-expanded="false" aria-controls="NodeDetails">
-                <vc:icon symbol="caret-down"/>
-                <span class="ms-1">Error Details</span>
-            </button>
-            <div id="NodeDetails" class="collapse">
-                <div class="pt-3">
-                    <pre>@BoltzService.Daemon.NodeError</pre>
-                </div>
-            </div>
+        <div class="alert alert-danger">
+            <p>Daemon is not yet running</p>
         </div>
     }
+    else
+    {
+        var tooltip = "Coming soon";
 
-    <br>
-    <div class="mt-4">
-        <div class="list-group">
-            <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action">
-                <div class="image">
-                    <vc:icon symbol="new-wallet"/>
-                </div>
-                <div class="content">
-                    <h4>Accept Lightning payments without running a node</h4>
-                    <div class="d-flex flex-column gap-2">
-                        <p class="mb-0 text-secondary">This sets up Lightning payments using Boltz. Lightning payments are processed using non-custodial swaps, meaning you stay in full control at all times. Supports read-only cold wallets.</p>
-                        @if (Model.ConnectedNode is not null && Model.ExistingSettings?.Mode != BoltzMode.Standalone)
-                        {
-                            <small class="d-block text-warning mt-2 mt-lg-0">Currently connected lightning node will be overwritten</small>
-                        }
+        <div class="mt-4">
+            <div class="list-group">
+                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Rebalance" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
+                    <div class="image">
+                        <vc:icon symbol="existing-wallet"/>
+                    </div>
+                    <div class="content">
+                        <h4>Rebalance existing Lightning node</h4>
+                        <div class="d-flex flex-column gap-2">
+                            <p class="mb-0 text-secondary">This sets up automated rebalancing for the Lightning node connected to your BTCPay instance, to make sure you always have enough Liquidity to reliably process payments.</p>
+                            @if (tooltip is not null)
+                            {
+                                <small class="d-block text-danger mt-2 mt-lg-0">@tooltip</small>
+                            }
+                        </div>
+                    </div>
+                    <vc:icon symbol="caret-right"/>
+                </a>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(BoltzService.Daemon.NodeError) && Model.IsAdmin)
+        {
+            <div class="mt-3">
+                <button class="d-inline-flex align-items-center btn btn-link text-danger fw-semibold p-0" type="button" id="NodeDetailsButton" data-bs-toggle="collapse" data-bs-target="#NodeDetails" aria-expanded="false" aria-controls="NodeDetails">
+                    <vc:icon symbol="caret-down"/>
+                    <span class="ms-1">Error Details</span>
+                </button>
+                <div id="NodeDetails" class="collapse">
+                    <div class="pt-3">
+                        <pre>@BoltzService.Daemon.NodeError</pre>
                     </div>
                 </div>
+            </div>
+        }
 
-                <vc:icon symbol="caret-right"/>
-            </a >
-        </div >
-    </div>
-}
+        <br>
+        <div class="mt-4">
+            <div class="list-group">
+                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action">
+                    <div class="image">
+                        <vc:icon symbol="new-wallet"/>
+                    </div>
+                    <div class="content">
+                        <h4>Accept Lightning payments without running a node</h4>
+                        <div class="d-flex flex-column gap-2">
+                            <p class="mb-0 text-secondary">This sets up Lightning payments using Boltz. Lightning payments are processed using non-custodial swaps, meaning you stay in full control at all times. Supports read-only cold wallets.</p>
+                            @if (Model.ConnectedNode is not null && Model.ExistingSettings?.Mode != BoltzMode.Standalone)
+                            {
+                                <small class="d-block text-warning mt-2 mt-lg-0">Currently connected lightning node will be overwritten</small>
+                            }
+                        </div>
+                    </div>
+
+                    <vc:icon symbol="caret-right"/>
+                </a >
+            </div >
+        </div>
+    }

@@ -10,6 +10,7 @@ namespace BTCPayServer.Plugins.Boltz.Models;
 
 public class ModeSetup
 {
+    public bool Enabled { get; set; }
     public StoreData? RebalanceStore { get; set; }
     public LightningSupportedPaymentMethod? ConnectedNode { get; set; }
     public BoltzSettings? ExistingSettings { get; set; }

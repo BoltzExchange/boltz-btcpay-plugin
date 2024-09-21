@@ -51,7 +51,7 @@
         <div id="AdvancedSettings" class="collapse">
             <div class="form-group">
                 <label asp-for="Settings.GrpcUrl" class="form-label"></label>
-                <inpur asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
+                <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
                 <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
             </div>
 
@@ -61,7 +61,12 @@
                 <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
             </div>
 
-            <button name="command" type="submit" class="btn btn-primary" value="Save" disabled>
+            <div class="form-group d-flex align-items-center">
+                <input asp-for="Settings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
+                <label asp-for="Settings.AllowTenants" class="form-label mb-0 me-1"></label>
+            </div>
+
+            <button name="command" type="submit" class="btn btn-primary" value="Save">
                 Save
             </button>
         </div>
