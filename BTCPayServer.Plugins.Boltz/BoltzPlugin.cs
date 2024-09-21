@@ -1,3 +1,4 @@
+using System;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Abstractions.Services;
@@ -14,6 +15,8 @@ namespace BTCPayServer.Plugins.Boltz;
 
 public class BoltzPlugin : BaseBTCPayServerPlugin
 {
+    public override Version Version => new (1, 1, 0, 0);
+
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     [
         new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=1.12.0" }
