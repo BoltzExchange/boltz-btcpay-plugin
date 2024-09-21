@@ -120,6 +120,9 @@ public class BoltzController(
             (data.Ln, data.Chain) = await Boltz.GetAutoSwapConfig();
             if (data.Ln is not null || data.Chain is not null)
             {
+                var response = await Boltz.ListSwaps(new ListSwapsRequest
+                    { Include = IncludeSwaps.Auto, Unify = true, State = SwapState.Pending });
+                data.PendingAutoSwaps = response.AllSwaps.ToList();
                 data.Status = await Boltz.GetAutoSwapStatus();
                 data.Recommendations = await Boltz.GetAutoSwapRecommendations();
             }

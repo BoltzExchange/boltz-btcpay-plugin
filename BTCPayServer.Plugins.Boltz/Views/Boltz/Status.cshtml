@@ -34,6 +34,7 @@ else
             {
                 stats.Insert(0, new Stat { Name = "Unconfirmed Balance", Unit = Unit.Sat, Value = balance.Unconfirmed });
             }
+
             stats.Insert(0, new Stat { Name = "Total Balance", Unit = Unit.Sat, Value = balance?.Total });
 
             <div class="widget">
@@ -58,6 +59,7 @@ else
             @if (Model.Ln is not null)
             {
                 var ln = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = Model.Status.Lightning };
+                var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
                 <div class="widget d-flex gap-3 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="ln"/>
                     @if (Model.Recommendations is not null)
@@ -65,6 +67,13 @@ else
                         <div>
                             <h5>Recommendations</h5>
                             <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
+                        </div>
+                    }
+                    @if (pendingLnSwaps?.Count > 0)
+                    {
+                        <div>
+                            <h5>Pending Swaps</h5>
+                            <partial name="Boltz/_SwapsTable" model="pendingLnSwaps"/>
                         </div>
                     }
 
@@ -103,6 +112,7 @@ else
                 }
 
                 var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
+                var pendingChainSwaps = Model.PendingAutoSwaps?.Where(info => info.Type == SwapType.Chain).ToList();
 
                 <div class="widget d-flex gap-3 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
@@ -111,6 +121,13 @@ else
                         <div>
                             <h5>Upcoming Swap</h5>
                             <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
+                        </div>
+                    }
+                    @if (pendingChainSwaps?.Count > 0)
+                    {
+                        <div>
+                            <h5>Pending Swaps</h5>
+                            <partial name="Boltz/_SwapsTable" model="pendingChainSwaps"/>
                         </div>
                     }
                     <div>

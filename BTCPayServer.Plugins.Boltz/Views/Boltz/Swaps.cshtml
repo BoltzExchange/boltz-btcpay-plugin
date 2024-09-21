@@ -19,46 +19,11 @@
 }
 else if (Model.Swaps is not null)
 {
-    var reverseSwaps = Model.Swaps.AllSwaps;
     <h4>Swaps</h4>
-    @if (reverseSwaps.Count > 0)
+    @if (Model.Swaps.AllSwaps.Count > 0)
     {
-        <div class="table-responsive my-0">
-            <table class="table table-hover my-0">
-                <thead>
-                <tr>
-                    <th class="text-nowrap">ID</th>
-                    <th>Type</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Date</th>
-                    <th>State</th>
-                    <th class="text-nowrap">Status</th>
-                    <th>Amount</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var payment in reverseSwaps)
-                {
-                    <tr>
-                        <td>
-                            <a asp-action="Swaps" asp-controller="Boltz" asp-route-storeId="@storeId" asp-route-swapId="@payment.Id">
-                                @payment.Id
-                            </a>
-                        </td>
-                        <td>@payment.Type</td>
-                        <td>@BoltzClient.CurrencyName(payment.Pair.From)</td>
-                        <td>@BoltzClient.CurrencyName(payment.Pair.To)</td>
-                        <td>@(DateTimeOffset.FromUnixTimeSeconds(payment.CreatedAt).ToBrowserDate())</td>
-                        <td>@payment.State</td>
-                        <td>@payment.Status</td>
-                        <td>@payment.FromAmount</td>
-                    </tr>
-                }
-
-                </tbody>
-            </table>
-        </div>
+        <partial name="Boltz/_SwapsTable" model="Model.Swaps.AllSwaps.ToList()"/>
+        <vc:pager view-model="Model"/>
     }
     else
     {
@@ -66,6 +31,4 @@ else if (Model.Swaps is not null)
             There are no swaps.
         </p>
     }
-
-    <vc:pager view-model="Model"/>
 }

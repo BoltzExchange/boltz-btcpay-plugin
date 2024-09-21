@@ -1,0 +1,43 @@
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Security
+@using Boltzrpc
+@model List<AnySwapInfo>
+@{
+    var storeId = Context.GetImplicitStoreId();
+}
+<div class="table-responsive my-0">
+    <table class="table table-hover my-0">
+        <thead>
+        <tr>
+            <th class="text-nowrap">ID</th>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Date</th>
+            <th>State</th>
+            <th class="text-nowrap">Status</th>
+            <th>Amount</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var swap in Model)
+        {
+            <tr>
+                <td>
+                    <a asp-action="Swaps" asp-controller="Boltz" asp-route-storeId="@storeId" asp-route-swapId="@swap.Id">
+                        @swap.Id
+                    </a>
+                </td>
+                <td>@swap.Type</td>
+                <td>@BoltzClient.CurrencyName(swap.Pair.From)</td>
+                <td>@BoltzClient.CurrencyName(swap.Pair.To)</td>
+                <td>@(DateTimeOffset.FromUnixTimeSeconds(swap.CreatedAt).ToBrowserDate())</td>
+                <td>@swap.State</td>
+                <td>@swap.Status</td>
+                <td>@swap.FromAmount</td>
+            </tr>
+        }
+
+        </tbody>
+    </table>
+</div>

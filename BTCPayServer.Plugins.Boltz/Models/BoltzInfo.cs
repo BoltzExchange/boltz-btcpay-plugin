@@ -59,6 +59,7 @@ public class BoltzInfo
 {
     public GetInfoResponse? Info { get; set; }
     public GetRecommendationsResponse? Recommendations { get; set; }
+    public List<AnySwapInfo>? PendingAutoSwaps { get; set; }
     public SwapStats? Stats { get; set; }
 
     public ListSwapsResponse? Swaps { get; set; }
