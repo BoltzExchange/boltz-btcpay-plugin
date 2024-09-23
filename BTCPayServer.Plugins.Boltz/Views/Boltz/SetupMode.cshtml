@@ -57,20 +57,6 @@ else
                 </a>
             </div>
         </div>
-        @if (!string.IsNullOrEmpty(BoltzService.Daemon.NodeError) && Model.IsAdmin)
-        {
-            <div class="mt-3">
-                <button class="d-inline-flex align-items-center btn btn-link text-danger fw-semibold p-0" type="button" id="NodeDetailsButton" data-bs-toggle="collapse" data-bs-target="#NodeDetails" aria-expanded="false" aria-controls="NodeDetails">
-                    <vc:icon symbol="caret-down"/>
-                    <span class="ms-1">Error Details</span>
-                </button>
-                <div id="NodeDetails" class="collapse">
-                    <div class="pt-3">
-                        <pre>@BoltzService.Daemon.NodeError</pre>
-                    </div>
-                </div>
-            </div>
-        }
 
         <br>
         <div class="mt-4">
