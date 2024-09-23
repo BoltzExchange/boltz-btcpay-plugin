@@ -41,7 +41,7 @@ else
             <div class="list-group">
                 <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Rebalance" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
                     <div class="image">
-                        <vc:icon symbol="existing-wallet"/>
+                        <vc:icon symbol="actions-refresh"/>
                     </div>
                     <div class="content">
                         <h4>Rebalance existing Lightning node</h4>
@@ -77,7 +77,7 @@ else
             <div class="list-group">
                 <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action">
                     <div class="image">
-                        <vc:icon symbol="new-wallet"/>
+                        <vc:icon symbol="lightning"/>
                     </div>
                     <div class="content">
                         <h4>Accept Lightning payments without running a node</h4>
