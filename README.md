@@ -1,6 +1,6 @@
 # Boltz BTCPay Plugin
 
-[BTCPay Server](https://github.com/btcpayserver/btcpayserver) Plugin for [Boltz](https://boltz.exchange).
+[BTCPay Server](https://btcpayserver.org/) Plugin for [Boltz](https://boltz.exchange).
 
 ## Documentation
 
