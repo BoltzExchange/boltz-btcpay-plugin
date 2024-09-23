@@ -265,6 +265,7 @@ public class BoltzLightningClient(
         // swap was paid directly via onchain (magic routing hint)
         if (response.Id == "")
         {
+            payDetails.Status = LightningPaymentStatus.Complete;
             return new PayResponse(PayResult.Ok, payDetails);
         }
 
