@@ -6,7 +6,7 @@
     <!-- Plugin specific properties -->
     <PropertyGroup>
         <Product>Boltz</Product>
-        <Description>A template for your own BTCPay Server plugin.</Description>
+        <Description>Accept Lightning payments without running a node and giving up custody.</Description>
         <Version>1.0.0</Version>
     </PropertyGroup>
 
