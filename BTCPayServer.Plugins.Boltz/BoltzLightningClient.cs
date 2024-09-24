@@ -280,7 +280,9 @@ public class BoltzLightningClient(
                 if (swap.State == SwapState.Successful)
                 {
                     payDetails.Status = LightningPaymentStatus.Complete;
-                    payDetails.Preimage = uint256.Parse(swap.Preimage);
+                    if (!string.IsNullOrEmpty(swap.Preimage)) {
+                        payDetails.Preimage = uint256.Parse(swap.Preimage);
+                    }
                     return new PayResponse(PayResult.Ok, payDetails);
                 }
 
