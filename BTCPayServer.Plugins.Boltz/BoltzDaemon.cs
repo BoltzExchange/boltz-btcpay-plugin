@@ -303,21 +303,28 @@ public class BoltzDaemon(
 
     public async Task TryConfigure(ILightningClient? node)
     {
-        if (node != null)
+        try 
         {
-            _output.Clear();
-            await Configure(node);
-            if (String.IsNullOrEmpty(Error))
+            if (node != null)
             {
-                Node = node;
-                return;
+                _output.Clear();
+                await Configure(node);
+                if (String.IsNullOrEmpty(Error))
+                {
+                    Node = node;
+                    return;
+                }
+
+                logger.LogInformation("Could not connect to node: " + Error);
+                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
             }
 
-            logger.LogInformation("Could not connect to node: " + Error);
-            NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
+            await Configure(null);
+        } 
+        finally 
+        {
+            InitialStart.TrySetResult(Running);
         }
-
-        await Configure(null);
     }
 
     private string GetConfig(ILightningClient? node)
@@ -518,8 +525,6 @@ public class BoltzDaemon(
                 _ = SwapUpdateStream(daemonCancel.Token);
             }
         }
-
-        InitialStart.TrySetResult(Running);
     }
 
     public void InitiateStart()
