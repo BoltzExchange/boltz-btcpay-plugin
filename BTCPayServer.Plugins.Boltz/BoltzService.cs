@@ -163,10 +163,10 @@ public class BoltzService(
             });
             foreach (var payout in payouts)
             {
-                if (payout.GetBlob(jsonSerializerSettings).Destination == swap.Swap.Invoice)
+                if (BOLT11PaymentRequest.TryParse(swap.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
                 {
                     var proof = lightningLikePayoutHandler.ParseProof(payout) as PayoutLightningBlob;
-                    if (proof != null)
+                    if (proof?.PaymentHash != null && proof.PaymentHash == invoice?.PaymentHash?.ToString())
                     {
                         proof.Preimage = swap.Swap.Preimage;
                         payout.SetProofBlob(proof, null);
@@ -175,12 +175,6 @@ public class BoltzService(
                             PayoutId = payout.Id, State = PayoutState.Completed,
                             Proof = payout.GetProofBlobJson(),
                         });
-                    }
-
-                    switch (proof)
-                    {
-                        case PayoutLightningBlob payoutLightningBlob:
-                            break;
                     }
                 }
             }
