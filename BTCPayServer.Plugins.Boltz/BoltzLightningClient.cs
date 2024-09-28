@@ -176,11 +176,15 @@ public class BoltzLightningClient(
             WalletId = walletId,
             ExternalPay = true,
             Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
-            Description = createInvoiceRequest.Description,
         };
         if (createInvoiceRequest.DescriptionHashOnly)
         {
             request.DescriptionHash = ByteString.CopyFrom(createInvoiceRequest.DescriptionHash.ToBytes());
+            request.DescriptionHash = ByteString.CopyFrom(createInvoiceRequest.DescriptionHash.ToBytes(false));
+        }
+        else
+        {
+            request.Description = createInvoiceRequest.Description;
         }
 
         var response = await client.CreateReverseSwap(request, cancellation);
