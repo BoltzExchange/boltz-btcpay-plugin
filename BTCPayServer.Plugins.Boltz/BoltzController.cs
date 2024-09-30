@@ -635,7 +635,16 @@ public class BoltzController(
         {
             case "Save":
             {
-                var settings = vm.Settings;
+                var settings = Settings;
+                if (settings is not null)
+                {
+                    settings.AllowTenants = vm.Settings!.AllowTenants;
+                }
+                else
+                {
+                    settings = vm.Settings;
+                }
+
                 var validCreds = settings != null && settings.CredentialsPopulated();
                 if (!validCreds)
                 {
@@ -973,6 +982,11 @@ public class BoltzController(
                 }
 
                 await Boltz.ImportWallet(walletParams, vm.WalletCredentials);
+                if (string.IsNullOrEmpty(vm.WalletCredentials.Mnemonic))
+                {
+                    return await SetupWallet(vm, vm.StoreId!);
+                }
+
                 return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
             }
             catch (RpcException e)
