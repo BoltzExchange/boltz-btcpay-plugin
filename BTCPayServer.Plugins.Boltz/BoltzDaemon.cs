@@ -303,7 +303,7 @@ public class BoltzDaemon(
 
     public async Task TryConfigure(ILightningClient? node)
     {
-        try 
+        try
         {
             if (node != null)
             {
@@ -320,8 +320,8 @@ public class BoltzDaemon(
             }
 
             await Configure(null);
-        } 
-        finally 
+        }
+        finally
         {
             InitialStart.TrySetResult(Running);
         }
@@ -499,10 +499,10 @@ public class BoltzDaemon(
 
                 if (process.ExitCode != 0)
                 {
-                    Error = $"Process exited with code {process.ExitCode}";
-                    logger.LogError(Error);
                     if (logOutput || wasRunning)
                     {
+                        Error = $"Process exited with code {process.ExitCode}";
+                        logger.LogError(Error);
                         logger.LogInformation(RecentOutput);
                     }
 

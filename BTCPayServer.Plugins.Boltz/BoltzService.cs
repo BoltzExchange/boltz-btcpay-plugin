@@ -409,8 +409,8 @@ public class BoltzService(
         {
             // cancel 0 amount invoice
             var destination = payout.GetBlob(jsonSerializerSettings).Destination;
-            if (!BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork)) {
-                if (bolt11.MinimumAmount == 0)
+            if (BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork)) {
+                if (bolt11!.MinimumAmount == 0)
                 {
                     await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
                     {
