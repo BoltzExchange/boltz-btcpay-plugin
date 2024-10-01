@@ -408,14 +408,15 @@ public class BoltzService(
         foreach (var payout in data.Payouts)
         {
             // cancel 0 amount invoice
-            var bolt11 = payout.GetBlob(jsonSerializerSettings).Destination;
-            var invoice = BOLT11PaymentRequest.Parse(bolt11, BtcNetwork.NBitcoinNetwork);
-            if (invoice.MinimumAmount == 0)
-            {
-                await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
+            var destination = payout.GetBlob(jsonSerializerSettings).Destination;
+            if (!BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork)) {
+                if (bolt11.MinimumAmount == 0)
                 {
-                    PayoutId = payout.Id, State = PayoutState.Cancelled,
-                });
+                    await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
+                    {
+                        PayoutId = payout.Id, State = PayoutState.Cancelled,
+                    });
+                }
             }
         }
     }
