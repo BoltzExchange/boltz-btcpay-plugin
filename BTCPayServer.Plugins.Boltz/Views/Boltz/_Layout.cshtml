@@ -2,7 +2,7 @@
 @using BTCPayServer.Security
 @inject BoltzDaemon Daemon
 @{
-    Layout = "../Shared/_NavLayout.cshtml";
+    Layout = "../Shared/_Layout.cshtml";
 }
 <style>
 /*
@@ -12,6 +12,6 @@
  */
 </style>
 
+<partial name="_Head" />
 <partial name="Boltz/_Notification"/>
-
 @RenderBody()
