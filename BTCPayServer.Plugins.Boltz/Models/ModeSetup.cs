@@ -12,7 +12,7 @@ public class ModeSetup
 {
     public bool Enabled { get; set; }
     public StoreData? RebalanceStore { get; set; }
-    public LightningSupportedPaymentMethod? ConnectedNode { get; set; }
+    public LightningPaymentMethodConfig? ConnectedNode { get; set; }
     public BoltzSettings? ExistingSettings { get; set; }
     public bool IsAdmin { get; set; }
     public bool HasInternal { get; set; }
