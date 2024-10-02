@@ -4,18 +4,16 @@ using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Abstractions.Services;
 using BTCPayServer.Hosting;
 using BTCPayServer.Lightning;
-using BTCPayServer.Payments;
 using BTCPayServer.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NBitcoin;
-using NBXplorer;
 
 namespace BTCPayServer.Plugins.Boltz;
 
 public class BoltzPlugin : BaseBTCPayServerPlugin
 {
-    public override Version Version => new (1, 1, 11, 0);
+    public override Version Version => new(2, 0, 0, 0);
 
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     [
@@ -38,14 +36,13 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzNav", "store-integrations-nav"));
 
         var pluginServices = (PluginServiceCollection)services;
-        var networkProvider = pluginServices.BootstrapServices.GetRequiredService<NBXplorerNetworkProvider>();
-        var network = networkProvider.GetFromCryptoCode("BTC");
+        var networkProvider = pluginServices.BuildServiceProvider().GetRequiredService<BTCPayNetworkProvider>();
+        var network = networkProvider.GetNetwork<BTCPayNetwork>("BTC");
 
         var blockExplorerLink = network.NBitcoinNetwork.ChainName == ChainName.Mainnet
             ? "https://liquid.network/tx/{0}"
             : "https://liquid.network/testnet/tx/{0}";
-        services.AddTransactionLinkProvider(new PaymentMethodId("LBTC", PaymentTypes.BTCLike),
-            new DefaultTransactionLinkProvider(blockExplorerLink));
+        services.AddTransactionLinkProvider("LBTC", new DefaultTransactionLinkProvider(blockExplorerLink));
 
         base.Execute(services);
     }

@@ -29,7 +29,7 @@
                 <input asp-for="@Model.WalletName" type="hidden" value="@wallet.Name"/>
                 <button type="submit" class="list-group-item list-group-item-action">
                     <div class="image my-auto">
-                        <vc:icon symbol="existing-wallet"/>
+                        <vc:icon symbol="wallet-existing"/>
                     </div>
                     <div class="content">
                         <h4>@wallet.Name</h4>
@@ -49,7 +49,7 @@
     <div class="list-group">
         <a asp-controller="Boltz" asp-action="ImportWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action">
             <div class="image">
-                <vc:icon symbol="existing-wallet"/>
+                <vc:icon symbol="wallet-existing"/>
             </div>
             <div class="content">
                 <h4>Import a wallet</h4>
@@ -64,7 +64,7 @@
     <div class="list-group">
         <a asp-controller="Boltz" asp-action="CreateWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action @(!Model.AllowCreateHot ? "disabled" : "")">
             <div class="image">
-                <vc:icon symbol="new-wallet"/>
+                <vc:icon symbol="wallet-new"/>
             </div>
             <div class="content">
                 <h4>Create a new wallet</h4>
