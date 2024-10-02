@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
-using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Client.Models;
 using BTCPayServer.Common;
 using BTCPayServer.Configuration;
@@ -18,8 +17,10 @@ using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
+using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
+using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
 using Grpc.Core;
@@ -48,8 +49,9 @@ public class BoltzService(
     TransactionLinkProviders transactionLinkProviders,
     PullPaymentHostedService pullPaymentHostedService,
     BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
-    LightningLikePayoutHandler lightningLikePayoutHandler,
-    PluginHookService pluginHookService
+    PluginHookService pluginHookService,
+    PaymentMethodHandlerDictionary paymentHandlers,
+    PayoutMethodHandlerDictionary payoutHandlers
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
@@ -137,21 +139,16 @@ public class BoltzService(
         }
     }
 
-    private async Task OnSwap(GetSwapInfoResponse swap)
+    private async Task OnSwap(GetSwapInfoResponse info)
     {
-        if (swap is { ChainSwap: not null, ReverseSwap: not null })
+        if (info is { ChainSwap: not null, ReverseSwap: not null })
         {
-            var status = swap.ReverseSwap?.Status ?? swap.ChainSwap!.Status;
-            var isAuto = swap.ReverseSwap?.IsAuto ?? swap.ChainSwap!.IsAuto;
+            var status = info.ReverseSwap?.Status ?? info.ChainSwap!.Status;
+            var isAuto = info.ReverseSwap?.IsAuto ?? info.ChainSwap!.IsAuto;
             if (status != "swap.created" || !isAuto) return;
         }
 
-        if (swap.Swap is not null && swap.Swap.State != SwapState.Successful)
-        {
-            return;
-        }
-
-        var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap?.TenantId ?? swap.Swap!.TenantId;
+        var tenantId = info.ReverseSwap?.TenantId ?? info.ChainSwap?.TenantId ?? info.Swap!.TenantId;
         var found = _settings?.ToList()
             .Find(pair => pair.Value.ActualTenantId == tenantId);
         if (found?.Value is null) return;
@@ -163,7 +160,7 @@ public class BoltzService(
             return;
         }
 
-        if (swap.Swap is not null)
+        if (info.Swap is not null)
         {
             var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
             {
@@ -172,12 +169,13 @@ public class BoltzService(
             });
             foreach (var payout in payouts)
             {
-                if (BOLT11PaymentRequest.TryParse(swap.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
+                if (BOLT11PaymentRequest.TryParse(info.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
                 {
-                    var proof = lightningLikePayoutHandler.ParseProof(payout) as PayoutLightningBlob;
+                    var proof =
+                        payoutHandlers.TryGet(payout.GetPayoutMethodId())?.ParseProof(payout) as PayoutLightningBlob;
                     if (proof?.PaymentHash != null && proof.PaymentHash == invoice?.PaymentHash?.ToString())
                     {
-                        proof.Preimage = swap.Swap.Preimage;
+                        proof.Preimage = info.Swap.Preimage;
                         payout.SetProofBlob(proof, null);
                         await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
                         {
@@ -193,7 +191,7 @@ public class BoltzService(
         var (ln, chain) = await client.GetAutoSwapConfig();
 
         var chainAddress = chain?.ToAddress;
-        if (!string.IsNullOrEmpty(chainAddress) && chainAddress == swap.ChainSwap?.ToData.Address)
+        if (!string.IsNullOrEmpty(chainAddress) && chainAddress == info.ChainSwap?.ToData.Address)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapChainConfig(
@@ -203,7 +201,7 @@ public class BoltzService(
         }
 
         var lnAddress = ln?.StaticAddress;
-        if (!string.IsNullOrEmpty(lnAddress) && lnAddress == swap.ReverseSwap?.ClaimAddress)
+        if (!string.IsNullOrEmpty(lnAddress) && lnAddress == info.ReverseSwap?.ClaimAddress)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapLightningConfig(
@@ -215,7 +213,7 @@ public class BoltzService(
 
     public async Task<string> GenerateNewAddress(StoreData store)
     {
-        var derivation = store.GetDerivationSchemeSettings(btcPayNetworkProvider, "BTC");
+        var derivation = store.GetDerivationSchemeSettings(paymentHandlers, "BTC");
         if (derivation is null)
         {
             throw new InvalidOperationException("Store has no btc wallet configured");
@@ -305,7 +303,7 @@ public class BoltzService(
     public async Task Set(string storeId, BoltzSettings? settings)
     {
         var cryptoCode = "BTC";
-        var paymentMethodId = new PaymentMethodId(cryptoCode, PaymentTypes.LightningLike);
+        var paymentMethodId = PaymentTypes.LN.GetPaymentMethodId(cryptoCode);
 
         var data = await storeRepository.FindStore(storeId);
         if (settings is null)
@@ -317,13 +315,11 @@ public class BoltzService(
             }
 
             var boltzUrl = GetLightningClient(oldSettings)?.ToString();
-            var paymentMethod = data?.GetSupportedPaymentMethods(btcPayNetworkProvider)
-                .OfType<LightningSupportedPaymentMethod>()
-                .FirstOrDefault(method =>
-                    method.PaymentId == paymentMethodId && method.GetExternalLightningUrl() == boltzUrl);
-            if (paymentMethod is not null)
+            var paymentMethod =
+                data?.GetPaymentMethodConfig<LightningPaymentMethodConfig>(paymentMethodId, paymentHandlers);
+            if (paymentMethod is not null && paymentMethod.GetExternalLightningUrl() == boltzUrl)
             {
-                data!.SetSupportedPaymentMethod(paymentMethodId, null);
+                data!.SetPaymentMethodConfig(paymentMethodId, null);
                 await storeRepository.UpdateStore(data!);
             }
         }
@@ -333,15 +329,12 @@ public class BoltzService(
 
             if (settings.Mode == BoltzMode.Standalone)
             {
-                var paymentMethod = new LightningSupportedPaymentMethod
-                {
-                    CryptoCode = paymentMethodId.CryptoCode
-                };
-
+                var paymentMethod = new LightningPaymentMethodConfig();
                 var lightningClient = GetLightningClient(settings)!;
                 paymentMethod.SetLightningUrl(lightningClient);
 
-                data!.SetSupportedPaymentMethod(paymentMethodId, paymentMethod);
+                data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
+                    JObject.FromObject(paymentMethod));
             }
 
             await storeRepository.UpdateStore(data!);
@@ -400,8 +393,7 @@ public class BoltzService(
 
     public string? GetTransactionLink(Currency currency, string txId)
     {
-        return transactionLinkProviders.GetTransactionLink(
-            new PaymentMethodId(currency.ToString().ToUpper(), PaymentTypes.BTCLike), txId);
+        return transactionLinkProviders.GetTransactionLink(PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
     }
 
     public static List<Stat> PairStats(PairInfo pairInfo) =>
@@ -427,7 +419,8 @@ public class BoltzService(
         {
             // cancel 0 amount invoice
             var destination = payout.GetBlob(jsonSerializerSettings).Destination;
-            if (BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork)) {
+            if (BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork))
+            {
                 if (bolt11!.MinimumAmount == 0)
                 {
                     await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest

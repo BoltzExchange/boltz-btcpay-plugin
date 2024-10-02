@@ -1,31 +1,26 @@
 @using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Views
 @model BTCPayServer.Plugins.Boltz.Models.AdminModel
 @inject BoltzDaemon Daemon
 @{
-    ViewData.SetActivePage("Boltz", "Admin", "Admin");
+    ViewData.SetActivePage(BoltzNavPages.Admin, "Admin");
 
     var boltzCredsSet = Model.Settings?.CredentialsPopulated() ?? false;
     var updateText = Daemon.UpdateAvailable ? "Update" : "Check Update";
 }
 
 <form method="post">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h3 class="mb-0">
-            <span>@ViewData["Title"]</span>
-        </h3>
-        <div class="d-flex gap-3 mt-3 mt-sm-0">
-            <button name="command" type="submit" value="Start" class="btn btn-secondary">
-                @(Daemon.Running ? "Restart" : "Start")
+    <div class="d-flex gap-3 mt-3 mt-sm-0 mb-3">
+        <button name="command" type="submit" value="Start" class="btn btn-secondary">
+            @(Daemon.Running ? "Restart" : "Start")
+        </button>
+        <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
+        @if (boltzCredsSet)
+        {
+            <button name="command" type="submit" value="Clear" class="btn btn-danger">
+                Disconnect
             </button>
-            <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
-            @if (boltzCredsSet)
-            {
-                <button name="command" type="submit" value="Clear" class="btn btn-danger">
-                    Disconnect
-                </button>
-            }
-
-        </div>
+        }
     </div>
 
     @if (Daemon.HasError)
