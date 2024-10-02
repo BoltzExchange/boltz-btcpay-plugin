@@ -6,10 +6,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Boltzrpc;
 using BTCPayServer.Abstractions.Constants;
-using BTCPayServer.Client;
 using BTCPayServer.Data;
 using System.Threading;
+using BTCPayServer.Client;
 using BTCPayServer.Models.StoreViewModels;
+using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
@@ -34,7 +35,8 @@ public class BoltzController(
     BoltzDaemon boltzDaemon,
     InvoiceRepository invoiceRepository,
     PoliciesSettings policiesSettings,
-    BTCPayNetworkProvider btcPayNetworkProvider
+    BTCPayNetworkProvider btcPayNetworkProvider,
+    PaymentMethodHandlerDictionary handlers
 )
     : Controller
 {
@@ -729,9 +731,9 @@ public class BoltzController(
             if (mode is null)
             {
                 vm.ExistingSettings = SavedSettings;
-                vm.ConnectedNode = CurrentStore.GetSupportedPaymentMethods(btcPayNetworkProvider)
-                    .OfType<LightningSupportedPaymentMethod>()
-                    .FirstOrDefault();
+                vm.ConnectedNode =
+                    CurrentStore.GetPaymentMethodConfig<LightningPaymentMethodConfig>(
+                        PaymentTypes.LN.GetPaymentMethodId("BTC"), handlers);
                 vm.HasInternal = boltzService.InternalLightning is not null;
                 vm.ConnectedInternal = boltzService.Daemon.Node is not null;
                 if (vm.IsAdmin)
@@ -789,7 +791,7 @@ public class BoltzController(
 
         if (currency != Currency.Lbtc)
         {
-            var derivation = CurrentStore.GetDerivationSchemeSettings(btcPayNetworkProvider, "BTC");
+            var derivation = CurrentStore.GetDerivationSchemeSettings(handlers, "BTC");
             if (derivation is not null && (derivation.IsHotWallet || allowReadonly))
             {
                 var balance = await boltzService.BtcWallet.GetBalance(derivation.AccountDerivation);
