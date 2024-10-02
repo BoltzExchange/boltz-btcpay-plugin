@@ -13,9 +13,10 @@ using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Plugins.Boltz.Payments;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
-using Dapper;
+using BTCPayServer.Services.Stores;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -33,8 +34,10 @@ namespace BTCPayServer.Plugins.Boltz;
 [Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Policies.CanViewProfile)]
 public class BoltzController(
     BoltzService boltzService,
+    WalletHelper walletHelper,
     BoltzDaemon boltzDaemon,
     InvoiceRepository invoiceRepository,
+    StoreRepository storeRepository,
     PoliciesSettings policiesSettings,
     BTCPayNetworkProvider btcPayNetworkProvider,
     PaymentMethodHandlerDictionary handlers
@@ -763,8 +766,8 @@ public class BoltzController(
         return RedirectToAction(nameof(SetupMode), new { storeId = CurrentStore.Id });
     }
 
-    [HttpGet("setup/{mode?}")]
-    public async Task<IActionResult> SetupMode(ModeSetup vm, BoltzMode? mode, string storeId)
+    [HttpGet("setup/{flow?}")]
+    public async Task<IActionResult> SetupMode(ModeSetup vm, SetupFlow? flow, string storeId)
     {
         vm.IsAdmin = IsAdmin;
         vm.Enabled = IsAdmin || boltzService.ServerSettings.AllowTenants;
@@ -776,7 +779,7 @@ public class BoltzController(
                 return RedirectToAction(nameof(Admin), new { storeId });
             }
 
-            if (mode is null)
+            if (flow is null)
             {
                 vm.ExistingSettings = SavedSettings;
                 vm.ConnectedNode =
@@ -797,27 +800,32 @@ public class BoltzController(
                 return View(vm);
             }
 
-            if (mode == BoltzMode.Rebalance)
+            if (!vm.IsAdmin && flow != SetupFlow.Standalone)
             {
-                if (!vm.IsAdmin)
-                {
-                    return new UnauthorizedResult();
-                }
+                return new UnauthorizedResult();
+            }
 
+            if (flow == SetupFlow.Rebalance)
+            {
                 LightningSetup = new LightningConfig();
             }
 
-
             try
             {
-                SetupSettings = await boltzService.InitializeStore(storeId, mode.Value);
+                SetupSettings = await boltzService.InitializeStore(storeId, flow.Value);
             }
             catch (Exception e)
             {
                 TempData[WellKnownTempData.ErrorMessage] = "Could not initialize store settings: " + e.Message;
             }
 
-            return View(mode == BoltzMode.Rebalance ? "SetupRebalance" : "SetupStandalone", vm);
+            return View(flow switch
+            {
+                SetupFlow.Standalone => "SetupStandalone",
+                SetupFlow.Rebalance => "SetupRebalance",
+                SetupFlow.OnchainPayments => "SetupOnchainPayments",
+                _ => "SetupMode"
+            }, vm);
         }
 
         return View(vm);
@@ -832,6 +840,7 @@ public class BoltzController(
                 wallet => new ExistingWallet
                 {
                     Balance = wallet.Balance?.Total,
+                    Id = wallet.Id,
                     IsReadonly = wallet.Readonly,
                     Name = wallet.Name,
                     Currency = wallet.Currency,
@@ -843,7 +852,7 @@ public class BoltzController(
             var derivation = CurrentStore.GetDerivationSchemeSettings(handlers, "BTC");
             if (derivation is not null && allowReadonly)
             {
-                var balance = await boltzService.BtcWallet.GetBalance(derivation.AccountDerivation);
+                var balance = await walletHelper.BtcWallet.GetBalance(derivation.AccountDerivation);
                 result.Add(new ExistingWallet
                 {
                     Name = BtcPayName,
@@ -851,7 +860,7 @@ public class BoltzController(
                     // even if its a hot wallet, we cant import it to boltz-client and not send properly
                     IsReadonly = true,
                     Currency = Currency.Btc,
-                    Balance = (ulong)(balance.Total.GetValue(boltzService.BtcNetwork) *
+                    Balance = (ulong)(balance.Total.GetValue(walletHelper.BtcNetwork) *
                                       (decimal)MoneyUnit.BTC)
                 });
             }
@@ -871,6 +880,7 @@ public class BoltzController(
             {
                 WalletSetupFlow.Standalone => Currency.Lbtc,
                 WalletSetupFlow.Chain => Currency.Btc,
+                WalletSetupFlow.OnchainPayments => Currency.Btc,
                 _ => vm.Currency
             };
             if (vm.Currency is null)
@@ -949,6 +959,17 @@ public class BoltzController(
                             { ToWallet = walletName };
                         return RedirectToAction(nameof(SetupBudget),
                             new { storeId, swapperType = SwapperType.Chain });
+                    case WalletSetupFlow.OnchainPayments:
+                        // If this is the first setup, we have to make sure to save the store settings
+                        await boltzService.Set(CurrentStore.Id, Settings);
+                        return await OnchainSettings(new OnchainSettingsViewModel
+                        {
+                            Enabled = true,
+                            Config = new BoltzPaymentConfig
+                            {
+                                WalletId = wallet?.Id,
+                            }
+                        });
                     case WalletSetupFlow.Manual:
                         return RedirectToAction(nameof(Configuration), new { storeId });
                 }
@@ -1196,7 +1217,7 @@ public class BoltzController(
     {
         if (config is { Wallet: "", StaticAddress: "" })
         {
-            config.StaticAddress = await boltzService.GenerateNewAddress(CurrentStore);
+            config.StaticAddress = await walletHelper.GenerateNewAddress(CurrentStore);
             paths = paths?.Append("static_address");
         }
 
@@ -1221,7 +1242,7 @@ public class BoltzController(
 
         if (config is { ToWallet: "", ToAddress: "" })
         {
-            config.ToAddress = await boltzService.GenerateNewAddress(CurrentStore);
+            config.ToAddress = await walletHelper.GenerateNewAddress(CurrentStore);
         }
 
         config.BudgetInterval = DaysToSeconds(config.BudgetInterval);
@@ -1364,7 +1385,6 @@ public class BoltzController(
         return RedirectSetup();
     }
 
-
     private async Task<string?> GetChainSwapsFromWallet()
     {
         if (Boltz != null)
@@ -1385,5 +1405,36 @@ public class BoltzController(
         }
 
         return null;
+    }
+
+    [HttpGet("onchain-payments/settings")]
+    public async Task<IActionResult> OnchainSettings()
+    {
+        if (Boltz != null)
+        {
+            var (config, enabled) = boltzService.GetPaymentConfig(CurrentStore);
+            if (config != null)
+            {
+                var vm = new OnchainSettingsViewModel
+                {
+                    Config = config,
+                    ExistingWallets = await GetExistingWallets(true, Currency.Btc),
+                    Enabled = enabled
+                };
+                return View(vm);
+            }
+        }
+
+        return RedirectSetup();
+    }
+
+
+    [HttpPost("onchain-payments/settings")]
+    public async Task<RedirectToActionResult> OnchainSettings(OnchainSettingsViewModel vm)
+    {
+        // TODO: is allowed?
+        await boltzService.SetPaymentConfig(CurrentStore, vm.Config, vm.Enabled);
+
+        return RedirectToAction(nameof(OnchainSettings), new { storeId = CurrentStore.Id });
     }
 }
