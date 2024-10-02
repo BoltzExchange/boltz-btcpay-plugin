@@ -19,6 +19,7 @@ using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Plugins.Boltz.Payments;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
@@ -336,6 +337,16 @@ public class BoltzService(
                 data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
                     JObject.FromObject(paymentMethod));
             }
+            else
+            {
+                var config = new BoltzPaymentConfig
+                {
+                    GrpcUrl = settings.GrpcUrl!,
+                    Macaroon = settings.Macaroon,
+                };
+                data!.SetPaymentMethodConfig(BoltzPaymentHandler.GetPaymentMethodId("BTC"), JObject.FromObject(config));
+            }
+
 
             await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);
@@ -393,7 +404,8 @@ public class BoltzService(
 
     public string? GetTransactionLink(Currency currency, string txId)
     {
-        return transactionLinkProviders.GetTransactionLink(PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
+        return transactionLinkProviders.GetTransactionLink(
+            PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
     }
 
     public static List<Stat> PairStats(PairInfo pairInfo) =>
