@@ -19,6 +19,7 @@ using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Plugins.Boltz.Payments;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
@@ -327,6 +328,9 @@ public class BoltzService(
                 data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
                     JObject.FromObject(paymentMethod));
             }
+
+            var config = new BoltzPaymentConfig();
+            data!.SetPaymentMethodConfig(BoltzPaymentHandler.GetPaymentMethodId("BTC"), JObject.FromObject(config));
 
             await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);
