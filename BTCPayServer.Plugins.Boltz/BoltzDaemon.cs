@@ -545,7 +545,10 @@ public class BoltzDaemon(
         await Wait(wait.Token);
         if (Running)
         {
-            AdminClient!.SwapUpdate += SwapUpdate!;
+            AdminClient!.SwapUpdate += (sender, response) =>
+            {
+                SwapUpdate?.Invoke(sender, response);
+            };
         }
     }
 

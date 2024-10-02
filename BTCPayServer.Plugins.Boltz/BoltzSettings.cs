@@ -4,6 +4,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BTCPayServer.Plugins.Boltz;
 
+public enum SetupFlow
+{
+    Standalone,
+    Rebalance,
+    OnchainPayments
+}
+
 public enum BoltzMode
 {
     Rebalance,
