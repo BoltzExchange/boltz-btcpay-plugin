@@ -21,6 +21,7 @@ using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Plugins.Boltz.Payments;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
@@ -229,14 +230,16 @@ public class BoltzService(
         }
     }
 
-    public async Task<string> GenerateNewAddress(StoreData store)
+    public DerivationSchemeSettings StoreDerivationSettings(StoreData store)
     {
         var derivation = store.GetDerivationSchemeSettings(paymentHandlers, "BTC");
-        if (derivation is null)
-        {
-            throw new InvalidOperationException("Store has no btc wallet configured");
-        }
+        if (derivation is null) throw new InvalidOperationException("Store has no btc wallet configured");
+        return derivation;
+    }
 
+    public async Task<string> GenerateNewAddress(StoreData store)
+    {
+        var derivation = StoreDerivationSettings(store);
         var address = await BtcWallet.ReserveAddressAsync(store.Id, derivation.AccountDerivation, "Boltz");
         return address.Address.ToString();
     }
@@ -273,14 +276,25 @@ public class BoltzService(
         }
     }
 
-    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
+    public async Task<BoltzSettings> InitializeStore(string storeId, SetupFlow mode)
     {
-        var settings = new BoltzSettings
+        var settings = GetSettings(storeId);
+        if (settings is null)
         {
-            GrpcUrl = daemon.DefaultUri, Mode = mode,
-            CertFilePath = daemon.CertFile,
+            settings = new BoltzSettings
+            {
+                GrpcUrl = daemon.DefaultUri,
+                CertFilePath = daemon.CertFile,
+            };
+            await SetMacaroon(storeId, settings);
+        }
+
+        settings.Mode = mode switch
+        {
+            SetupFlow.Standalone => BoltzMode.Standalone,
+            SetupFlow.Rebalance => BoltzMode.Rebalance,
+            _ => null
         };
-        await SetMacaroon(storeId, settings);
         return settings;
     }
 
@@ -309,6 +323,23 @@ public class BoltzService(
 
         _settings!.TryGetValue(storeId, out var settings);
         return settings;
+    }
+
+    public (BoltzPaymentConfig?, bool) GetPaymentConfig(StoreData storeData)
+    {
+        var pm = BoltzPaymentHandler.GetPaymentMethodId("BTC");
+        var excludedMethods = storeData.GetStoreBlob().GetExcludedPaymentMethods();
+        return (storeData.GetPaymentMethodConfig<BoltzPaymentConfig>(pm, paymentHandlers), !excludedMethods.Match(pm));
+    }
+
+    public async Task SetPaymentConfig(StoreData storeData, BoltzPaymentConfig? config, bool enabled)
+    {
+        var pmId = BoltzPaymentHandler.GetPaymentMethodId("BTC");
+        storeData.SetPaymentMethodConfig(pmId, config is null ? null : JObject.FromObject(config));
+        var blob = storeData.GetStoreBlob();
+        blob.SetExcluded(pmId, !enabled);
+        storeData.SetStoreBlob(blob);
+        await storeRepository.UpdateStore(storeData);
     }
 
     public BoltzLightningClient? GetLightningClient(BoltzSettings? settings)
@@ -376,7 +407,9 @@ public class BoltzService(
 
                 data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
                     JObject.FromObject(paymentMethod));
+                await SetPaymentConfig(data!, null, true);
             }
+
 
             await storeRepository.UpdateStore(data!);
             _settings.AddOrReplace(storeId, settings);

@@ -35,7 +35,7 @@ else
 
         <div class="mt-4">
             <div class="list-group">
-                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Rebalance" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
+                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-flow="@SetupFlow.Rebalance" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
                     <div class="image">
                         <vc:icon symbol="lightning-node"/>
                     </div>
@@ -53,6 +53,32 @@ else
                 </a>
             </div>
         </div>
+
+        <div class="mt-4">
+            <div class="list-group">
+                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-flow="@SetupFlow.OnchainPayments" asp-route-storeId="@storeId" class="list-group-item list-group-item-action @(tooltip is null ? "" : "disabled")">
+                    <div class="image">
+                        <vc:icon symbol="lightning-node"/>
+                    </div>
+                    <div class="content">
+                        <h4>Accept onchain payments</h4>
+                        <div class="d-flex flex-column gap-2">
+                            <p class="mb-0 text-secondary">This sets up onchain payments which are automatically swapped to your lightning node.</p>
+                            @if (tooltip is not null)
+                            {
+                                <small class="d-block text-danger mt-2 mt-lg-0">@tooltip</small>
+                            }
+                            else
+                            {
+                                <small class="d-block text-warning mt-2 mt-lg-0">Experimental</small>
+                            }
+                        </div>
+                    </div>
+                    <vc:icon symbol="caret-right"/>
+                </a>
+            </div>
+        </div>
+
         @if (!string.IsNullOrEmpty(BoltzService.Daemon.NodeError) && Model.IsAdmin)
         {
             <a asp-action="Admin" asp-route-storeId="@storeId" class="btn btn-secondary mt-3">Troubleshoot node connection</a>
@@ -61,7 +87,7 @@ else
         <br>
         <div class="mt-4">
             <div class="list-group">
-                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-mode="Standalone" class="list-group-item list-group-item-action">
+                <a asp-controller="Boltz" asp-action="SetupMode" asp-route-storeId="@storeId" asp-route-flow="@SetupFlow.Standalone" class="list-group-item list-group-item-action">
                     <div class="image">
                         <vc:icon symbol="lightning"/>
                     </div>
