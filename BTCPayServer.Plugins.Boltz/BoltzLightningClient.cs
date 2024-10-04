@@ -177,6 +177,7 @@ public class BoltzLightningClient(
             WalletId = walletId,
             ExternalPay = true,
             Pair = new Pair { From = Currency.Btc, To = Currency.Lbtc },
+            InvoiceExpiry = (ulong)createInvoiceRequest.Expiry.TotalSeconds,
         };
         if (createInvoiceRequest.DescriptionHashOnly)
         {

@@ -34,7 +34,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version MinClientVersion = new("2.1.2");
+    private static readonly Version MinClientVersion = new("2.1.7");
 
     private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
