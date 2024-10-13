@@ -981,7 +981,7 @@ public class BoltzController(
                 var walletParams = new WalletParams { Currency = vm.Currency ?? Currency.Lbtc, Name = vm.WalletName };
                 if (vm.ImportMethod is null)
                 {
-                    if (!vm.AllowCreateHot)
+                    if (!AllowCreateHot)
                     {
                         TempData[WellKnownTempData.ErrorMessage] = "Hot wallet creation is not allowed";
                         return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStore.Id });
