@@ -3,7 +3,9 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
 @using Boltzrpc
+@using BTCPayServer.Services
 @model BTCPayServer.Plugins.Boltz.Models.WalletSetup
+@inject PoliciesSettings PoliciesSettings
 @inject BoltzService BoltzService
 @{
     Layout = "_LayoutSetup";
@@ -60,13 +62,19 @@
 
 <div class="mt-4">
     <div class="list-group">
-        <a asp-controller="Boltz" asp-action="CreateWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action">
+        <a asp-controller="Boltz" asp-action="CreateWallet" asp-all-route-data="@routeData" class="list-group-item list-group-item-action @(!Model.AllowCreateHot ? "disabled" : "")">
             <div class="image">
                 <vc:icon symbol="new-wallet"/>
             </div>
             <div class="content">
                 <h4>Create a new wallet</h4>
-                <p class="mb-0 text-secondary">Generate a brand-new wallet to use</p>
+                <div class="d-flex flex-column gap-2">
+                    <p class="mb-0 text-secondary">Generate a brand-new wallet to use</p>
+                    @if (!Model.AllowCreateHot)
+                    {
+                        <small class="d-block text-danger mt-2 mt-lg-0">Disabled by admin</small>
+                    }
+                </div>
             </div>
             <vc:icon symbol="caret-right"/>
         </a>

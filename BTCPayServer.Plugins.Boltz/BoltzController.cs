@@ -12,6 +12,7 @@ using System.Threading;
 using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
+using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
@@ -32,6 +33,7 @@ public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
     InvoiceRepository invoiceRepository,
+    PoliciesSettings policiesSettings,
     BTCPayNetworkProvider btcPayNetworkProvider
 )
     : Controller
@@ -41,6 +43,8 @@ public class BoltzController(
     private bool Configured => boltzService.StoreConfigured(CurrentStore.Id);
     private BoltzSettings? SavedSettings => boltzService.GetSettings(CurrentStore.Id);
     private bool IsAdmin => User.IsInRole(Roles.ServerAdmin);
+    private bool AllowImportHot => IsAdmin || policiesSettings.AllowHotWalletRPCImportForAll;
+    private bool AllowCreateHot => IsAdmin || policiesSettings.AllowHotWalletForAll;
 
     private const string BtcPayName = "BTCPay";
     private const string BackUrl = "BackUrl";
@@ -805,6 +809,8 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
+            vm.AllowCreateHot = AllowCreateHot;
+
             vm.Currency = vm.Flow switch
             {
                 WalletSetupFlow.Standalone => Currency.Lbtc,
@@ -971,6 +977,12 @@ public class BoltzController(
                 var walletParams = new WalletParams { Currency = vm.Currency ?? Currency.Lbtc, Name = vm.WalletName };
                 if (vm.ImportMethod is null)
                 {
+                    if (!vm.AllowCreateHot)
+                    {
+                        TempData[WellKnownTempData.ErrorMessage] = "Hot wallet creation is not allowed";
+                        return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStore.Id });
+                    }
+
                     var response = await Boltz.CreateWallet(walletParams);
                     var next = await SetupWallet(vm, vm.StoreId!);
                     return this.RedirectToRecoverySeedBackup(new RecoverySeedBackupViewModel
@@ -979,6 +991,12 @@ public class BoltzController(
                         ReturnUrl = Url.Action(next.ActionName, next.RouteValues),
                         IsStored = true,
                     });
+                }
+
+                if (vm.ImportMethod == WalletImportMethod.Mnemonic && !AllowImportHot)
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "Mnemonic import is not allowed";
+                    return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStore.Id });
                 }
 
                 await Boltz.ImportWallet(walletParams, vm.WalletCredentials);
@@ -1004,6 +1022,8 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
+            vm.AllowImportHot = AllowImportHot;
+
             if (!vm.AllowReadonly)
             {
                 vm.ImportMethod = WalletImportMethod.Mnemonic;
