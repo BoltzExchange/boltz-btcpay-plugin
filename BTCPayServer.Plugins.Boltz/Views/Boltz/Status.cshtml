@@ -24,12 +24,12 @@
 else
 {
     <div class="d-grid gap-3">
-        @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null)
+        @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null && Model.StandaloneWallet is not null)
         {
             var stats = BoltzClient.ParseStats(Model.Stats);
 
-            var balance = Model.StandaloneWallet?.Balance;
-            var walletId = Model.StandaloneWallet?.Id;
+            var balance = Model.StandaloneWallet.Balance;
+            var walletId = Model.StandaloneWallet.Id;
             if (balance?.Unconfirmed > 0)
             {
                 stats.Insert(0, new Stat { Name = "Unconfirmed Balance", Unit = Unit.Sat, Value = balance.Unconfirmed });
@@ -47,8 +47,11 @@ else
                     <partial name="Boltz/_Stats" model="stats"/>
                     <div class="btn-group gap-0">
                         <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive / Swap In</a>
-                        <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(balance?.Confirmed == 0 ? "disabled" : "")">Send / Swap Out</a>
-                        <a asp-action="WalletCredentials" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Show seed</a>
+                        @if (!Model.StandaloneWallet.Readonly)
+                        {
+                            <a asp-action="WalletSend" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary @(balance?.Confirmed == 0 ? "disabled" : "")">Send / Swap Out</a>
+                            <a asp-action="WalletCredentials" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Show seed</a>
+                        }
                     </div>
                 </div>
             </div>
