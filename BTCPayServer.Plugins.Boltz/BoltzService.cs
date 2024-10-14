@@ -24,6 +24,7 @@ using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
 using Grpc.Core;
+using LNURL;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin;
@@ -109,6 +110,14 @@ public class BoltzService(
             if (args.hook == "before-automated-payout-processing")
             {
                 await BeforePayoutAction((BeforePayoutActionData)args.args);
+            }
+        };
+
+        pluginHookService.FilterInvoked += async (_, args) =>
+        {
+            if (args.hook == "modify-lnurlp-request")
+            {
+                await ModifyLnurlpAction((LNURLPayRequest)args.args);
             }
         };
 
@@ -384,7 +393,8 @@ public class BoltzService(
 
     public string? GetTransactionLink(Currency currency, string txId)
     {
-        return transactionLinkProviders.GetTransactionLink(PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
+        return transactionLinkProviders.GetTransactionLink(
+            PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
     }
 
     public static List<Stat> PairStats(PairInfo pairInfo) =>
@@ -394,6 +404,15 @@ public class BoltzService(
         new() { Name = "Min Amount", Value = pairInfo.Limits.Minimal, Unit = Unit.Sat },
         new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
     ];
+
+    private async Task ModifyLnurlpAction(LNURLPayRequest data)
+    {
+        var pairInfo = await GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Reverse);
+        if (pairInfo != null)
+        {
+            data.MinSendable = Math.Max(data.MinSendable, LightMoney.FromUnit(pairInfo.Limits.Minimal, LightMoneyUnit.Satoshi));
+        }
+    }
 
     private async Task BeforePayoutAction(BeforePayoutActionData data)
     {
