@@ -23,6 +23,7 @@ using BTCPayServer.Services;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
 using Grpc.Core;
+using LNURL;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin;
@@ -107,6 +108,14 @@ public class BoltzService(
             if (args.hook == "before-automated-payout-processing")
             {
                 await BeforePayoutAction((BeforePayoutActionData)args.args);
+            }
+        };
+
+        pluginHookService.FilterInvoked += async (_, args) =>
+        {
+            if (args.hook == "modify-lnurlp-request")
+            {
+                await ModifyLnurlpAction((LNURLPayRequest)args.args);
             }
         };
 
@@ -402,6 +411,15 @@ public class BoltzService(
         new() { Name = "Min Amount", Value = pairInfo.Limits.Minimal, Unit = Unit.Sat },
         new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
     ];
+
+    private async Task ModifyLnurlpAction(LNURLPayRequest data)
+    {
+        var pairInfo = await GetPairInfo(new Pair { From = Currency.Btc, To = Currency.Lbtc }, SwapType.Reverse);
+        if (pairInfo != null)
+        {
+            data.MinSendable = Math.Max(data.MinSendable, LightMoney.Satoshis(pairInfo.Limits.Minimal));
+        }
+    }
 
     private async Task BeforePayoutAction(BeforePayoutActionData data)
     {
