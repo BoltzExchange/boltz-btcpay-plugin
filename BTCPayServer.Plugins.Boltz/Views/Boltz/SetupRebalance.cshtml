@@ -17,7 +17,7 @@
     <div class="list-group">
         <a asp-controller="Boltz" asp-action="SetupWallet" asp-route-flow="@WalletSetupFlow.Lightning" asp-route-storeId="@storeId" asp-route-swapType="reverse" class="list-group-item list-group-item-action">
             <div class="image">
-                <vc:icon symbol="existing-wallet"/>
+                <vc:icon symbol="payment-receive"/>
             </div>
             <div class="content d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between me-2">
                 <div>
@@ -35,7 +35,7 @@
     <div class="list-group">
         <a asp-controller="Boltz" asp-action="SetupWallet" asp-route-flow="@WalletSetupFlow.Lightning" asp-route-storeId="@storeId" asp-route-swapType="normal" class="list-group-item list-group-item-action">
             <div class="image">
-                <vc:icon symbol="new-wallet"/>
+                <vc:icon symbol="payment-send"/>
             </div>
             <div class="content">
                 <h4>Guarantee Outbound Liquidity</h4>
@@ -50,7 +50,7 @@
     <div class="list-group">
         <a asp-controller="Boltz" asp-action="SetupWallet" asp-route-flow="@WalletSetupFlow.Lightning" asp-route-storeId="@storeId" class="list-group-item list-group-item-action">
             <div class="image">
-                <vc:icon symbol="new-wallet"/>
+                <vc:icon symbol="nav-transactions"/>
             </div>
             <div class="content">
                 <h4>Guarantee Both</h4>

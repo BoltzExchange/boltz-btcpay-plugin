@@ -2,12 +2,12 @@
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Security
 @using Boltzrpc
+@using BTCPayServer.Components
+@using BTCPayServer.Plugins.Boltz.Views
+@using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.Boltz.Models.SwapsModel
-@inject BoltzService BoltzService
 @{
-    ViewData.SetActivePage("Boltz", "Swaps", "Swaps");
-
-    var storeId = Context.GetImplicitStoreId();
+    ViewData.SetActivePage(BoltzNavPages.Swaps, "Swaps");
 }
 
 @if (Model.SwapInfo != null)
@@ -19,7 +19,6 @@
 }
 else if (Model.Swaps is not null)
 {
-    <h4>Swaps</h4>
     @if (Model.Swaps.AllSwaps.Count > 0)
     {
         <partial name="Boltz/_SwapsTable" model="Model.Swaps.AllSwaps.ToList()"/>

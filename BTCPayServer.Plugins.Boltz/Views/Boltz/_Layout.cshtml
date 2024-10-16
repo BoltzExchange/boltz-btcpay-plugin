@@ -2,7 +2,8 @@
 @using BTCPayServer.Security
 @inject BoltzDaemon Daemon
 @{
-    Layout = "../Shared/_NavLayout.cshtml";
+    Layout = "../Shared/_Layout.cshtml";
+    var storeId = Context.GetImplicitStoreId();
 }
 <style>
 /*
@@ -12,6 +13,12 @@
  */
 </style>
 
-<partial name="Boltz/_Notification"/>
+<div class="sticky-header">
+    <h2>@ViewData["Title"]</h2>
+    <a asp-action="SetupMode" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
+        Setup
+    </a>
+</div>
 
+<partial name="Boltz/_Notification"/>
 @RenderBody()
