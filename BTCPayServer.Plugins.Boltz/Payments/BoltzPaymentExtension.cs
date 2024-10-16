@@ -64,8 +64,6 @@ public class BoltzCheckoutModelExtension : ICheckoutModelExtension
         context.Model.ShowRecommendedFee = context.StoreBlob.ShowRecommendedFee;
         context.Model.FeeRate = details.RecommendedFeeRate.SatoshiPerByte;
 
-
-
         var bip21Case = _Network.SupportLightning && context.StoreBlob.OnChainWithLnInvoiceFallback;
         var amountInSats = bip21Case && context.StoreBlob.LightningAmountInSatoshi &&
                            context.Model.PaymentMethodCurrency == "BTC";

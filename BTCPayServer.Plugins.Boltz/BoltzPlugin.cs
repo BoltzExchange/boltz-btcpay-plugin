@@ -8,6 +8,7 @@ using BTCPayServer.Hosting;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Bitcoin;
+using BTCPayServer.Abstractions.Extensions;
 using BTCPayServer.Plugins.Boltz.Payments;
 using BTCPayServer.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,12 +78,20 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
                 typeof(BitcoinPaymentMethodViewExtension), pmi));
                 */
 
+        /*
         services.AddSingleton(provider =>
             (ICheckoutModelExtension)ActivatorUtilities.CreateInstance(provider,
                 typeof(BoltzCheckoutModelExtension), network, pmi));
+        */
+
+        services.AddSingleton(provider =>
+            (ICheckoutModelExtension)ActivatorUtilities.CreateInstance(provider,
+                typeof(BitcoinCheckoutModelExtension), network, pmi));
 
         services.AddSingleton<BoltzPaymentListener>();
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<BoltzPaymentListener>());
+
+        services.AddDefaultPrettyName(pmi, network.DisplayName);
 
         services.AddUIExtension("store-invoices-payments", "Boltz/ViewBoltzPaymentData");
 
