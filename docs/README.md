@@ -15,11 +15,6 @@ The [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin) 
 
 ## Building
 
-To build and package the plugin for manual upload to your BTCPay Server, run the following commands inside the plugin's git repository:
+To build and package the plugin for manual upload to your BTCPay Server, simply run the `release.sh` script inside the git repository.
 
-```
-git submodule update --init
-dotnet publish BTCPayServer.Plugins.Boltz -o ./publish
-dotnet run --project btcpayserver/BTCPayServer.PluginPacker ./publish BTCPayServer.Plugins.Boltz ./release
-```
-
+The path to the built `.btcpay` file will be shown. You can upload this file to your btcpay server by navigating to `Plugins` and scrolling all the way down to `Upload Plugin`.
