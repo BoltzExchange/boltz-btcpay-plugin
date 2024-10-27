@@ -1,1 +1,1 @@
-/home/jacksn/.dotnet/dotnet build BTCPayServer.Plugins.Boltz
+dotnet build BTCPayServer.Plugins.Boltz
