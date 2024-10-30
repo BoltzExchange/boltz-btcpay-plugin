@@ -322,6 +322,10 @@ public class BoltzClient : IDisposable
     public async Task Stop(CancellationToken cancellationToken = default)
     {
         await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
+        if (_invoiceStreamCancel is not null)
+        {
+            await _invoiceStreamCancel.CancelAsync();
+        }
     }
 
     public async Task<BakeMacaroonResponse> BakeMacaroon(ulong tenantId)
@@ -382,7 +386,7 @@ public class BoltzClient : IDisposable
                     _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
                 }
             }
-            catch (Exception e)
+            catch (Exception e) when (!_invoiceStreamCancel.IsCancellationRequested)
             {
                 _logger.LogError(e, "Error in swap stream");
                 await Task.Delay(3000);

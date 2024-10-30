@@ -1199,16 +1199,34 @@ public class BoltzController(
             var info = await Boltz.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
             var vm = new ChainSetup
             {
-                // TODO: remove buffer once proper sweep is implemented
-                MaxBalance = 10_000_000,
                 PairInfo = info,
-                ReserveBalance = 500_000,
             };
 
             if (Settings?.Mode == BoltzMode.Standalone)
             {
+                vm.MaxBalance = 10_000_000;
+                vm.ReserveBalance = 500_000;
                 ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
                     new { flow = WalletSetupFlow.Standalone, storeId });
+            }
+            else
+            {
+                var recommendations = await Boltz.GetAutoSwapRecommendations();
+                foreach (var recommendation in recommendations.Lightning)
+                {
+                    vm.MaxBalance += recommendation.Channel.Capacity;
+                }
+
+                var swapType = LightningSetup?.SwapType;
+                if (swapType is null)
+                {
+                    var (ln, _) = await Boltz.GetAutoSwapConfig();
+                    swapType = ln?.SwapType;
+                }
+                if (swapType != "reverse")
+                {
+                    vm.ReserveBalance = vm.MaxBalance / 2;
+                }
             }
 
             return View(vm);
