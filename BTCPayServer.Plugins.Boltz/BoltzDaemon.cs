@@ -77,26 +77,6 @@ public class BoltzDaemon(
         _ => throw new NotSupportedException("Unsupported architecture")
     };
 
-    private async Task SwapUpdateStream(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var stream = AdminClient!.GetSwapInfoStream("", cancellationToken);
-                while (await stream.ResponseStream.MoveNext(cancellationToken))
-                {
-                    SwapUpdate?.Invoke(this, stream.ResponseStream.Current);
-                }
-            }
-            catch (Exception e) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogError(e, "Error in swap stream");
-                await Task.Delay(3000, cancellationToken);
-            }
-        }
-    }
-
     public async Task Wait(CancellationToken cancellationToken)
     {
         try
@@ -479,6 +459,58 @@ public class BoltzDaemon(
         return true;
     }
 
+    private async Task Run(CancellationTokenSource daemonCancel, bool logOutput)
+    {
+        _output.Clear();
+        using var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
+        try
+        {
+            process.Start();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to start client process");
+            Error = $"Failed to start process {e.Message}";
+            return;
+        }
+
+        MonitorStream(process.StandardOutput, daemonCancel.Token);
+        MonitorStream(process.StandardError, daemonCancel.Token, true);
+
+        try
+        {
+            await process.WaitForExitAsync(daemonCancel.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill();
+            throw;
+        }
+
+        var wasRunning = Running;
+        AdminClient?.Dispose();
+        AdminClient = null;
+
+        if (process.ExitCode != 0)
+        {
+            if (logOutput || wasRunning)
+            {
+                Error = $"Process exited with code {process.ExitCode}";
+                logger.LogError(Error);
+                logger.LogInformation(RecentOutput);
+            }
+
+            if (wasRunning)
+            {
+                logger.LogInformation("Restarting in 10 seconds");
+                await Task.Delay(10000, daemonCancel.Token);
+                InitiateStart();
+            }
+        }
+
+        await daemonCancel.CancelAsync();
+    }
+
     private async Task Start(bool logOutput = true)
     {
         await Stop();
@@ -486,64 +518,14 @@ public class BoltzDaemon(
         {
             logger.LogInformation("Starting client process");
             var daemonCancel = new CancellationTokenSource();
-            _daemonTask = Task.Factory.StartNew(async () =>
-            {
-                _output.Clear();
-                using var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
-                try
-                {
-                    process.Start();
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, "Failed to start client process");
-                    Error = $"Failed to start process {e.Message}";
-                    return;
-                }
-
-                MonitorStream(process.StandardOutput, daemonCancel.Token);
-                MonitorStream(process.StandardError, daemonCancel.Token, true);
-
-                try
-                {
-                    await process.WaitForExitAsync(daemonCancel.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    process.Kill();
-                    throw;
-                }
-
-                var wasRunning = Running;
-                AdminClient?.Dispose();
-                AdminClient = null;
-
-                if (process.ExitCode != 0)
-                {
-                    if (logOutput || wasRunning)
-                    {
-                        Error = $"Process exited with code {process.ExitCode}";
-                        logger.LogError(Error);
-                        logger.LogInformation(RecentOutput);
-                    }
-
-                    if (wasRunning)
-                    {
-                        logger.LogInformation("Restarting in 10 seconds");
-                        await Task.Delay(10000, _daemonCancel.Token);
-                        InitiateStart();
-                    }
-                }
-
-                await daemonCancel.CancelAsync();
-            }, daemonCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            _daemonTask = Run(daemonCancel, logOutput);
             var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
             wait.CancelAfter(TimeSpan.FromSeconds(60));
             _daemonCancel = daemonCancel;
             await Wait(wait.Token);
             if (Running)
             {
-                _ = SwapUpdateStream(daemonCancel.Token);
+                AdminClient!.SwapUpdate += SwapUpdate!;
             }
         }
     }
@@ -580,6 +562,7 @@ public class BoltzDaemon(
             }
 
             await _daemonTask;
+            logger.LogInformation("stopped");
         }
     }
 
@@ -591,7 +574,6 @@ public class BoltzDaemon(
             Arguments = args,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false,
         };
         //processStartInfo.EnvironmentVariables.Add("GRPC_GO_LOG_VERBOSITY_LEVEL", "99");
         //processStartInfo.EnvironmentVariables.Add("GRPC_GO_LOG_SEVERITY_LEVEL", "info");
