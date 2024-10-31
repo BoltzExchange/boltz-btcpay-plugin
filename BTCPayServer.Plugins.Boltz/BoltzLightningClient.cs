@@ -247,6 +247,7 @@ public class BoltzLightningClient(
 
     public async Task<PayResponse> Pay(string bolt11, CancellationToken cancellation = default)
     {
+        throw new InvalidOperationException("paying invoices through boltz is temporarily disabled");
         var invoice = BOLT11PaymentRequest.Parse(bolt11, network);
         if (invoice.MinimumAmount == 0)
         {
@@ -281,8 +282,7 @@ public class BoltzLightningClient(
             return new PayResponse(PayResult.Ok, payDetails);
         }
 
-        // FIXME: reduce to 15 again once v2.0.1 is released
-        var source = new CancellationTokenSource(TimeSpan.FromSeconds(70));
+        var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         cancellation.Register(source.Cancel);
         try
         {
