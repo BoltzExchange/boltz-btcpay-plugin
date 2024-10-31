@@ -34,7 +34,7 @@ You should also verify that the hashes still match with the archive you've downl
 sha256sum --ignore-missing -c SHA256SUMS
 ```
 
-If your archive is valid, you should see the following output (depending on the archive you've downloaded):
+If your archive is valid, you should see the following output:
 
 ```
 BTCPayServer.Plugins.Boltz.btcpay.json: OK
