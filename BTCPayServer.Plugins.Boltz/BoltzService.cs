@@ -163,7 +163,7 @@ public class BoltzService(
             return;
         }
 
-        if (info.Swap is not null)
+        if (info.Swap?.State == SwapState.Successful)
         {
             var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
             {
