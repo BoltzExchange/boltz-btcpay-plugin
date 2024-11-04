@@ -160,7 +160,7 @@ public class BoltzService(
             return;
         }
 
-        if (info.Swap is not null)
+        if (info.Swap?.State == SwapState.Successful)
         {
             var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
             {
@@ -393,7 +393,8 @@ public class BoltzService(
 
     public string? GetTransactionLink(Currency currency, string txId)
     {
-        return transactionLinkProviders.GetTransactionLink(PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
+        return transactionLinkProviders.GetTransactionLink(
+            PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
     }
 
     public static List<Stat> PairStats(PairInfo pairInfo) =>

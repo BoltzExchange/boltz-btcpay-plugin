@@ -193,6 +193,7 @@ public class BoltzDaemon(
         _downloadStream = null;
 
         await CheckBinaries(version);
+        await CheckBinaryVersion();
     }
 
     private string ReleaseUrl(string version)
@@ -422,29 +423,38 @@ public class BoltzDaemon(
     public async Task Init()
     {
         logger.LogDebug("Initializing");
-        if (!Directory.Exists(DataDir))
+        try
         {
-            Directory.CreateDirectory(DataDir);
-        }
+            if (!Directory.Exists(DataDir))
+            {
+                Directory.CreateDirectory(DataDir);
+            }
 
-        await CheckLatestRelease();
+            await CheckLatestRelease();
 
-        if (!File.Exists(DaemonBinary))
-        {
-            await TryDownload();
-        }
-        else
-        {
-            var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
-            if (code != 0)
+            if (!File.Exists(DaemonBinary))
             {
                 await TryDownload();
             }
             else
             {
-                CurrentVersion = stdout.Split("\n").First().Split("-").First();
+                await CheckBinaryVersion();
             }
+        } catch (Exception e)
+        {
+            Error = e.Message;
+            logger.LogError(e, "Failed to initialize");
         }
+    }
+
+    private async Task CheckBinaryVersion()
+    {
+        var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
+        if (code != 0)
+        {
+            throw new Exception($"Failed to get current client version: {stdout}");
+        }
+        CurrentVersion = stdout.Split("\n").First().Split("-").First();
     }
 
     private async Task<bool> CheckVersion()
