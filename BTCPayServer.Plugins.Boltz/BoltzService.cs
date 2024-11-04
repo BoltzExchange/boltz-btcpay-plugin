@@ -137,21 +137,21 @@ public class BoltzService(
         }
     }
 
-    private async Task OnSwap(GetSwapInfoResponse swap)
+    private async Task OnSwap(GetSwapInfoResponse info)
     {
-        if (swap is { ChainSwap: not null, ReverseSwap: not null })
+        if (info is { ChainSwap: not null, ReverseSwap: not null })
         {
-            var status = swap.ReverseSwap?.Status ?? swap.ChainSwap!.Status;
-            var isAuto = swap.ReverseSwap?.IsAuto ?? swap.ChainSwap!.IsAuto;
+            var status = info.ReverseSwap?.Status ?? info.ChainSwap!.Status;
+            var isAuto = info.ReverseSwap?.IsAuto ?? info.ChainSwap!.IsAuto;
             if (status != "swap.created" || !isAuto) return;
         }
 
-        if (swap.Swap is not null && swap.Swap.State != SwapState.Successful)
+        if (info.Swap is not null && info.Swap.State != SwapState.Successful)
         {
             return;
         }
 
-        var tenantId = swap.ReverseSwap?.TenantId ?? swap.ChainSwap?.TenantId ?? swap.Swap!.TenantId;
+        var tenantId = info.ReverseSwap?.TenantId ?? info.ChainSwap?.TenantId ?? info.Swap!.TenantId;
         var found = _settings?.ToList()
             .Find(pair => pair.Value.ActualTenantId == tenantId);
         if (found?.Value is null) return;
@@ -163,7 +163,7 @@ public class BoltzService(
             return;
         }
 
-        if (swap.Swap is not null)
+        if (info.Swap is not null)
         {
             var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
             {
@@ -172,12 +172,12 @@ public class BoltzService(
             });
             foreach (var payout in payouts)
             {
-                if (BOLT11PaymentRequest.TryParse(swap.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
+                if (BOLT11PaymentRequest.TryParse(info.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
                 {
                     var proof = lightningLikePayoutHandler.ParseProof(payout) as PayoutLightningBlob;
                     if (proof?.PaymentHash != null && proof.PaymentHash == invoice?.PaymentHash?.ToString())
                     {
-                        proof.Preimage = swap.Swap.Preimage;
+                        proof.Preimage = info.Swap.Preimage;
                         payout.SetProofBlob(proof, null);
                         await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
                         {
@@ -193,7 +193,7 @@ public class BoltzService(
         var (ln, chain) = await client.GetAutoSwapConfig();
 
         var chainAddress = chain?.ToAddress;
-        if (!string.IsNullOrEmpty(chainAddress) && chainAddress == swap.ChainSwap?.ToData.Address)
+        if (!string.IsNullOrEmpty(chainAddress) && chainAddress == info.ChainSwap?.ToData.Address)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapChainConfig(
@@ -203,7 +203,7 @@ public class BoltzService(
         }
 
         var lnAddress = ln?.StaticAddress;
-        if (!string.IsNullOrEmpty(lnAddress) && lnAddress == swap.ReverseSwap?.ClaimAddress)
+        if (!string.IsNullOrEmpty(lnAddress) && lnAddress == info.ReverseSwap?.ClaimAddress)
         {
             var address = await GenerateNewAddress(store);
             await client.UpdateAutoSwapLightningConfig(
