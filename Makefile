@@ -10,5 +10,5 @@ gh-release:
 	cd $(RELEASE_PATH) && \
 		rm SHA256SUMS.asc && \
 		gpg --detach-sig SHA256SUMS
-	gh release create v$(VERSION) --title v$(VERSION) --draft --notes-file release-notes.md $(RELEASE_PATH)/*
+	gh release create v$(VERSION) --title v$(VERSION) --draft --notes-file release-notes-template.md $(RELEASE_PATH)/*
 
