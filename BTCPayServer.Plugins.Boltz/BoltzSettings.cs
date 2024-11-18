@@ -17,6 +17,8 @@ public class BoltzSettings
 
     [Display(Name = "Macaroon")] public string? Macaroon { get; set; }
 
+    [Display(Name = "Certificate File Path")] public string? CertFilePath { get; set; }
+
     public BoltzMode? Mode { get; set; }
 
     public ulong TenantId { get; set; }
