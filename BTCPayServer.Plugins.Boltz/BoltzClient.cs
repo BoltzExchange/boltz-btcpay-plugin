@@ -121,6 +121,11 @@ public class BoltzClient : IDisposable
         return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
     }
 
+    public async Task<WalletSendFee> GetWalletSendFee(WalletSendRequest request)
+    {
+        return await _client.GetWalletSendFeeAsync(request, _metadata);
+    }
+
     public async Task<WalletCredentials> GetWalletCredentials(ulong id)
     {
         return await _client.GetWalletCredentialsAsync(new GetWalletCredentialsRequest { Id = id }, _metadata);

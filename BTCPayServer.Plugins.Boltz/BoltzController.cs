@@ -229,11 +229,30 @@ public class BoltzController(
             {
                 vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
             }
-
-            var chainConfig = await Boltz.GetChainConfig();
-            if (chainConfig != null)
+            else if(vm.Wallet.Balance.Confirmed > 0)
             {
-                vm.ReserveBalance = chainConfig.ReserveBalance;
+                vm.WalletSendFee = await Boltz.GetWalletSendFee(new WalletSendRequest
+                {
+                    Id = walletId,
+                    SendAll = true,
+                    IsSwapAddress = true,
+                });
+
+                var chainConfig = await Boltz.GetChainConfig();
+                if (chainConfig != null)
+                {
+                    vm.ReserveBalance = chainConfig.ReserveBalance;
+                }
+
+                var pair = new Pair { From = vm.Wallet.Currency, To = Currency.Btc };
+                var maxSend = (ulong)Math.Max((long)(vm.WalletSendFee.Amount - vm.ReserveBalance), 0);
+                vm.LnInfo = await Boltz.GetPairInfo(pair, SwapType.Submarine);
+                vm.ChainInfo = await Boltz.GetPairInfo(pair, SwapType.Chain);
+                var fees = vm.LnInfo.Fees;
+                // the service fee is applied to the LN amount
+                var maxLn = (ulong)Math.Floor((maxSend - fees.MinerFees) / (1 + fees.Percentage / 100));
+                vm.LnInfo.Limits.Maximal = Math.Min(vm.LnInfo.Limits.Maximal, maxLn);
+                vm.ChainInfo.Limits.Maximal = Math.Min(vm.ChainInfo.Limits.Maximal, maxSend);
             }
         }
         catch (RpcException)
@@ -292,8 +311,9 @@ public class BoltzController(
                     var sendRequest = new WalletSendRequest
                     {
                         Address = vm.Destination,
-                        Amount = vm.Amount!.Value,
+                        Amount = vm.Amount,
                         Id = walletId,
+                        SendAll = vm.SendAll,
                     };
 
                     if (vm.FeeRate.HasValue)
@@ -307,7 +327,7 @@ public class BoltzController(
                 case SendType.Lightning:
                     var request = new CreateSwapRequest
                     {
-                        Amount = vm.Amount ?? 0,
+                        Amount = vm.Amount,
                         Invoice = vm.Destination,
                         Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
                         SendFromInternal = true,
@@ -324,7 +344,7 @@ public class BoltzController(
                 case SendType.Chain:
                     var chainRequest = new CreateChainSwapRequest
                     {
-                        Amount = vm.Amount!.Value,
+                        Amount = vm.Amount,
                         ToAddress = vm.Destination,
                         Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
                         FromWalletId = walletId,
@@ -1221,6 +1241,7 @@ public class BoltzController(
                     var (ln, _) = await Boltz.GetAutoSwapConfig();
                     swapType = ln?.SwapType;
                 }
+
                 if (swapType != "reverse")
                 {
                     vm.ReserveBalance = vm.MaxBalance / 2;
