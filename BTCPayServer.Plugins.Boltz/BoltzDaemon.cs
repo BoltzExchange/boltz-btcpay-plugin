@@ -36,7 +36,6 @@ public class BoltzDaemon(
 {
     private static readonly Version MinClientVersion = new("2.2.0");
 
-    private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
     private Stream? _downloadStream;
     private Task? _updateTask;
@@ -53,6 +52,8 @@ public class BoltzDaemon(
     private BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
 
+    public readonly Uri DefaultUri = new("https://127.0.0.1:9002");
+    public string CertFile => Path.Combine(DataDir, "tls.cert");
     public bool Starting => _startTask is not null && !_startTask.IsCompleted;
     public bool Updating => _updateTask is not null && !_updateTask.IsCompleted;
     public string LogFile => Path.Combine(DataDir, "boltz.log");
@@ -91,7 +92,7 @@ public class BoltzDaemon(
 
             var reader = await File.ReadAllBytesAsync(path, cancellationToken);
             AdminMacaroon = Convert.ToHexString(reader).ToLower();
-            var client = new BoltzClient(clientLogger, _defaultUri, AdminMacaroon, "all");
+            var client = new BoltzClient(clientLogger, DefaultUri, AdminMacaroon, CertFile, "all");
 
             while (true)
             {
@@ -318,10 +319,8 @@ public class BoltzDaemon(
                          logmaxsize = 1
 
                          [RPC]
-                         noMacaroons = false
-                         noTls = true
-                         host = "{_defaultUri.Host}"
-                         port = {_defaultUri.Port}
+                         host = "{DefaultUri.Host}"
+                         port = {DefaultUri.Port}
                          rest.disable = true
                          """;
         if (node is null)
@@ -631,8 +630,8 @@ public class BoltzDaemon(
     public BoltzClient? GetClient(BoltzSettings? settings)
     {
         if (settings is null) return null;
-        return settings.CredentialsPopulated() && (settings.GrpcUrl != _defaultUri || Running)
-            ? new BoltzClient(clientLogger, settings.GrpcUrl!, settings.Macaroon!)
+        return settings.CredentialsPopulated() && (settings.GrpcUrl != DefaultUri || Running)
+            ? new BoltzClient(clientLogger, settings.GrpcUrl!, settings.Macaroon!, settings.CertFilePath!)
             : null;
     }
 }

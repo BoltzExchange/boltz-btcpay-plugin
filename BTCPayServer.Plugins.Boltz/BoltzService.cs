@@ -53,7 +53,6 @@ public class BoltzService(
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
-    private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
     private Dictionary<string, BoltzSettings>? _settings;
     private GetPairsResponse? _pairs;
 
@@ -129,7 +128,7 @@ public class BoltzService(
         {
             await CheckSettings(settings);
         }
-        catch (RpcException e) when (settings.GrpcUrl == _defaultUri)
+        catch (RpcException e) when (settings.GrpcUrl == daemon.DefaultUri)
         {
             logger.LogInformation(e, "Trying to generate new macaroon for store {storeId}", storeId);
             await SetMacaroon(storeId, settings);
@@ -259,7 +258,11 @@ public class BoltzService(
 
     public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
     {
-        var settings = new BoltzSettings { GrpcUrl = _defaultUri, Mode = mode };
+        var settings = new BoltzSettings
+        {
+            GrpcUrl = daemon.DefaultUri, Mode = mode,
+            CertFilePath = daemon.CertFile,
+        };
         await SetMacaroon(storeId, settings);
         return settings;
     }
