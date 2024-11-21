@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO;
@@ -23,9 +24,32 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
 using OperationCanceledException = System.OperationCanceledException;
+using Range = System.Range;
 using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
+
+public class LndConfig
+{
+    public string? Host { get; set; }
+    public ulong? Port { get; set; }
+    public string? Macaroon { get; set; }
+    public string? Certificate { get; set; }
+}
+
+public class ClnConfig
+{
+    public string? Host { get; set; }
+    public ulong? Port { get; set; }
+    public string? DataDir { get; set; }
+    public string? ServerName { get; set; }
+}
+
+public class NodeConfig
+{
+    public LndConfig? Lnd { get; set; }
+    public ClnConfig? Cln { get; set; }
+}
 
 public class BoltzDaemon(
     IOptions<DataDirectories> dataDirectories,
@@ -46,11 +70,11 @@ public class BoltzDaemon(
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
     private string DataDir => Path.Combine(dataDirectories.Value.DataDir, "Plugins", "Boltz");
-    private string ConfigPath => Path.Combine(DataDir, "boltz.toml");
     private string DaemonBinary => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzd");
     private string DaemonCli => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzcli");
     private BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
+    private string ConfigFile => Path.Combine(DataDir, "boltz.toml");
 
     public readonly Uri DefaultUri = new("https://127.0.0.1:9002");
     public string CertFile => Path.Combine(DataDir, "tls.cert");
@@ -64,7 +88,7 @@ public class BoltzDaemon(
     public bool Running => AdminClient is not null;
     public readonly TaskCompletionSource<bool> InitialStart = new();
     public event EventHandler<GetSwapInfoResponse>? SwapUpdate;
-    public ILightningClient? Node;
+    public NodeConfig? Node;
     public string? NodeError { get; private set; }
     public string? Error { get; private set; }
     public bool HasError => !string.IsNullOrEmpty(Error);
@@ -283,7 +307,7 @@ public class BoltzDaemon(
     }
 
 
-    public async Task TryConfigure(ILightningClient? node)
+    public async Task TryConfigure(NodeConfig? node)
     {
         try
         {
@@ -294,14 +318,15 @@ public class BoltzDaemon(
                 if (String.IsNullOrEmpty(Error))
                 {
                     Node = node;
+                    NodeError = null;
                     return;
                 }
 
                 logger.LogInformation("Could not connect to node: " + Error);
-                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
+                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : RecentOutput;
             }
 
-            await Configure(null);
+            await Configure(node: null);
         }
         finally
         {
@@ -309,28 +334,8 @@ public class BoltzDaemon(
         }
     }
 
-    private string GetConfig(ILightningClient? node)
+    public NodeConfig GetNodeConfig(ILightningClient? node)
     {
-        var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
-
-        string shared = $"""
-                         network = "{networkName}"
-                         referralId = "btcpay"
-                         logmaxsize = 1
-
-                         [RPC]
-                         host = "{DefaultUri.Host}"
-                         port = {DefaultUri.Port}
-                         rest.disable = true
-                         """;
-        if (node is null)
-        {
-            return $"""
-                    standalone = true
-                    {shared}
-                    """;
-        }
-
         switch (node)
         {
             case CLightningClient cln:
@@ -343,15 +348,15 @@ public class BoltzDaemon(
                     var split = path.Split("/");
                     path = "/" + Path.Combine(split.Take(split.Length - 2).ToArray());
 
-                    return $"""
-                            node = "cln"
-                            {shared}
-
-                            [CLN]
-                            dataDir = "{path}"
-                            port = 9736
-                            host = "127.0.0.1"
-                            """;
+                    return new NodeConfig
+                    {
+                        Cln = new ClnConfig
+                        {
+                            DataDir = path,
+                            Port = 9736,
+                            Host = "127.0.0.1"
+                        }
+                    };
                 }
 
                 throw new Exception("Unsupported lightning connection string");
@@ -383,31 +388,88 @@ public class BoltzDaemon(
                     }
                 }
 
-                return $"""
-                        node = "lnd"
-                        {shared}
-
-                        [LND]
-                        host = "{url.Host}"
-                        macaroon = "{macaroon}"
-                        certificate = "{cert}"
-                        """;
+                return new NodeConfig
+                {
+                    Lnd = new LndConfig
+                    {
+                        Host = url.Host,
+                        Macaroon = macaroon,
+                        Certificate = cert,
+                        Port = 10009,
+                    }
+                };
             default:
                 throw new Exception("Unsupported lightning client");
         }
     }
 
-    private async Task Configure(ILightningClient? node)
+    public string GetConfig(NodeConfig? nodeConfig)
     {
-        await _configSemaphore.WaitAsync();
-        if (!File.Exists(DaemonBinary))
+        var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
+
+        string shared = $"""
+                         network = "{networkName}"
+                         referralId = "btcpay"
+                         logmaxsize = 1
+
+                         [RPC]
+                         host = "{DefaultUri.Host}"
+                         port = {DefaultUri.Port}
+                         rest.disable = true
+                         """;
+
+        if (nodeConfig?.Lnd != null)
         {
-            await Update();
+            return $"""
+                    node = "lnd"
+                    {shared}
+
+                    [LND]
+                    host = "{nodeConfig.Lnd.Host}"
+                    port = {nodeConfig.Lnd.Port}
+                    macaroon = "{nodeConfig.Lnd.Macaroon}"
+                    certificate = "{nodeConfig.Lnd.Certificate}"
+                    """;
         }
 
+        if (nodeConfig?.Cln != null)
+        {
+            return $"""
+                    node = "cln"
+                    {shared}
+
+                    [CLN]
+                    host = "{nodeConfig.Cln.Host}"
+                    port = {nodeConfig.Cln.Port}
+                    dataDir = "{nodeConfig.Cln.DataDir}"
+                    """;
+        }
+
+        return $"""
+                standalone = true
+                {shared}
+                """;
+    }
+
+    private async Task Configure(NodeConfig? node)
+    {
         try
         {
-            await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
+            await _configSemaphore.WaitAsync();
+
+            var current = await File.ReadAllTextAsync(ConfigFile);
+            var newConfig = GetConfig(node);
+            if (current == newConfig && Running)
+            {
+                return;
+            }
+
+            if (!File.Exists(DaemonBinary))
+            {
+                await Update();
+            }
+
+            await File.WriteAllTextAsync(ConfigFile, newConfig);
             await Start(node == null);
         }
         catch (Exception e)
@@ -416,6 +478,7 @@ public class BoltzDaemon(
         }
         finally
         {
+            InitialStart.TrySetResult(true);
             _configSemaphore.Release();
         }
     }
@@ -440,7 +503,8 @@ public class BoltzDaemon(
             {
                 await CheckBinaryVersion();
             }
-        } catch (Exception e)
+        }
+        catch (Exception e)
         {
             Error = e.Message;
             logger.LogError(e, "Failed to initialize");
@@ -454,6 +518,7 @@ public class BoltzDaemon(
         {
             throw new Exception($"Failed to get current client version: {stdout}");
         }
+
         CurrentVersion = stdout.Split("\n").First().Split("-").First();
     }
 
@@ -530,7 +595,7 @@ public class BoltzDaemon(
             var daemonCancel = new CancellationTokenSource();
             _daemonTask = Run(daemonCancel, logOutput);
             var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-            wait.CancelAfter(TimeSpan.FromSeconds(60));
+            wait.CancelAfter(TimeSpan.FromSeconds(5));
             _daemonCancel = daemonCancel;
             await Wait(wait.Token);
             if (Running)
@@ -550,7 +615,7 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        if (_daemonTask is not null)
+        if (_daemonTask is not null && !_daemonTask.IsCompleted)
         {
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
@@ -570,9 +635,13 @@ public class BoltzDaemon(
                     }
                 }
             }
+            else if (_daemonCancel is not null)
+            {
+                await _daemonCancel.CancelAsync();
+            }
 
-            await _daemonTask;
-            logger.LogInformation("stopped");
+            await _daemonTask.WaitAsync(source.Token);
+            logger.LogInformation("Stopped");
         }
     }
 

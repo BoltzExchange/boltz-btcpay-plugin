@@ -14,6 +14,7 @@ using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
+using Dapper;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -592,14 +593,13 @@ public class BoltzController(
     [Authorize(Policy = Policies.CanModifyServerSettings)]
     public async Task<IActionResult> Admin(string storeId, string? logFile, int offset = 0, bool download = false)
     {
-        var vm = new AdminModel { ServerSettings = boltzService.ServerSettings, };
+        var vm = new AdminModel { ServerSettings = boltzService.ServerSettings, Settings = Settings };
 
-        if (Boltz != null)
+        if (boltzDaemon.AdminClient != null)
         {
             try
             {
-                // TODO: reenable when client v2.1.2
-                //vm.Info = await Boltz.GetInfo();
+                vm.Info = await boltzDaemon.AdminClient.GetInfo();
             }
             catch (RpcException e)
             {
@@ -665,7 +665,17 @@ public class BoltzController(
             {
                 try
                 {
-                    await boltzService.SetServerSettings(vm.ServerSettings!);
+                    var settings = vm.ServerSettings!;
+                    await boltzService.SetServerSettings(settings);
+
+                    if (settings is { ConnectNode: true, NodeConfig: null })
+                    {
+                        settings.NodeConfig = boltzDaemon.GetNodeConfig(boltzService.InternalLightning);
+                    }
+                    if (!settings.ConnectNode)
+                    {
+                        settings.NodeConfig = null;
+                    }
                 }
                 catch (Exception err)
                 {
@@ -737,6 +747,7 @@ public class BoltzController(
                     .FirstOrDefault();
                 vm.HasInternal = boltzService.InternalLightning is not null;
                 vm.ConnectedInternal = boltzService.Daemon.Node is not null;
+                vm.ConnectNodeSetting = boltzService.ServerSettings.ConnectNode;
                 if (vm.IsAdmin)
                 {
                     var store = await boltzService.GetRebalanceStore();

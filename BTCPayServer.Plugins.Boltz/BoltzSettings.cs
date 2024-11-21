@@ -14,6 +14,11 @@ public class BoltzServerSettings
 {
     [Display(Name = "Allow Plugin for non-admin users")]
     public bool AllowTenants { get; set; }
+    
+    [Display(Name = "Connect to Internal Lightning Node")]
+    public bool ConnectNode { get; set; }
+
+    public NodeConfig? NodeConfig { get; set; }
 }
 
 public class BoltzSettings
