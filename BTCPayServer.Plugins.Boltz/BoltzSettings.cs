@@ -27,7 +27,7 @@ public class BoltzSettings
     public class Wallet
     {
         public ulong Id { get; set; }
-        public string? Name { get; set; }
+        public string Name { get; set; }
     }
 
     public Wallet? StandaloneWallet { get; set; }
