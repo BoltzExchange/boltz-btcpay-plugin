@@ -462,11 +462,14 @@ public class BoltzDaemon(
         {
             await _configSemaphore.WaitAsync();
 
-            var current = await File.ReadAllTextAsync(ConfigFile);
             var newConfig = GetConfig(node);
-            if (current == newConfig && Running)
+            if (Path.Exists(ConfigFile))
             {
-                return;
+                var current = await File.ReadAllTextAsync(ConfigFile);
+                if (current == newConfig && Running)
+                {
+                    return;
+                }
             }
 
             if (!File.Exists(DaemonBinary))
