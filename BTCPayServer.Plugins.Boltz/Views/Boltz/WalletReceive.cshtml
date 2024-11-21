@@ -8,7 +8,8 @@
 
     var currency = Model.Wallet.Currency;
     var currencyName = BoltzClient.CurrencyName(currency);
-    var pair = new Pair {
+    var pair = new Pair
+    {
         From = currency == Currency.Btc ? Currency.Lbtc : Currency.Btc,
         To = currency
     };
@@ -22,9 +23,16 @@
 }
 else
 {
-    ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(pair.From)} to swap into your {currencyName} wallet";
-    var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Reverse))!;
-    var chainInfo = (await BoltzService.GetPairInfo(pair, SwapType.Chain))!;
+    var chainPair = new Pair
+    {
+        From = currency == Currency.Btc ? Currency.Lbtc : Currency.Btc,
+        To = currency
+    };
+    var chainInfo = (await BoltzService.GetPairInfo(chainPair, SwapType.Chain))!;
+    var lnPair = new Pair { From = Currency.Btc, To = currency };
+    var lnInfo = (await BoltzService.GetPairInfo(lnPair, SwapType.Reverse))!;
+
+    ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(chainPair.From)} to swap into your {currencyName} wallet";
 
     @section PageFootContent {
         <partial name="_ValidationScriptsPartial"/>
@@ -135,3 +143,4 @@ else
         </div>
     </form>
 }
+
