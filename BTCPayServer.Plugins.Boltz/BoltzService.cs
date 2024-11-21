@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -39,6 +40,7 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzService(
     BTCPayWalletProvider btcPayWalletProvider,
     StoreRepository storeRepository,
+    SettingsRepository settingsRepository,
     EventAggregator eventAggregator,
     ILogger<BoltzService> logger,
     BTCPayNetworkProvider btcPayNetworkProvider,
@@ -53,7 +55,10 @@ public class BoltzService(
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
+    private static readonly string SettingsName = "Boltz";
+
     private Dictionary<string, BoltzSettings>? _settings;
+    public BoltzServerSettings ServerSettings { get; private set; }
     private GetPairsResponse? _pairs;
 
     public BoltzDaemon Daemon => daemon;
@@ -65,13 +70,13 @@ public class BoltzService(
     public ILightningClient? InternalLightning =>
         lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
 
-    public bool AllowTenants => _settings?.Values.Any(setting => setting.AllowTenants) ?? false;
-
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        externalServiceOptions.Value.OtherExternalServices.Add("Boltz", new Uri("https://boltz.exchange"));
-        _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>("Boltz"))
+        externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
+        _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
+        ServerSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
+                         new BoltzServerSettings();
 
         daemon.SwapUpdate += async (_, response) =>
         {
@@ -305,6 +310,12 @@ public class BoltzService(
         return null;
     }
 
+    public async Task SetServerSettings(BoltzServerSettings settings)
+    {
+        await settingsRepository.UpdateSetting(settings, SettingsName);
+        ServerSettings = settings;
+    }
+
     public async Task Set(string storeId, BoltzSettings? settings)
     {
         var cryptoCode = "BTC";
@@ -351,7 +362,7 @@ public class BoltzService(
             _settings.AddOrReplace(storeId, settings);
         }
 
-        await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
+        await storeRepository.UpdateSetting(storeId, SettingsName, settings!);
     }
 
     public async Task<StoreData?> GetRebalanceStore()
@@ -430,7 +441,8 @@ public class BoltzService(
         {
             // cancel 0 amount invoice
             var destination = payout.GetBlob(jsonSerializerSettings).Destination;
-            if (BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork)) {
+            if (BOLT11PaymentRequest.TryParse(destination, out var bolt11, BtcNetwork.NBitcoinNetwork))
+            {
                 if (bolt11!.MinimumAmount == 0)
                 {
                     await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest

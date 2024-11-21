@@ -10,6 +10,12 @@ public enum BoltzMode
     Standalone
 }
 
+public class BoltzServerSettings
+{
+    [Display(Name = "Allow Plugin for non-admin users")]
+    public bool AllowTenants { get; set; }
+}
+
 public class BoltzSettings
 {
     [Display(Name = "GRPC Url", Description = "Test")]
@@ -38,7 +44,4 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
-
-    [Display(Name = "Allow Plugin for non-admin users")]
-    public bool AllowTenants { get; set; }
 }

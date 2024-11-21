@@ -592,7 +592,7 @@ public class BoltzController(
     [Authorize(Policy = Policies.CanModifyServerSettings)]
     public async Task<IActionResult> Admin(string storeId, string? logFile, int offset = 0, bool download = false)
     {
-        var vm = new AdminModel { Settings = Settings, };
+        var vm = new AdminModel { ServerSettings = boltzService.ServerSettings, };
 
         if (Boltz != null)
         {
@@ -663,26 +663,9 @@ public class BoltzController(
         {
             case "Save":
             {
-                var settings = Settings;
-                if (settings is not null)
-                {
-                    settings.AllowTenants = vm.Settings!.AllowTenants;
-                }
-                else
-                {
-                    settings = vm.Settings;
-                }
-
-                var validCreds = settings != null && settings.CredentialsPopulated();
-                if (!validCreds)
-                {
-                    TempData[WellKnownTempData.ErrorMessage] = "Please provide valid credentials";
-                    return View(vm);
-                }
-
                 try
                 {
-                    await boltzService.Set(CurrentStore.Id, settings);
+                    await boltzService.SetServerSettings(vm.ServerSettings!);
                 }
                 catch (Exception err)
                 {
@@ -690,7 +673,7 @@ public class BoltzController(
                     return View(vm);
                 }
 
-                TempData[WellKnownTempData.SuccessMessage] = "Boltz plugin successfully updated";
+                TempData[WellKnownTempData.SuccessMessage] = "Settings updated";
                 break;
             }
             case "Update":
@@ -737,7 +720,7 @@ public class BoltzController(
     public async Task<IActionResult> SetupMode(ModeSetup vm, BoltzMode? mode, string storeId)
     {
         vm.IsAdmin = IsAdmin;
-        vm.Enabled = IsAdmin || boltzService.AllowTenants;
+        vm.Enabled = IsAdmin || boltzService.ServerSettings.AllowTenants;
 
         if (vm.Enabled)
         {

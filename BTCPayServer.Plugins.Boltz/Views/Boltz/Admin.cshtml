@@ -4,7 +4,6 @@
 @{
     ViewData.SetActivePage("Boltz", "Admin", "Admin");
 
-    var boltzCredsSet = Model.Settings?.CredentialsPopulated() ?? false;
     var updateText = Daemon.UpdateAvailable ? "Update" : "Check Update";
 }
 
@@ -18,13 +17,6 @@
                 @(Daemon.Running ? "Restart" : "Start")
             </button>
             <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
-            @if (boltzCredsSet)
-            {
-                <button name="command" type="submit" value="Clear" class="btn btn-danger">
-                    Disconnect
-                </button>
-            }
-
         </div>
     </div>
 
@@ -42,35 +34,25 @@
         </p>
     }
 
-    <div class="my-4">
+    <div class="form-group d-flex align-items-center">
+        <input asp-for="ServerSettings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
+        <label asp-for="ServerSettings.AllowTenants" class="form-label mb-0 me-1"></label>
+    </div>
+
+    <div>
         <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#AdvancedSettings" aria-expanded="false" aria-controls="AdvancedSettings">
             <vc:icon symbol="caret-down"/>
             <span class="ms-1">Advanced</span>
         </button>
-
-        <div id="AdvancedSettings" class="collapse">
-            <div class="form-group">
-                <label asp-for="Settings.GrpcUrl" class="form-label"></label>
-                <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
-                <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Settings.Macaroon" class="form-label"></label>
-                <input asp-for="Settings.Macaroon" class="form-control" readonly="@boltzCredsSet"/>
-                <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
-            </div>
-
-            <div class="form-group d-flex align-items-center">
-                <input asp-for="Settings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
-                <label asp-for="Settings.AllowTenants" class="form-label mb-0 me-1"></label>
-            </div>
-
-            <button name="command" type="submit" class="btn btn-primary" value="Save">
-                Save
-            </button>
-        </div>
     </div>
+
+    <div id="AdvancedSettings" class="collapse">
+
+    </div>
+
+    <button name="command" type="submit" class="btn btn-primary mb-4" value="Save">
+        Save
+    </button>
 
     @if (Model is not null)
     {
