@@ -19,7 +19,8 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
 
     public override IBTCPayServerPlugin.PluginDependency[] Dependencies { get; } =
     [
-        new IBTCPayServerPlugin.PluginDependency { Identifier = nameof(BTCPayServer), Condition = ">=1.12.0" }
+        new() { Identifier = nameof(BTCPayServer), Condition = ">=1.12.0" },
+        new() { Identifier = nameof(BTCPayServer), Condition = "<2.0.0" }
     ];
 
     public override void Execute(IServiceCollection services)
