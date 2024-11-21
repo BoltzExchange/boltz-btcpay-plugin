@@ -144,6 +144,58 @@ public class BoltzController(
         return View(data);
     }
 
+    [HttpGet("wallet/{walletName}")]
+    public async Task<IActionResult> Wallet(WalletViewModel vm, string walletName)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            vm.Wallet = await Boltz.GetWallet(walletName);
+            var response = await Boltz.ListWalletTransactions(new ListWalletTransactionsRequest
+            {
+                Id = vm.Wallet.Id,
+                Limit = Math.Min((ulong)vm.Count, 30),
+                Offset = (ulong)vm.Skip,
+            });
+            vm.Transactions = response.Transactions.ToList();
+        }
+        catch (RpcException e)
+        {
+            if (!e.Status.Detail.Contains("not implemented"))
+            {
+                TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+                return RedirectToAction(nameof(Status), new { storeId = CurrentStore.Id });
+            }
+        }
+
+        return View(vm);
+    }
+
+    [HttpPost("wallet/{walletId}")]
+    public async Task<IActionResult> Wallet(ulong walletId)
+    {
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            await Boltz.RemoveWallet(walletId);
+            TempData[WellKnownTempData.SuccessMessage] = "Wallet deleted";
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+        }
+
+        return RedirectToAction(nameof(Status), new { storeId = CurrentStore.Id });
+    }
+
     [HttpGet("swaps/{swapId?}")]
     public async Task<IActionResult> Swaps(SwapsModel vm, string? swapId)
     {
@@ -672,6 +724,7 @@ public class BoltzController(
                     {
                         settings.NodeConfig = boltzDaemon.GetNodeConfig(boltzService.InternalLightning);
                     }
+
                     if (!settings.ConnectNode)
                     {
                         settings.NodeConfig = null;

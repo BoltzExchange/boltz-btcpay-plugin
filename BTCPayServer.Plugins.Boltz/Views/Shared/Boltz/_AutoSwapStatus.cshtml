@@ -1,3 +1,4 @@
+@using Boltzrpc
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Security
@@ -38,17 +39,30 @@
             @status.Error
         </p>
     }
+    @if (!Model.Compact)
+    {
+        <div class="fw-semibold">
+            @if (Model.SwapperType == SwapperType.Lightning)
+            {
+                <span>Using wallet</span>
+                <partial name="Boltz/_WalletLink" model="Model.Wallet"/>
+            }
+            else
+            {
+                <span>From wallet</span>
+                <partial name="Boltz/_WalletLink" model="Model.Wallet"/>
+                <span>to wallet</span>
+                <partial name="Boltz/_WalletLink" model="Model.ToWallet"/>
+            }
+        </div>
+    }
     @if (status.Budget != null)
     {
-        var stats = new List<Stat>
-        {
-            new() { Name = "Remaining Budget", Value = status.Budget.Remaining, Unit = Unit.Sat },
-        }.Concat(BoltzClient.ParseStats(status.Budget.Stats));
-        if (Model.Stats is not null)
-        {
-            stats = stats.Concat(Model.Stats);
-        }
-
-        <partial name="Boltz/_Stats" model="stats.ToList()"/>
+        var budget = status.Budget;
+        var stats = Model.Stats;
+        stats.Add(new() { Name = "Remaining Budget", Value = budget.Remaining, Unit = Unit.Sat });
+        stats.AddRange(BoltzClient.ParseStats(budget.Stats));
+        <partial name="Boltz/_Stats" model="stats"/>
     }
 </div>
+

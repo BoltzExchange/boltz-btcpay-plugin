@@ -117,6 +117,11 @@ public class BoltzClient : IDisposable
         return await _client.GetWalletAsync(new GetWalletRequest { Name = name }, _metadata);
     }
 
+    public async Task<ListWalletTransactionsResponse> ListWalletTransactions(ListWalletTransactionsRequest request)
+    {
+        return await _client.ListWalletTransactionsAsync(request, _metadata);
+    }
+
     public async Task<GetSubaccountsResponse> GetSubaccounts(ulong walletId)
     {
         return await _client.GetSubaccountsAsync(new GetSubaccountsRequest() { WalletId = walletId }, _metadata);
@@ -136,6 +141,11 @@ public class BoltzClient : IDisposable
     public async Task<Wallet> GetWallet(ulong id)
     {
         return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
+    }
+
+    public async Task<RemoveWalletResponse> RemoveWallet(ulong id)
+    {
+        return await _client.RemoveWalletAsync(new RemoveWalletRequest { Id = id }, _metadata);
     }
 
     public async Task<WalletSendFee> GetWalletSendFee(WalletSendRequest request)
