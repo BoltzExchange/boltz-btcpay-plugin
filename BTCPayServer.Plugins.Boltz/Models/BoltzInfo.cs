@@ -12,8 +12,8 @@ namespace BTCPayServer.Plugins.Boltz.Models;
 public class AdminModel
 {
     public GetInfoResponse? Info { get; set; }
+    public BoltzSettings? Settings { get; set; }
     public BoltzServerSettings? ServerSettings { get; set; }
-
     public LogsViewModel Log { get; set; } = new();
 }
 

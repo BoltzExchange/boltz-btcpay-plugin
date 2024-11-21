@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -70,13 +71,13 @@ public class BoltzService(
     public ILightningClient? InternalLightning =>
         lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
 
+    public string DefaultNodeConfig { get; private set; }
+
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
         _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
-        ServerSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
-                         new BoltzServerSettings();
 
         daemon.SwapUpdate += async (_, response) =>
         {
@@ -90,7 +91,12 @@ public class BoltzService(
             }
         };
         await daemon.Init();
-        await daemon.TryConfigure(InternalLightning);
+
+        var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ?? new BoltzServerSettings
+        {
+            ConnectNode = _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
+        };
+        await SetServerSettings(serverSettings);
 
         if (daemon.Running)
         {
@@ -313,6 +319,19 @@ public class BoltzService(
     public async Task SetServerSettings(BoltzServerSettings settings)
     {
         await settingsRepository.UpdateSetting(settings, SettingsName);
+
+        if (settings is { ConnectNode: true, NodeConfig: null })
+        {
+            settings.NodeConfig = daemon.GetNodeConfig(InternalLightning);
+        }
+
+        if (!settings.ConnectNode)
+        {
+            settings.NodeConfig = null;
+        }
+
+        await daemon.TryConfigure(settings.NodeConfig);
+
         ServerSettings = settings;
     }
 
