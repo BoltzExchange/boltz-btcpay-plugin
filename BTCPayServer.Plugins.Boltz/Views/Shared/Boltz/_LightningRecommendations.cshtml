@@ -56,7 +56,7 @@
                     <td>@payment.Swap.Amount</td>
                     <td>@payment.Swap.Type</td>
                     <td>@payment.Swap.FeeEstimate</td>
-                    <td>@payment.Swap.DismissedReasons</td>
+                    <td>@(String.Join(", ", payment.Swap.DismissedReasons))</td>
                 }
                 else
                 {
