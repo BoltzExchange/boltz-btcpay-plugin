@@ -79,6 +79,7 @@ public class BoltzService(
         _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
 
+
         daemon.SwapUpdate += async (_, response) =>
         {
             try
@@ -92,16 +93,27 @@ public class BoltzService(
         };
         await daemon.Init();
 
-        var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ?? new BoltzServerSettings
-        {
-            ConnectNode = _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
-        };
+        var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
+                             new BoltzServerSettings
+                             {
+                                 ConnectNode = _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
+                             };
         await SetServerSettings(serverSettings);
 
         if (daemon.Running)
         {
-            foreach (var storeId in _settings.Keys)
+            foreach (var (storeId, settings) in _settings)
             {
+                if (settings.GrpcUrl != null)
+                {
+                    var httpsUrl = new UriBuilder(settings.GrpcUrl) { Scheme = "https" }.Uri;
+                    if (httpsUrl == daemon.DefaultUri)
+                    {
+                        settings.GrpcUrl = daemon.DefaultUri;
+                        settings.CertFilePath = daemon.CertFile;
+                        await Set(storeId, settings);
+                    }
+                }
                 try
                 {
                     await CheckStore(storeId);
