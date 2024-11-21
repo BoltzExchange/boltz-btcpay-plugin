@@ -804,14 +804,15 @@ public class BoltzController(
         if (currency != Currency.Lbtc)
         {
             var derivation = CurrentStore.GetDerivationSchemeSettings(btcPayNetworkProvider, "BTC");
-            if (derivation is not null && (derivation.IsHotWallet || allowReadonly))
+            if (derivation is not null && allowReadonly)
             {
                 var balance = await boltzService.BtcWallet.GetBalance(derivation.AccountDerivation);
                 result.Add(new ExistingWallet
                 {
                     Name = BtcPayName,
                     IsBtcpay = true,
-                    IsReadonly = !derivation.IsHotWallet,
+                    // even if its a hot wallet, we cant import it to boltz-client and not send properly
+                    IsReadonly = true,
                     Currency = Currency.Btc,
                     Balance = (ulong)(balance.Total.GetValue(boltzService.BtcNetwork) *
                                       (decimal)MoneyUnit.BTC)
