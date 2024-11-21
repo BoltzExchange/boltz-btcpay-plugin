@@ -1138,10 +1138,6 @@ public class BoltzController(
                     BudgetInterval = vm.BudgetIntervalDays,
                     MaxFeePercent = vm.MaxFeePercent,
                 };
-                if (LightningSetup.Currency == Currency.Lbtc)
-                {
-                    return RedirectToAction(nameof(SetupChain), new { storeId });
-                }
             }
             else
             {
@@ -1209,19 +1205,20 @@ public class BoltzController(
             var fromWallet = await GetChainSwapsFromWallet();
             if (fromWallet is null)
             {
-                return RedirectToAction(nameof(Enable), new { storeId });
+                TempData[WellKnownTempData.ErrorMessage] = "No suitable wallet found for chain swaps";
+                return RedirectToAction(nameof(Status), new { storeId });
             }
 
             var info = await Boltz.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
             var vm = new ChainSetup
             {
                 PairInfo = info,
+                ReserveBalance = 500_000
             };
 
             if (Settings?.Mode == BoltzMode.Standalone)
             {
                 vm.MaxBalance = 10_000_000;
-                vm.ReserveBalance = 500_000;
                 ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
                     new { flow = WalletSetupFlow.Standalone, storeId });
             }
@@ -1242,7 +1239,7 @@ public class BoltzController(
 
                 if (swapType != "reverse")
                 {
-                    vm.ReserveBalance = vm.MaxBalance / 2;
+                    vm.ReserveBalance = Math.Max(vm.ReserveBalance, vm.MaxBalance / 2);
                 }
             }
 
@@ -1261,7 +1258,7 @@ public class BoltzController(
             if (command == "Skip")
             {
                 ChainSetup = null;
-                return RedirectToAction(nameof(Enable), new { storeId });
+                return RedirectToAction(nameof(Status), new { storeId });
             }
 
             ChainSetup = new ChainConfig(ChainSetup)
@@ -1318,7 +1315,14 @@ public class BoltzController(
             if (command == "Enable")
             {
                 await Boltz.EnableAutoSwap();
-                TempData[WellKnownTempData.SuccessMessage] = "AutoSwap enabled";
+                TempData[WellKnownTempData.SuccessMessage] = "Auto swap enabled";
+            }
+
+            if (LightningSetup != null && await GetChainSwapsFromWallet() != null)
+            {
+                LightningSetup = null;
+                return RedirectToAction(nameof(SetupChain),
+                    new { storeId });
             }
 
             return RedirectToAction(nameof(Status),
@@ -1336,14 +1340,14 @@ public class BoltzController(
 
             if (name is null)
             {
-                var ln = await Boltz!.GetLightningConfig();
+                var ln = await Boltz.GetLightningConfig();
                 name = ln?.Wallet;
             }
 
             if (name != null)
             {
                 var fromWallet = await Boltz.GetWallet(name);
-                return fromWallet.Readonly ? null : name;
+                return fromWallet.Readonly || fromWallet.Currency != Currency.Lbtc ? null : name;
             }
         }
 
