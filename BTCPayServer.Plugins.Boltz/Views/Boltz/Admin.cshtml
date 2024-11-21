@@ -24,7 +24,6 @@
                     Disconnect
                 </button>
             }
-
         </div>
     </div>
 
@@ -35,11 +34,47 @@
         </div>
         <pre>@Daemon.RecentOutput</pre>
     }
-    else if (Daemon.Running)
+    else if (Daemon.Running && Model.Info != null)
     {
         <p>
-            Running Boltz Client @Daemon.CurrentVersion
+            Running Boltz Client @Model.Info.Version
         </p>
+
+        @if (Model.Info.Node != "standalone")
+        {
+            <p>
+                Connected to @Model.Info.Node (@Model.Info.NodePubkey)
+            </p>
+        }
+        else if (!string.IsNullOrEmpty(Daemon.NodeError))
+        {
+            var expanded = Model.Settings?.Mode != BoltzMode.Standalone;
+            <div class="mt-3">
+                <button class="d-inline-flex align-items-center btn btn-link text-danger fw-semibold p-0" type="button" id="NodeDetailsButton" data-bs-toggle="collapse" data-bs-target="#NodeDetails" aria-expanded="@(expanded ? "true" : "false")" aria-controls="NodeDetails">
+                    <vc:icon symbol="caret-down"/>
+                    <span class="ms-1">Node Connection failed</span>
+                </button>
+                <div id="NodeDetails" class="collapse @(expanded ? "show" : "")">
+                    <div class="pt-3">
+                        <pre>@Daemon.NodeError</pre>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="CustomConfig" class="form-label" style="field-sizing: content; max-height: 25rem">Custom Config</label>
+                        <textarea asp-for="CustomConfig" class="form-control "></textarea>
+                        <span asp-validation-for="CustomConfig" class="text-danger"></span>
+                    </div>
+                    <button name="command" type="submit" class="btn btn-primary" value="Configure">
+                        Configure
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p>
+                No lightning node connected
+            </p>
+        }
     }
 
     <div class="my-4">

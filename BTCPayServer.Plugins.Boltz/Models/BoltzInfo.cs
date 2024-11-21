@@ -14,6 +14,8 @@ public class AdminModel
     public BoltzSettings? Settings { get; set; }
 
     public LogsViewModel Log { get; set; } = new();
+
+    public string? CustomConfig { get; set; }
 }
 
 public enum Unit

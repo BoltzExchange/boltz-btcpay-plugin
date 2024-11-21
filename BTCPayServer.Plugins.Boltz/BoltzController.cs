@@ -229,7 +229,7 @@ public class BoltzController(
             {
                 vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
             }
-            else if(vm.Wallet.Balance.Confirmed > 0)
+            else if (vm.Wallet.Balance.Confirmed > 0)
             {
                 vm.WalletSendFee = await Boltz.GetWalletSendFee(new WalletSendRequest
                 {
@@ -592,14 +592,21 @@ public class BoltzController(
     [Authorize(Policy = Policies.CanModifyServerSettings)]
     public async Task<IActionResult> Admin(string storeId, string? logFile, int offset = 0, bool download = false)
     {
-        var vm = new AdminModel { Settings = Settings, };
+        var vm = new AdminModel { Settings = Settings };
+        if (Path.Exists(boltzDaemon.CustomConfigFile))
+        {
+            vm.CustomConfig = await System.IO.File.ReadAllTextAsync(boltzDaemon.CustomConfigFile);
+        }
+        else
+        {
+            vm.CustomConfig = boltzDaemon.GetConfig(boltzService.InternalLightning);
+        }
 
-        if (Boltz != null)
+        if (boltzDaemon.AdminClient != null)
         {
             try
             {
-                // TODO: reenable when client v2.1.2
-                //vm.Info = await Boltz.GetInfo();
+                vm.Info = await boltzDaemon.AdminClient.GetInfo();
             }
             catch (RpcException e)
             {
@@ -661,6 +668,17 @@ public class BoltzController(
     {
         switch (command)
         {
+            case "Configure":
+            {
+                var config = vm.CustomConfig;
+                if (config is null)
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "Configuration is required";
+                    return View(vm);
+                }
+                await boltzDaemon.Configure(config);
+                break;
+            }
             case "Save":
             {
                 var settings = Settings;

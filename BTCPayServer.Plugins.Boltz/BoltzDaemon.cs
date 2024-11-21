@@ -23,6 +23,7 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
 using OperationCanceledException = System.OperationCanceledException;
+using Range = System.Range;
 using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
@@ -46,14 +47,15 @@ public class BoltzDaemon(
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
     private string DataDir => Path.Combine(dataDirectories.Value.DataDir, "Plugins", "Boltz");
-    private string ConfigPath => Path.Combine(DataDir, "boltz.toml");
     private string DaemonBinary => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzd");
     private string DaemonCli => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzcli");
     private BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
+    private string ConfigFile => Path.Combine(DataDir, "boltz.toml");
 
     public readonly Uri DefaultUri = new("https://127.0.0.1:9002");
     public string CertFile => Path.Combine(DataDir, "tls.cert");
+    public string CustomConfigFile => Path.Combine(DataDir, "boltz-custom.toml");
     public bool Starting => _startTask is not null && !_startTask.IsCompleted;
     public bool Updating => _updateTask is not null && !_updateTask.IsCompleted;
     public string LogFile => Path.Combine(DataDir, "boltz.log");
@@ -301,7 +303,7 @@ public class BoltzDaemon(
                 NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
             }
 
-            await Configure(null);
+            await Configure(node: null);
         }
         finally
         {
@@ -309,7 +311,7 @@ public class BoltzDaemon(
         }
     }
 
-    private string GetConfig(ILightningClient? node)
+    public string GetConfig(ILightningClient? node)
     {
         var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
 
@@ -396,18 +398,29 @@ public class BoltzDaemon(
         }
     }
 
-    private async Task Configure(ILightningClient? node)
+    public async Task Configure(ILightningClient? node)
     {
-        await _configSemaphore.WaitAsync();
-        if (!File.Exists(DaemonBinary))
-        {
-            await Update();
-        }
+        await Configure(ConfigFile, GetConfig(node), node == null);
+    }
 
+    public async Task Configure(string config)
+    {
+        await Configure(CustomConfigFile, config);
+    }
+
+    private async Task Configure(string path, string config, bool logOutput = true)
+    {
         try
         {
-            await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
-            await Start(node == null);
+            await _configSemaphore.WaitAsync();
+
+            if (!File.Exists(DaemonBinary))
+            {
+                await Update();
+            }
+
+            await File.WriteAllTextAsync(path, config);
+            await Start(logOutput);
         }
         catch (Exception e)
         {
@@ -439,7 +452,8 @@ public class BoltzDaemon(
             {
                 await CheckBinaryVersion();
             }
-        } catch (Exception e)
+        }
+        catch (Exception e)
         {
             Error = e.Message;
             logger.LogError(e, "Failed to initialize");
@@ -453,6 +467,7 @@ public class BoltzDaemon(
         {
             throw new Exception($"Failed to get current client version: {stdout}");
         }
+
         CurrentVersion = stdout.Split("\n").First().Split("-").First();
     }
 
@@ -471,7 +486,13 @@ public class BoltzDaemon(
     private async Task Run(CancellationTokenSource daemonCancel, bool logOutput)
     {
         _output.Clear();
-        using var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
+        var args = $"--datadir {DataDir}";
+        if (Path.Exists(CustomConfigFile))
+        {
+            args += $" --configfile {CustomConfigFile}";
+        }
+
+        using var process = NewProcess(DaemonBinary, args);
         try
         {
             process.Start();
@@ -549,7 +570,7 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        if (_daemonTask is not null)
+        if (_daemonTask is not null && !_daemonTask.IsCompleted)
         {
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
@@ -569,9 +590,13 @@ public class BoltzDaemon(
                     }
                 }
             }
+            else if (_daemonCancel is not null)
+            {
+                await _daemonCancel.CancelAsync();
+            }
 
-            await _daemonTask;
-            logger.LogInformation("stopped");
+            await _daemonTask.WaitAsync(source.Token);
+            logger.LogInformation("Stopped");
         }
     }
 
