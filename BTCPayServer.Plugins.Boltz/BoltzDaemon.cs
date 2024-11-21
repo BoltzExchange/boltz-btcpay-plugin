@@ -112,7 +112,12 @@ public class BoltzDaemon(
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
             }
 
-            logger.LogDebug("Admin macaroon found");
+            while (!File.Exists(CertFile))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+
+            logger.LogDebug("Admin macaroon and certificate found");
 
             var reader = await File.ReadAllBytesAsync(path, cancellationToken);
             AdminMacaroon = Convert.ToHexString(reader).ToLower();
