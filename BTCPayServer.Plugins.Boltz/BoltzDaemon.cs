@@ -372,9 +372,10 @@ public class BoltzDaemon(
                 if (!kv.TryGetValue("certfilepath", out var cert))
                 {
                     var dir = Path.GetDirectoryName(macaroon);
-                    if (dir != null)
+                    var dataDir = dir?.Split("/data/chain/bitcoin").FirstOrDefault();
+                    if (dataDir != null)
                     {
-                        cert = Path.Combine(dir, "tls.cert");
+                        cert = Path.Combine(dataDir, "tls.cert");
                     }
                     else
                     {
