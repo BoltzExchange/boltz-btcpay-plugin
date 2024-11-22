@@ -104,7 +104,7 @@ public class BoltzService(
         {
             foreach (var (storeId, settings) in _settings)
             {
-                if (settings.GrpcUrl != null)
+                if (settings.GrpcUrl?.Scheme == "http")
                 {
                     var httpsUrl = new UriBuilder(settings.GrpcUrl) { Scheme = "https" }.Uri;
                     if (httpsUrl == daemon.DefaultUri)
