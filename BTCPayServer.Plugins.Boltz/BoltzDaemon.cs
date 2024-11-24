@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO;
@@ -19,12 +18,10 @@ using BTCPayServer.Lightning.LND;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Octokit;
 using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
 using OperationCanceledException = System.OperationCanceledException;
-using Range = System.Range;
 using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
@@ -58,11 +55,9 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version MinClientVersion = new("2.2.0");
+    private static readonly Version ClientVersion = new("2.3.0");
 
-    private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
     private Stream? _downloadStream;
-    private Task? _updateTask;
     private Task? _startTask;
     private CancellationTokenSource? _daemonCancel;
     private Task? _daemonTask;
@@ -79,11 +74,8 @@ public class BoltzDaemon(
     public readonly Uri DefaultUri = new("https://127.0.0.1:9002");
     public string CertFile => Path.Combine(DataDir, "tls.cert");
     public bool Starting => _startTask is not null && !_startTask.IsCompleted;
-    public bool Updating => _updateTask is not null && !_updateTask.IsCompleted;
     public string LogFile => Path.Combine(DataDir, "boltz.log");
     public string? AdminMacaroon { get; private set; }
-    public Release? LatestRelease { get; private set; }
-    public string? CurrentVersion { get; set; }
     public BoltzClient? AdminClient { get; private set; }
     public bool Running => AdminClient is not null;
     public readonly TaskCompletionSource<bool> InitialStart = new();
@@ -93,7 +85,6 @@ public class BoltzDaemon(
     public string? Error { get; private set; }
     public bool HasError => !string.IsNullOrEmpty(Error);
     public string RecentOutput => string.Join("\n", _output);
-    public bool UpdateAvailable => LatestRelease!.TagName != CurrentVersion;
 
     private string Architecture => RuntimeInformation.OSArchitecture switch
     {
@@ -127,10 +118,9 @@ public class BoltzDaemon(
             {
                 try
                 {
-                    var info = await client.GetInfo(cancellationToken);
+                    await client.GetInfo(cancellationToken);
                     logger.LogInformation("Running");
                     AdminClient = client;
-                    CurrentVersion = info.Version.Split("-").First();
                     Error = null;
                     return;
                 }
@@ -152,60 +142,7 @@ public class BoltzDaemon(
         await Stop();
     }
 
-    public async Task CheckLatestRelease()
-    {
-        try
-        {
-            LatestRelease = await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
-        }
-        catch (Exception e)
-        {
-            logger.LogWarning($"Could not get latest release from github: {e.Message}");
-        }
-    }
-
-
-    public async Task<bool> TryDownload()
-    {
-        var version = LatestRelease!.TagName;
-        try
-        {
-            await Download(version);
-            return true;
-        }
-        catch (Exception e)
-        {
-            Error = $"Failed to download client version {version}: {e.Message}";
-            logger.LogError(e, Error);
-        }
-
-        return false;
-    }
-
-    private async Task Update()
-    {
-        try
-        {
-            await Stop();
-            await Download(LatestRelease!.TagName);
-            await Start();
-        }
-        catch (Exception e)
-        {
-            Error = $"Failed to update: {e.Message}";
-            logger.LogError(e, Error);
-        }
-    }
-
-    public void StartUpdate()
-    {
-        if (!Updating)
-        {
-            _updateTask = Update();
-        }
-    }
-
-    public async Task Download(string version)
+    public async Task Download(Version version)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
@@ -214,7 +151,7 @@ public class BoltzDaemon(
 
         logger.LogInformation($"Downloading boltz client {version}");
 
-        string archiveName = $"boltz-client-linux-{Architecture}-{version}.tar.gz";
+        string archiveName = $"boltz-client-linux-{Architecture}-v{version}.tar.gz";
         await using var s = await _httpClient.GetStreamAsync(ReleaseUrl(version) + archiveName);
 
         _downloadStream = s;
@@ -223,12 +160,11 @@ public class BoltzDaemon(
         _downloadStream = null;
 
         await CheckBinaries(version);
-        await CheckBinaryVersion();
     }
 
-    private string ReleaseUrl(string version)
+    private string ReleaseUrl(Version version)
     {
-        return $"https://github.com/BoltzExchange/boltz-client/releases/download/{version}/";
+        return $"https://github.com/BoltzExchange/boltz-client/releases/download/v{version}/";
     }
 
     private async Task<Stream> DownloadFile(string uri, string destination)
@@ -244,11 +180,11 @@ public class BoltzDaemon(
         return File.OpenRead(path);
     }
 
-    private async Task CheckBinaries(string version)
+    private async Task CheckBinaries(Version version)
     {
         string releaseUrl = ReleaseUrl(version);
-        string manifestName = $"boltz-client-manifest-{version}.txt";
-        string sigName = $"boltz-client-manifest-{version}.txt.sig";
+        string manifestName = $"boltz-client-manifest-v{version}.txt";
+        string sigName = $"boltz-client-manifest-v{version}.txt.sig";
         string pubKey = "boltz.asc";
         string pubKeyUrl = "https://canary.boltz.exchange/pgp.asc";
 
@@ -472,11 +408,6 @@ public class BoltzDaemon(
                 }
             }
 
-            if (!File.Exists(DaemonBinary))
-            {
-                await Update();
-            }
-
             await File.WriteAllTextAsync(ConfigFile, newConfig);
             await Start(node == null);
         }
@@ -501,15 +432,28 @@ public class BoltzDaemon(
                 Directory.CreateDirectory(DataDir);
             }
 
-            await CheckLatestRelease();
-
-            if (!File.Exists(DaemonBinary))
+            string? currentVersion = null;
+            if (Path.Exists(DaemonBinary))
             {
-                await TryDownload();
+                var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
+                if (code != 0)
+                {
+                    logger.LogInformation($"Failed to get current client version: {stdout}");
+                }
+                else
+                {
+                    currentVersion = stdout.Split("\n").First().Split("-").First().Remove(0, 1);
+                }
             }
-            else
+
+            Version.TryParse(currentVersion, out var current);
+            if (current == null || current.CompareTo(ClientVersion) < 0)
             {
-                await CheckBinaryVersion();
+                if (current != null)
+                {
+                    logger.LogInformation("Client version outdated");
+                }
+                await Download(ClientVersion);
             }
         }
         catch (Exception e)
@@ -517,29 +461,6 @@ public class BoltzDaemon(
             Error = e.Message;
             logger.LogError(e, "Failed to initialize");
         }
-    }
-
-    private async Task CheckBinaryVersion()
-    {
-        var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
-        if (code != 0)
-        {
-            throw new Exception($"Failed to get current client version: {stdout}");
-        }
-
-        CurrentVersion = stdout.Split("\n").First().Split("-").First();
-    }
-
-    private async Task<bool> CheckVersion()
-    {
-        Version.TryParse(CurrentVersion?.Remove(0, 1), out var current);
-        if (current == null || current.CompareTo(MinClientVersion) < 0)
-        {
-            logger.LogInformation("Client version too old, updating");
-            return await TryDownload();
-        }
-
-        return true;
     }
 
     private async Task Run(CancellationTokenSource daemonCancel, bool logOutput)
@@ -597,19 +518,16 @@ public class BoltzDaemon(
     private async Task Start(bool logOutput = true)
     {
         await Stop();
-        if (await CheckVersion())
+        logger.LogInformation("Starting client process");
+        var daemonCancel = new CancellationTokenSource();
+        _daemonTask = Run(daemonCancel, logOutput);
+        var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
+        wait.CancelAfter(TimeSpan.FromSeconds(60));
+        _daemonCancel = daemonCancel;
+        await Wait(wait.Token);
+        if (Running)
         {
-            logger.LogInformation("Starting client process");
-            var daemonCancel = new CancellationTokenSource();
-            _daemonTask = Run(daemonCancel, logOutput);
-            var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-            wait.CancelAfter(TimeSpan.FromSeconds(60));
-            _daemonCancel = daemonCancel;
-            await Wait(wait.Token);
-            if (Running)
-            {
-                AdminClient!.SwapUpdate += SwapUpdate!;
-            }
+            AdminClient!.SwapUpdate += SwapUpdate!;
         }
     }
 

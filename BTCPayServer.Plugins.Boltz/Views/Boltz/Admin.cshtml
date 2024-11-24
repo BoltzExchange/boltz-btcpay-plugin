@@ -4,8 +4,6 @@
 @inject BoltzDaemon Daemon
 @{
     ViewData.SetActivePage("Boltz", "Admin", "Admin");
-
-    var updateText = Daemon.UpdateAvailable ? "Update" : "Check Update";
 }
 
 <form method="post">
@@ -17,7 +15,6 @@
             <button name="command" type="submit" value="Start" class="btn btn-secondary">
                 @(Daemon.Running ? "Restart" : "Start")
             </button>
-            <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
         </div>
     </div>
 
