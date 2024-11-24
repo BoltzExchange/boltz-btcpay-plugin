@@ -96,7 +96,7 @@ public class BoltzService(
         var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
                              new BoltzServerSettings
                              {
-                                 ConnectNode = _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
+                                 ConnectNode = _settings.Count == 0 || _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
                              };
         await SetServerSettings(serverSettings);
 
