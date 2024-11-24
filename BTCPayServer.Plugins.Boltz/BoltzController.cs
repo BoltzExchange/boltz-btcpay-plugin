@@ -739,24 +739,6 @@ public class BoltzController(
                 TempData[WellKnownTempData.SuccessMessage] = "Settings updated";
                 break;
             }
-            case "Update":
-            {
-                if (!boltzDaemon.UpdateAvailable)
-                {
-                    await boltzDaemon.CheckLatestRelease();
-                }
-
-                if (boltzDaemon.UpdateAvailable)
-                {
-                    boltzDaemon.StartUpdate();
-                }
-                else
-                {
-                    TempData[WellKnownTempData.SuccessMessage] = "No update available";
-                }
-
-                break;
-            }
             case "Clear":
             {
                 await boltzService.Set(CurrentStore.Id, null);
