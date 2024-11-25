@@ -9,6 +9,7 @@ using BTCPayServer.Abstractions.Constants;
 using BTCPayServer.Client;
 using BTCPayServer.Data;
 using System.Threading;
+using Autoswaprpc;
 using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
@@ -16,6 +17,7 @@ using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
 using Dapper;
 using Google.Protobuf;
+using Google.Protobuf.Collections;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -132,6 +134,14 @@ public class BoltzController(
                 data.Recommendations = await Boltz.GetAutoSwapRecommendations();
                 if (data.Ln != null)
                 {
+                    foreach (var recommendation in data.Recommendations.Lightning)
+                    {
+                        if (recommendation.Swap?.DismissedReasons.Contains("pending swap") ?? false)
+                        {
+                            recommendation.Swap = null;
+                        }
+                    }
+
                     data.RebalanceWallet = await Boltz.GetWallet(data.Ln.Wallet);
                 }
             }
@@ -142,6 +152,34 @@ public class BoltzController(
         }
 
         return View(data);
+    }
+
+
+    [HttpPost("status")]
+    public async Task<IActionResult> Status(string storeId, string? lnRecommendation, string? chainRecommendation)
+    {
+
+        if (Boltz is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            var request = new ExecuteRecommendationsRequest { Force = true };
+            if (!string.IsNullOrEmpty(chainRecommendation))
+                request.Chain.Add(JsonParser.Default.Parse<ChainRecommendation>(chainRecommendation));
+            if (!string.IsNullOrEmpty(lnRecommendation))
+                request.Lightning.Add(JsonParser.Default.Parse<LightningRecommendation>(lnRecommendation));
+            await Boltz.ExecuteAutoSwapRecommendations(request);
+            TempData[WellKnownTempData.SuccessMessage] = "Recommendations executed";
+        }
+        catch (RpcException e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+        }
+
+        return RedirectToAction(nameof(Status), new { storeId });
     }
 
     [HttpGet("wallet/{walletName}")]
@@ -918,9 +956,11 @@ public class BoltzController(
                         }
 
                         SetupSettings = await SetStandaloneWallet(SetupSettings!, walletName);
+                        await boltzService.Set(CurrentStore.Id, SetupSettings);
+
                         if (wallet!.Readonly)
                         {
-                            return RedirectToAction(nameof(Enable), new { storeId });
+                            return RedirectToAction(nameof(Status), new { storeId });
                         }
 
                         return RedirectToAction(nameof(SetupChain), new { storeId });
