@@ -1,69 +1,112 @@
+@using BTCPayServer.Plugins.Boltz.Models
 @model Google.Protobuf.Collections.RepeatedField<Autoswaprpc.LightningRecommendation>
 @if (Model.Count > 0)
 {
     var hasIn = Model.Any(recommendation => recommendation.Thresholds.Inbound > 0);
     var hasOut = Model.Any(recommendation => recommendation.Thresholds.Outbound > 0);
 
-    <table class="table table-hover my-0">
-        <thead>
-        <tr>
-            <th class="text-nowrap">Channel</th>
-            <th>Capacity</th>
-            <th>Inbound</th>
-            <th>Outbound</th>
-            @if (hasIn)
-            {
-                <th>
-                    Inbound Threshold
-                    <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="A reverse swap will be created if the outbound balance exceeds this threshold">
-                        <vc:icon symbol="info"/>
-                    </small>
-                </th>
-            }
-            @if (hasOut)
-            {
-                <th>
-                    Outbound Threshold
-                    <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="A reverse swap will be created if the outbound balance exceeds this threshold">
-                        <vc:icon symbol="info"/>
-                    </small>
-                </th>
-            }
-            <th>Amount</th>
-            <th class="text-nowrap">Type</th>
-            <th>Fee Estimate</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
+    <style>
+        .marker {
+            position: absolute;
+            width: 0.25rem;
+            height: 100%;
+            background: var(--btcpay-secondary-dim-bg);
+        }
+    </style>
+
+    <div class="d-flex flex-column gap-3">
         @foreach (var payment in Model)
         {
-            <tr>
-                <td>@(payment.Channel.Id?.Cln ?? "Total")</td>
-                <td>@payment.Channel.Capacity</td>
-                <td>@payment.Channel.InboundSat</td>
-                <td>@payment.Channel.OutboundSat</td>
-                @if (hasIn)
+            var thresholds = payment.Thresholds;
+            var channel = payment.Channel;
+            var calculate = (ulong amount) => 100 * (long)amount / (long)channel.Capacity;
+            var inboundWidth = calculate(channel.InboundSat);
+            var inboundThresholdWidth = calculate(thresholds.Inbound);
+            var outboundWidth = calculate(channel.OutboundSat);
+            var outboundThresholdWidth = calculate(thresholds.Outbound);
+            var remainder = 100 - inboundWidth - outboundWidth;
+
+            var inReached = channel.InboundSat < thresholds.Inbound;
+            var outReached = channel.OutboundSat < thresholds.Outbound;
+
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex flex-column gap-1" style="max-width: 50rem">
+                    <div class="fw-semibold text-secondary">
+                        Total
+                    </div>
+                    <div class="progress fw-semibold" style="position: relative">
+                        <div class="progress-bar bg-info" role="progressbar"
+                             style="width: @Math.Min(outboundWidth, outboundThresholdWidth)%">
+                        </div>
+                        @if (!outReached)
+                        {
+                            <div class="progress-bar bg-info opacity-75" role="progressbar"
+                                 style="width: @(outboundWidth - outboundThresholdWidth)%">
+                            </div>
+                        }
+                        <div class="progress-bar" style="width: @remainder%; background: none"></div>
+                        @if (!inReached)
+                        {
+                            <div class="progress-bar opacity-75" role="progressbar"
+                                 style="width: @(inboundWidth - inboundThresholdWidth)%;" aria-valuenow="30" aria-valuemin="0"
+                                 aria-valuemax="100">
+                            </div>
+                        }
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: @Math.Min(inboundWidth, inboundThresholdWidth)%" aria-valuenow="15" aria-valuemin="0"
+                             aria-valuemax="100">
+                        </div>
+
+                        <div class="progress-bar marker @(outReached ? "bg-danger" : "")" style="left: @outboundThresholdWidth%"></div>
+                        <div class="progress-bar marker @(inReached ? "bg-danger" : "")" style="right: @inboundThresholdWidth%"></div>
+                    </div>
+                    <div class="d-flex flex-row justify-content-between">
+                        <div class="text-secondary d-flex flex-row align-items-center">
+                            @channel.OutboundSat Sat Outbound
+                            @if (thresholds.Outbound > 0)
+                            {
+                                var tooltip = outReached ? $"Your outbound balance dropped below {thresholds.Outbound} (red marker), so a submarine swap is recommended" : $"A submarine swap will be created when your outbound balance drops below {thresholds.Outbound} (gray marker)";
+                                <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top"
+                                       title="@tooltip">
+                                    <vc:icon symbol="info"/>
+                                </small>
+                            }
+                        </div>
+                        <div class="text-secondary d-flex flex-row align-items-center">
+                            @channel.InboundSat Sat Inbound
+                            @if (thresholds.Inbound > 0)
+                            {
+                                var tooltip = inReached ? $"Your inbound balance dropped below {thresholds.Inbound} (red marker), so a reverse swap is recommended" : $"A reverse swap will be created when your inbound balance drops below {thresholds.Inbound} (gray marker)";
+                                <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top"
+                                       title="@tooltip">
+                                    <vc:icon symbol="info"/>
+                                </small>
+                            }
+                        </div>
+                    </div>
+                </div>
+                @if (payment.Swap != null)
                 {
-                    <td>@payment.Thresholds.Inbound</td>
+                    var swap = payment.Swap;
+                    var stats = new List<Stat>
+                    {
+                        new() { Name = "Amount", Value = swap.Amount, Unit = Unit.Sat },
+                        new() { Name = "Fee Estimate", Value = swap.FeeEstimate, Unit = Unit.Sat },
+                        new() { Name = "Type", Value = swap.Type, Unit = Unit.None },
+                    };
+                    <div class="h5 mb-0">
+                        Recommended Swap
+                    </div>
+                    if (swap.DismissedReasons.Count > 0)
+                    {
+                        <div class="text-warning">
+                            Ignored, because: @string.Join(", ", swap.DismissedReasons)
+                        </div>
+                    }
+
+                    <partial name="Boltz/_Stats" model="stats"/>
                 }
-                @if (hasOut)
-                {
-                    <td>@payment.Thresholds.Outbound</td>
-                }
-                @if (payment.Swap is not null)
-                {
-                    <td>@payment.Swap.Amount</td>
-                    <td>@payment.Swap.Type</td>
-                    <td>@payment.Swap.FeeEstimate</td>
-                    <td>@(String.Join(", ", payment.Swap.DismissedReasons))</td>
-                }
-                else
-                {
-                    <td colspan="3" class="text-center">No swap recommended</td>
-                }
-            </tr>
+            </div>
         }
-        </tbody>
-    </table>
+    </div>
 }
