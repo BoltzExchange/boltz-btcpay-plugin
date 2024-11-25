@@ -184,6 +184,11 @@ public class BoltzClient : IDisposable
         return await _autoClient.GetRecommendationsAsync(new GetRecommendationsRequest(), _metadata);
     }
 
+    public async Task<ExecuteRecommendationsResponse> ExecuteAutoSwapRecommendations(ExecuteRecommendationsRequest request)
+    {
+        return await _autoClient.ExecuteRecommendationsAsync(request, _metadata);
+    }
+
     public async Task<PairInfo> GetPairInfo(Pair pair, SwapType swapType)
     {
         _pairs ??= await GetPairs();

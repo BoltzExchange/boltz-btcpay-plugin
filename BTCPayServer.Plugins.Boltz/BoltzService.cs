@@ -71,8 +71,6 @@ public class BoltzService(
     public ILightningClient? InternalLightning =>
         lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
 
-    public string DefaultNodeConfig { get; private set; }
-
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
