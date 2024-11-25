@@ -23,7 +23,7 @@
 }
 else
 {
-    <div class="d-grid gap-3">
+    <div class="d-flex flex-column gap-3">
         @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null && Model.StandaloneWallet is not null)
         {
             var stats = BoltzClient.ParseStats(Model.Stats);
@@ -60,10 +60,7 @@ else
 
                     @if (Model.Recommendations is not null)
                     {
-                        <div>
-                            <h5>Recommendations</h5>
-                            <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
-                        </div>
+                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
                     }
                     @if (pendingLnSwaps?.Count > 0)
                     {
