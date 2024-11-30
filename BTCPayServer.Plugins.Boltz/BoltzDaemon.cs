@@ -18,7 +18,6 @@ using BTCPayServer.Lightning.LND;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Octokit;
 using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
@@ -27,6 +26,28 @@ using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
 
+public class LndConfig
+{
+    public string? Host { get; set; }
+    public ulong? Port { get; set; }
+    public string? Macaroon { get; set; }
+    public string? Certificate { get; set; }
+}
+
+public class ClnConfig
+{
+    public string? Host { get; set; }
+    public ulong? Port { get; set; }
+    public string? DataDir { get; set; }
+    public string? ServerName { get; set; }
+}
+
+public class NodeConfig
+{
+    public LndConfig? Lnd { get; set; }
+    public ClnConfig? Cln { get; set; }
+}
+
 public class BoltzDaemon(
     IOptions<DataDirectories> dataDirectories,
     ILogger<BoltzDaemon> logger,
@@ -34,12 +55,9 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version MinClientVersion = new("2.1.7");
+    private static readonly Version ClientVersion = new("2.3.0");
 
-    private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
-    private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
     private Stream? _downloadStream;
-    private Task? _updateTask;
     private Task? _startTask;
     private CancellationTokenSource? _daemonCancel;
     private Task? _daemonTask;
@@ -47,28 +65,26 @@ public class BoltzDaemon(
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
     private string DataDir => Path.Combine(dataDirectories.Value.DataDir, "Plugins", "Boltz");
-    private string ConfigPath => Path.Combine(DataDir, "boltz.toml");
     private string DaemonBinary => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzd");
     private string DaemonCli => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzcli");
     private BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
+    private string ConfigFile => Path.Combine(DataDir, "boltz.toml");
 
+    public readonly Uri DefaultUri = new("https://127.0.0.1:9002");
+    public string CertFile => Path.Combine(DataDir, "tls.cert");
     public bool Starting => _startTask is not null && !_startTask.IsCompleted;
-    public bool Updating => _updateTask is not null && !_updateTask.IsCompleted;
     public string LogFile => Path.Combine(DataDir, "boltz.log");
     public string? AdminMacaroon { get; private set; }
-    public Release? LatestRelease { get; private set; }
-    public string? CurrentVersion { get; set; }
     public BoltzClient? AdminClient { get; private set; }
     public bool Running => AdminClient is not null;
     public readonly TaskCompletionSource<bool> InitialStart = new();
     public event EventHandler<GetSwapInfoResponse>? SwapUpdate;
-    public ILightningClient? Node;
+    public NodeConfig? Node;
     public string? NodeError { get; private set; }
     public string? Error { get; private set; }
     public bool HasError => !string.IsNullOrEmpty(Error);
     public string RecentOutput => string.Join("\n", _output);
-    public bool UpdateAvailable => LatestRelease!.TagName != CurrentVersion;
 
     private string Architecture => RuntimeInformation.OSArchitecture switch
     {
@@ -87,20 +103,24 @@ public class BoltzDaemon(
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
             }
 
-            logger.LogDebug("Admin macaroon found");
+            while (!File.Exists(CertFile))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+
+            logger.LogDebug("Admin macaroon and certificate found");
 
             var reader = await File.ReadAllBytesAsync(path, cancellationToken);
             AdminMacaroon = Convert.ToHexString(reader).ToLower();
-            var client = new BoltzClient(clientLogger, _defaultUri, AdminMacaroon, "all");
+            var client = new BoltzClient(clientLogger, DefaultUri, AdminMacaroon, CertFile, "all");
 
             while (true)
             {
                 try
                 {
-                    var info = await client.GetInfo(cancellationToken);
+                    await client.GetInfo(cancellationToken);
                     logger.LogInformation("Running");
                     AdminClient = client;
-                    CurrentVersion = info.Version.Split("-").First();
                     Error = null;
                     return;
                 }
@@ -122,60 +142,7 @@ public class BoltzDaemon(
         await Stop();
     }
 
-    public async Task CheckLatestRelease()
-    {
-        try
-        {
-            LatestRelease = await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-client");
-        }
-        catch (Exception e)
-        {
-            logger.LogWarning($"Could not get latest release from github: {e.Message}");
-        }
-    }
-
-
-    public async Task<bool> TryDownload()
-    {
-        var version = LatestRelease!.TagName;
-        try
-        {
-            await Download(version);
-            return true;
-        }
-        catch (Exception e)
-        {
-            Error = $"Failed to download client version {version}: {e.Message}";
-            logger.LogError(e, Error);
-        }
-
-        return false;
-    }
-
-    private async Task Update()
-    {
-        try
-        {
-            await Stop();
-            await Download(LatestRelease!.TagName);
-            await Start();
-        }
-        catch (Exception e)
-        {
-            Error = $"Failed to update: {e.Message}";
-            logger.LogError(e, Error);
-        }
-    }
-
-    public void StartUpdate()
-    {
-        if (!Updating)
-        {
-            _updateTask = Update();
-        }
-    }
-
-    public async Task Download(string version)
+    public async Task Download(Version version)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
@@ -184,7 +151,7 @@ public class BoltzDaemon(
 
         logger.LogInformation($"Downloading boltz client {version}");
 
-        string archiveName = $"boltz-client-linux-{Architecture}-{version}.tar.gz";
+        string archiveName = $"boltz-client-linux-{Architecture}-v{version}.tar.gz";
         await using var s = await _httpClient.GetStreamAsync(ReleaseUrl(version) + archiveName);
 
         _downloadStream = s;
@@ -193,12 +160,11 @@ public class BoltzDaemon(
         _downloadStream = null;
 
         await CheckBinaries(version);
-        await CheckBinaryVersion();
     }
 
-    private string ReleaseUrl(string version)
+    private string ReleaseUrl(Version version)
     {
-        return $"https://github.com/BoltzExchange/boltz-client/releases/download/{version}/";
+        return $"https://github.com/BoltzExchange/boltz-client/releases/download/v{version}/";
     }
 
     private async Task<Stream> DownloadFile(string uri, string destination)
@@ -214,11 +180,11 @@ public class BoltzDaemon(
         return File.OpenRead(path);
     }
 
-    private async Task CheckBinaries(string version)
+    private async Task CheckBinaries(Version version)
     {
         string releaseUrl = ReleaseUrl(version);
-        string manifestName = $"boltz-client-manifest-{version}.txt";
-        string sigName = $"boltz-client-manifest-{version}.txt.sig";
+        string manifestName = $"boltz-client-manifest-v{version}.txt";
+        string sigName = $"boltz-client-manifest-v{version}.txt.sig";
         string pubKey = "boltz.asc";
         string pubKeyUrl = "https://canary.boltz.exchange/pgp.asc";
 
@@ -282,7 +248,7 @@ public class BoltzDaemon(
     }
 
 
-    public async Task TryConfigure(ILightningClient? node)
+    public async Task TryConfigure(NodeConfig? node)
     {
         try
         {
@@ -293,14 +259,15 @@ public class BoltzDaemon(
                 if (String.IsNullOrEmpty(Error))
                 {
                     Node = node;
+                    NodeError = null;
                     return;
                 }
 
                 logger.LogInformation("Could not connect to node: " + Error);
-                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : $"{Error}\nOutput:\n{RecentOutput}";
+                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : RecentOutput;
             }
 
-            await Configure(null);
+            await Configure(node: null);
         }
         finally
         {
@@ -308,30 +275,8 @@ public class BoltzDaemon(
         }
     }
 
-    private string GetConfig(ILightningClient? node)
+    public NodeConfig GetNodeConfig(ILightningClient? node)
     {
-        var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
-
-        string shared = $"""
-                         network = "{networkName}"
-                         referralId = "btcpay"
-                         logmaxsize = 1
-
-                         [RPC]
-                         noMacaroons = false
-                         noTls = true
-                         host = "{_defaultUri.Host}"
-                         port = {_defaultUri.Port}
-                         rest.disable = true
-                         """;
-        if (node is null)
-        {
-            return $"""
-                    standalone = true
-                    {shared}
-                    """;
-        }
-
         switch (node)
         {
             case CLightningClient cln:
@@ -344,15 +289,15 @@ public class BoltzDaemon(
                     var split = path.Split("/");
                     path = "/" + Path.Combine(split.Take(split.Length - 2).ToArray());
 
-                    return $"""
-                            node = "cln"
-                            {shared}
-
-                            [CLN]
-                            dataDir = "{path}"
-                            port = 9736
-                            host = "127.0.0.1"
-                            """;
+                    return new NodeConfig
+                    {
+                        Cln = new ClnConfig
+                        {
+                            DataDir = path,
+                            Port = 9736,
+                            Host = "127.0.0.1"
+                        }
+                    };
                 }
 
                 throw new Exception("Unsupported lightning connection string");
@@ -373,9 +318,10 @@ public class BoltzDaemon(
                 if (!kv.TryGetValue("certfilepath", out var cert))
                 {
                     var dir = Path.GetDirectoryName(macaroon);
-                    if (dir != null)
+                    var dataDir = dir?.Split("/data/chain/bitcoin").FirstOrDefault();
+                    if (dataDir != null)
                     {
-                        cert = Path.Combine(dir, "tls.cert");
+                        cert = Path.Combine(dataDir, "tls.cert");
                     }
                     else
                     {
@@ -383,31 +329,86 @@ public class BoltzDaemon(
                     }
                 }
 
-                return $"""
-                        node = "lnd"
-                        {shared}
-
-                        [LND]
-                        host = "{url.Host}"
-                        macaroon = "{macaroon}"
-                        certificate = "{cert}"
-                        """;
+                return new NodeConfig
+                {
+                    Lnd = new LndConfig
+                    {
+                        Host = url.Host,
+                        Macaroon = macaroon,
+                        Certificate = cert,
+                        Port = 10009,
+                    }
+                };
             default:
                 throw new Exception("Unsupported lightning client");
         }
     }
 
-    private async Task Configure(ILightningClient? node)
+    public string GetConfig(NodeConfig? nodeConfig)
     {
-        await _configSemaphore.WaitAsync();
-        if (!File.Exists(DaemonBinary))
+        var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
+
+        string shared = $"""
+                         network = "{networkName}"
+                         referralId = "btcpay"
+                         logmaxsize = 1
+
+                         [RPC]
+                         host = "{DefaultUri.Host}"
+                         port = {DefaultUri.Port}
+                         rest.disable = true
+                         """;
+
+        if (nodeConfig?.Lnd != null)
         {
-            await Update();
+            return $"""
+                    node = "lnd"
+                    {shared}
+
+                    [LND]
+                    host = "{nodeConfig.Lnd.Host}"
+                    port = {nodeConfig.Lnd.Port}
+                    macaroon = "{nodeConfig.Lnd.Macaroon}"
+                    certificate = "{nodeConfig.Lnd.Certificate}"
+                    """;
         }
 
+        if (nodeConfig?.Cln != null)
+        {
+            return $"""
+                    node = "cln"
+                    {shared}
+
+                    [CLN]
+                    host = "{nodeConfig.Cln.Host}"
+                    port = {nodeConfig.Cln.Port}
+                    dataDir = "{nodeConfig.Cln.DataDir}"
+                    """;
+        }
+
+        return $"""
+                standalone = true
+                {shared}
+                """;
+    }
+
+    private async Task Configure(NodeConfig? node)
+    {
         try
         {
-            await File.WriteAllTextAsync(ConfigPath, GetConfig(node));
+            await _configSemaphore.WaitAsync();
+
+            var newConfig = GetConfig(node);
+            if (Path.Exists(ConfigFile))
+            {
+                var current = await File.ReadAllTextAsync(ConfigFile);
+                if (current == newConfig && Running)
+                {
+                    return;
+                }
+            }
+
+            await File.WriteAllTextAsync(ConfigFile, newConfig);
             await Start(node == null);
         }
         catch (Exception e)
@@ -416,6 +417,7 @@ public class BoltzDaemon(
         }
         finally
         {
+            InitialStart.TrySetResult(true);
             _configSemaphore.Release();
         }
     }
@@ -430,43 +432,35 @@ public class BoltzDaemon(
                 Directory.CreateDirectory(DataDir);
             }
 
-            await CheckLatestRelease();
+            string? currentVersion = null;
+            if (Path.Exists(DaemonBinary))
+            {
+                var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
+                if (code != 0)
+                {
+                    logger.LogInformation($"Failed to get current client version: {stdout}");
+                }
+                else
+                {
+                    currentVersion = stdout.Split("\n").First().Split("-").First().Remove(0, 1);
+                }
+            }
 
-            if (!File.Exists(DaemonBinary))
+            Version.TryParse(currentVersion, out var current);
+            if (current == null || current.CompareTo(ClientVersion) < 0)
             {
-                await TryDownload();
+                if (current != null)
+                {
+                    logger.LogInformation("Client version outdated");
+                }
+                await Download(ClientVersion);
             }
-            else
-            {
-                await CheckBinaryVersion();
-            }
-        } catch (Exception e)
+        }
+        catch (Exception e)
         {
             Error = e.Message;
             logger.LogError(e, "Failed to initialize");
         }
-    }
-
-    private async Task CheckBinaryVersion()
-    {
-        var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
-        if (code != 0)
-        {
-            throw new Exception($"Failed to get current client version: {stdout}");
-        }
-        CurrentVersion = stdout.Split("\n").First().Split("-").First();
-    }
-
-    private async Task<bool> CheckVersion()
-    {
-        Version.TryParse(CurrentVersion?.Remove(0, 1), out var current);
-        if (current == null || current.CompareTo(MinClientVersion) < 0)
-        {
-            logger.LogInformation("Client version too old, updating");
-            return await TryDownload();
-        }
-
-        return true;
     }
 
     private async Task Run(CancellationTokenSource daemonCancel, bool logOutput)
@@ -524,19 +518,16 @@ public class BoltzDaemon(
     private async Task Start(bool logOutput = true)
     {
         await Stop();
-        if (await CheckVersion())
+        logger.LogInformation("Starting client process");
+        var daemonCancel = new CancellationTokenSource();
+        _daemonTask = Run(daemonCancel, logOutput);
+        var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
+        wait.CancelAfter(TimeSpan.FromSeconds(60));
+        _daemonCancel = daemonCancel;
+        await Wait(wait.Token);
+        if (Running)
         {
-            logger.LogInformation("Starting client process");
-            var daemonCancel = new CancellationTokenSource();
-            _daemonTask = Run(daemonCancel, logOutput);
-            var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-            wait.CancelAfter(TimeSpan.FromSeconds(60));
-            _daemonCancel = daemonCancel;
-            await Wait(wait.Token);
-            if (Running)
-            {
-                AdminClient!.SwapUpdate += SwapUpdate!;
-            }
+            AdminClient!.SwapUpdate += SwapUpdate!;
         }
     }
 
@@ -550,7 +541,7 @@ public class BoltzDaemon(
 
     public async Task Stop()
     {
-        if (_daemonTask is not null)
+        if (_daemonTask is not null && !_daemonTask.IsCompleted)
         {
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
@@ -570,9 +561,13 @@ public class BoltzDaemon(
                     }
                 }
             }
+            else if (_daemonCancel is not null)
+            {
+                await _daemonCancel.CancelAsync();
+            }
 
-            await _daemonTask;
-            logger.LogInformation("stopped");
+            await _daemonTask.WaitAsync(source.Token);
+            logger.LogInformation("Stopped");
         }
     }
 
@@ -631,8 +626,8 @@ public class BoltzDaemon(
     public BoltzClient? GetClient(BoltzSettings? settings)
     {
         if (settings is null) return null;
-        return settings.CredentialsPopulated() && (settings.GrpcUrl != _defaultUri || Running)
-            ? new BoltzClient(clientLogger, settings.GrpcUrl!, settings.Macaroon!)
+        return settings.CredentialsPopulated() && (settings.GrpcUrl != DefaultUri || Running)
+            ? new BoltzClient(clientLogger, settings.GrpcUrl!, settings.Macaroon!, settings.CertFilePath!)
             : null;
     }
 }

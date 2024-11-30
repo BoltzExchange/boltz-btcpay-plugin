@@ -4,6 +4,7 @@ using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Models;
 using BTCPayServer.Models.ServerViewModels;
+using BTCPayServer.Services;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
@@ -12,7 +13,7 @@ public class AdminModel
 {
     public GetInfoResponse? Info { get; set; }
     public BoltzSettings? Settings { get; set; }
-
+    public BoltzServerSettings? ServerSettings { get; set; }
     public LogsViewModel Log { get; set; } = new();
 }
 
@@ -48,11 +49,12 @@ public class BoltzConfig
 
 public class AutoSwapStatus
 {
-
     public Status Status { get; init; } = new();
     public SwapperType SwapperType { get; init; }
     public bool Compact { get; set; }
-    public List<Stat>? Stats { get; set; }
+    public List<Stat> Stats { get; set; } = new ();
+    public string Wallet = "";
+    public string ToWallet { get; set; } = "";
 }
 
 public class BoltzInfo

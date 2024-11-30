@@ -24,29 +24,22 @@
 }
 else
 {
-    <div class="d-grid gap-3">
+    <div class="d-flex flex-column gap-3">
         @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null && Model.StandaloneWallet is not null)
         {
             var stats = BoltzClient.ParseStats(Model.Stats);
-
-            var balance = Model.StandaloneWallet.Balance;
-            var walletId = Model.StandaloneWallet.Id;
-            if (balance?.Unconfirmed > 0)
-            {
-                stats.Insert(0, new Stat { Name = "Unconfirmed Balance", Unit = Unit.Sat, Value = balance.Unconfirmed });
-            }
-
-            stats.Insert(0, new Stat { Name = "Total Balance", Unit = Unit.Sat, Value = balance?.Total });
-
             <div class="widget">
                 <header>
-                    <h4>Lightning Payments</h4>
+                    <h4 class="my-0">Lightning Payments</h4>
                 </header>
                 <div class="d-flex flex-column gap-2 align-items-start">
-                    <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
-                    <h5 class="mb-0">Wallet</h5>
+                    <div class="fw-semibold">
+                        Using wallet
+                        <partial name="Boltz/_WalletLink" model="Model.StandaloneWallet.Name"/>
+                    </div>
                     <partial name="Boltz/_Stats" model="stats"/>
-                    <partial name="_WalletButtons" model="Model.StandaloneWallet"/>
+                    <h5>Fee Info</h5>
+                    <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
                 </div>
             </div>
         }
@@ -55,32 +48,20 @@ else
         {
             @if (Model.Ln is not null)
             {
-                var ln = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = Model.Status.Lightning };
-                var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
-                var balance = Model.RebalanceWallet?.Balance;
-                if (balance is not null)
+                var ln = new AutoSwapStatus
                 {
-                    ln.Stats =
-                    [
-                        new() { Name = "Wallet Balance", Value = balance.Total, Unit = Unit.Sat }
-                    ];
-                }
+                    SwapperType = SwapperType.Lightning,
+                    Status = Model.Status.Lightning,
+                    Wallet = Model.RebalanceWallet?.Name ?? ""
+                };
+                var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
 
                 <div class="widget d-flex gap-3 flex-column">
-                    <div>
-                        <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-                        @if (Model.RebalanceWallet is not null)
-                        {
-                            <partial name="_WalletButtons" model="Model.RebalanceWallet"/>
-                        }
-                    </div>
+                    <partial name="Boltz/_AutoSwapStatus" model="ln"/>
 
                     @if (Model.Recommendations is not null)
                     {
-                        <div>
-                            <h5>Recommendations</h5>
-                            <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
-                        </div>
+                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
                     }
                     @if (pendingLnSwaps?.Count > 0)
                     {
@@ -110,19 +91,19 @@ else
                 </div>
             }
 
-            @if (chainRecommendation is not null)
+            @if (chainRecommendation is not null && Model.Chain is not null)
             {
                 var chain = new AutoSwapStatus
                 {
-                    SwapperType = SwapperType.Chain, Status = Model.Status.Chain
+                    SwapperType = SwapperType.Chain, Status = Model.Status.Chain,
+                    Wallet = Model.Chain.FromWallet,
+                    ToWallet = Model.Chain.ToWallet,
+                    Stats =
+                    [
+                        new() { Name = "Max Wallet Balance", Value = Model.Chain.MaxBalance, Unit = Unit.Sat },
+                        new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Total, Unit = Unit.Sat }
+                    ]
                 };
-                if (settings?.Mode == BoltzMode.Rebalance)
-                {
-                    chain.Stats = new List<Stat>
-                    {
-                        new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Total, Unit = Unit.Sat },
-                    };
-                }
 
                 var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
                 var pendingChainSwaps = Model.PendingAutoSwaps?.Where(info => info.Type == SwapType.Chain).ToList();

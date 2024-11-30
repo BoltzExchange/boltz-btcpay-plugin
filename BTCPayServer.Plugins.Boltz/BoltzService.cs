@@ -1,7 +1,9 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,6 +42,7 @@ namespace BTCPayServer.Plugins.Boltz;
 public class BoltzService(
     BTCPayWalletProvider btcPayWalletProvider,
     StoreRepository storeRepository,
+    SettingsRepository settingsRepository,
     EventAggregator eventAggregator,
     ILogger<BoltzService> logger,
     BTCPayNetworkProvider btcPayNetworkProvider,
@@ -55,8 +58,10 @@ public class BoltzService(
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
-    private readonly Uri _defaultUri = new("http://127.0.0.1:9002");
+    private static readonly string SettingsName = "Boltz";
+
     private Dictionary<string, BoltzSettings>? _settings;
+    public BoltzServerSettings ServerSettings { get; private set; }
     private GetPairsResponse? _pairs;
 
     public BoltzDaemon Daemon => daemon;
@@ -68,13 +73,14 @@ public class BoltzService(
     public ILightningClient? InternalLightning =>
         lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
 
-    public bool AllowTenants => _settings?.Values.Any(setting => setting.AllowTenants) ?? false;
+    public string DefaultNodeConfig { get; private set; }
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        externalServiceOptions.Value.OtherExternalServices.Add("Boltz", new Uri("https://boltz.exchange"));
-        _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>("Boltz"))
+        externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
+        _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
             .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
+
 
         daemon.SwapUpdate += async (_, response) =>
         {
@@ -88,12 +94,28 @@ public class BoltzService(
             }
         };
         await daemon.Init();
-        await daemon.TryConfigure(InternalLightning);
+
+        var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
+                             new BoltzServerSettings
+                             {
+                                 ConnectNode = _settings.Count == 0 || _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
+                             };
+        await SetServerSettings(serverSettings);
 
         if (daemon.Running)
         {
-            foreach (var storeId in _settings.Keys)
+            foreach (var (storeId, settings) in _settings)
             {
+                if (settings.GrpcUrl?.Scheme == "http")
+                {
+                    var httpsUrl = new UriBuilder(settings.GrpcUrl) { Scheme = "https" }.Uri;
+                    if (httpsUrl == daemon.DefaultUri)
+                    {
+                        settings.GrpcUrl = daemon.DefaultUri;
+                        settings.CertFilePath = daemon.CertFile;
+                        await Set(storeId, settings);
+                    }
+                }
                 try
                 {
                     await CheckStore(storeId);
@@ -131,7 +153,7 @@ public class BoltzService(
         {
             await CheckSettings(settings);
         }
-        catch (RpcException e) when (settings.GrpcUrl == _defaultUri)
+        catch (RpcException e) when (settings.GrpcUrl == daemon.DefaultUri)
         {
             logger.LogInformation(e, "Trying to generate new macaroon for store {storeId}", storeId);
             await SetMacaroon(storeId, settings);
@@ -257,7 +279,11 @@ public class BoltzService(
 
     public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
     {
-        var settings = new BoltzSettings { GrpcUrl = _defaultUri, Mode = mode };
+        var settings = new BoltzSettings
+        {
+            GrpcUrl = daemon.DefaultUri, Mode = mode,
+            CertFilePath = daemon.CertFile,
+        };
         await SetMacaroon(storeId, settings);
         return settings;
     }
@@ -298,6 +324,25 @@ public class BoltzService(
         }
 
         return null;
+    }
+
+    public async Task SetServerSettings(BoltzServerSettings settings)
+    {
+        await settingsRepository.UpdateSetting(settings, SettingsName);
+
+        if (settings is { ConnectNode: true, NodeConfig: null })
+        {
+            settings.NodeConfig = daemon.GetNodeConfig(InternalLightning);
+        }
+
+        if (!settings.ConnectNode)
+        {
+            settings.NodeConfig = null;
+        }
+
+        await daemon.TryConfigure(settings.NodeConfig);
+
+        ServerSettings = settings;
     }
 
     public async Task Set(string storeId, BoltzSettings? settings)
@@ -341,7 +386,7 @@ public class BoltzService(
             _settings.AddOrReplace(storeId, settings);
         }
 
-        await storeRepository.UpdateSetting(storeId, "Boltz", settings!);
+        await storeRepository.UpdateSetting(storeId, SettingsName, settings!);
     }
 
     public async Task<StoreData?> GetRebalanceStore()

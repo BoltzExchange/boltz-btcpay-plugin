@@ -1,0 +1,16 @@
+@using BTCPayServer.Security
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model string
+@{
+    var storeId = Context.GetImplicitStoreId();
+}
+
+@if (string.IsNullOrEmpty(Model))
+{
+    <a asp-controller="UIWallets" asp-action="WalletTransactions" asp-route-walletId="@(new WalletId(storeId, "BTC"))">
+        BTCPay
+    </a>
+}
+<a asp-action="Wallet" asp-route-walletName="@Model" asp-route-storeId="@storeId">
+    @Model
+</a>

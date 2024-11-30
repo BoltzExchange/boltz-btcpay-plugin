@@ -4,9 +4,6 @@
 @inject BoltzDaemon Daemon
 @{
     ViewData.SetActivePage(BoltzNavPages.Admin, "Admin");
-
-    var boltzCredsSet = Model.Settings?.CredentialsPopulated() ?? false;
-    var updateText = Daemon.UpdateAvailable ? "Update" : "Check Update";
 }
 
 <form method="post">
@@ -14,13 +11,6 @@
         <button name="command" type="submit" value="Start" class="btn btn-secondary">
             @(Daemon.Running ? "Restart" : "Start")
         </button>
-        <button name="command" type="submit" value="Update" class="btn btn-info @(Daemon.Updating ? "disabled" : "")">@updateText</button>
-        @if (boltzCredsSet)
-        {
-            <button name="command" type="submit" value="Clear" class="btn btn-danger">
-                Disconnect
-            </button>
-        }
     </div>
 
     @if (Daemon.HasError)
@@ -28,44 +18,99 @@
         <div class="alert alert-danger">
             Boltz Client not running: @Daemon.Error
         </div>
-        <pre>@Daemon.RecentOutput</pre>
+        <pre style="max-height: 25rem;">@Daemon.RecentOutput</pre>
     }
-    else if (Daemon.Running)
+    else if (Daemon.Running && Model.Info != null)
     {
         <p>
-            Running Boltz Client @Daemon.CurrentVersion
+            Running Boltz Client @Model.Info.Version
         </p>
+
+        @if (Model.Info.Node != "standalone")
+        {
+            <p>
+                Connected to @Model.Info.Node (@Model.Info.NodePubkey)
+            </p>
+        }
     }
 
-    <div class="my-4">
-        <button class="d-inline-flex align-items-center btn btn-link text-primary fw-semibold p-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#AdvancedSettings" aria-expanded="false" aria-controls="AdvancedSettings">
-            <vc:icon symbol="caret-down"/>
-            <span class="ms-1">Advanced</span>
-        </button>
-
-        <div id="AdvancedSettings" class="collapse">
-            <div class="form-group">
-                <label asp-for="Settings.GrpcUrl" class="form-label"></label>
-                <input asp-for="Settings.GrpcUrl" class="form-control" readonly="@boltzCredsSet"/>
-                <span asp-validation-for="Settings.GrpcUrl" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Settings.Macaroon" class="form-label"></label>
-                <input asp-for="Settings.Macaroon" class="form-control" readonly="@boltzCredsSet"/>
-                <span asp-validation-for="Settings.Macaroon" class="text-danger"></span>
-            </div>
-
-            <div class="form-group d-flex align-items-center">
-                <input asp-for="Settings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
-                <label asp-for="Settings.AllowTenants" class="form-label mb-0 me-1"></label>
-            </div>
-
-            <button name="command" type="submit" class="btn btn-primary" value="Save">
-                Save
-            </button>
-        </div>
+    <div class="form-group d-flex align-items-center">
+        <input asp-for="ServerSettings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
+        <label asp-for="ServerSettings.AllowTenants" class="form-label mb-0 me-1"></label>
     </div>
+
+    <div class="form-group d-flex align-items-center">
+        <input asp-for="ServerSettings.ConnectNode" type="checkbox" class="btcpay-toggle me-2"/>
+        <label asp-for="ServerSettings.ConnectNode" class="form-label mb-0 me-1"></label>
+    </div>
+
+    @if (Model.ServerSettings?.ConnectNode ?? false)
+    {
+        var hasNodeError = Daemon.NodeError != null;
+        <div>
+            <button class="d-inline-flex mb-3 align-items-center btn btn-link fw-semibold p-0 @(hasNodeError ? "text-danger" : "")" type="button" data-bs-toggle="collapse" data-bs-target="#NodeConfig" aria-expanded="@(hasNodeError ? "true" : "false")" aria-controls="NodeConfig">
+                <vc:icon symbol="caret-down"/>
+                <span class="ms-1">Node Config</span>
+            </button>
+            <div id="NodeConfig" class="collapse @(hasNodeError ? "show" : "")">
+                @if(hasNodeError) {
+                    <pre style="max-height: 25rem">@Daemon.NodeError</pre>
+                }
+
+                @if (Model.ServerSettings?.NodeConfig?.Cln != null)
+                {
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Cln.Port" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Cln.Port" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Cln.Port" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Cln.DataDir" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Cln.DataDir" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Cln.DataDir" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Cln.Host" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Cln.Host" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Cln.Host" class="text-danger"></span>
+                    </div>
+                }
+
+                @if (Model.ServerSettings?.NodeConfig?.Lnd != null)
+                {
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Lnd.Host" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Lnd.Host" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Lnd.Host" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Lnd.Port" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Lnd.Port" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Lnd.Port" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Lnd.Macaroon" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Lnd.Macaroon" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Lnd.Macaroon" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label asp-for="ServerSettings.NodeConfig.Lnd.Certificate" class="form-label"></label>
+                        <input asp-for="ServerSettings.NodeConfig.Lnd.Certificate" class="form-control "></input>
+                        <span asp-validation-for="ServerSettings.NodeConfig.Lnd.Certificate" class="text-danger"></span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+
+    <button name="command" type="submit" class="btn btn-primary mb-4" value="Save">
+        Save
+    </button>
 
     @if (Model is not null)
     {

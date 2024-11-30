@@ -26,15 +26,14 @@
     <partial name="Boltz/_Notification"/>
 </div>
 
-@{
+
+@try
+{
     var storeId = Context.GetImplicitStoreId();
     var client = BoltzService.GetClient(storeId);
     var settings = BoltzService.GetSettings(storeId);
     if (client is null || settings is null) return;
-}
 
-@try
-{
     var (ln, chain) = await client.GetAutoSwapConfig();
     var lnConfigured = ln != null;
     var chainConfigured = chain != null;
@@ -99,7 +98,16 @@ catch (RpcException)
 {
     <div class="alert alert-warning">
         <p>
-            Client connection not working.
+            Boltz connection not working.
         </p>
+    </div>
+}
+catch (Exception ex)
+{
+    <div class="alert alert-danger">
+        <p>
+            An error occurred while fetching Boltz information.
+        </p>
+        <pre>@ex</pre>
     </div>
 }

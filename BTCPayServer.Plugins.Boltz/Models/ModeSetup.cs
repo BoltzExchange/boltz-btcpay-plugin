@@ -17,17 +17,20 @@ public class ModeSetup
     public bool IsAdmin { get; set; }
     public bool HasInternal { get; set; }
     public bool ConnectedInternal { get; set; }
+    public bool ConnectNodeSetting { get; set; }
 
-    public bool AllowRebalance => Tooltip is null;
+    public bool AllowRebalance => RebalanceTooltip is null;
 
-    public string? Tooltip => IsAdmin
-        ? RebalanceStore is null
-            ? HasInternal
-                ? ConnectedNode is not null && ConnectedNode.IsInternalNode
-                    ? ConnectedInternal ? null : "Could not connect to internal node"
-                    : "Store is not connected to internal lightning node"
-                : "No internal node available"
-            : $"Internal Node is already being rebalanced in store {RebalanceStore.StoreName}"
+    public string? RebalanceTooltip => IsAdmin
+        ? ConnectNodeSetting
+            ? RebalanceStore is null
+                ? HasInternal
+                    ? ConnectedNode is not null && ConnectedNode.IsInternalNode
+                        ? ConnectedInternal ? null : "Could not connect to internal node"
+                        : "Store is not connected to internal lightning node"
+                    : "No internal node available"
+                : $"Internal Node is already being rebalanced in store {RebalanceStore.StoreName}"
+            : "Node connection setting is disabled"
         : "Only available for admins";
 }
 

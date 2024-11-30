@@ -10,12 +10,25 @@ public enum BoltzMode
     Standalone
 }
 
+public class BoltzServerSettings
+{
+    [Display(Name = "Allow Plugin for non-admin users")]
+    public bool AllowTenants { get; set; }
+    
+    [Display(Name = "Connect to Internal Lightning Node")]
+    public bool ConnectNode { get; set; }
+
+    public NodeConfig? NodeConfig { get; set; }
+}
+
 public class BoltzSettings
 {
     [Display(Name = "GRPC Url", Description = "Test")]
     public Uri? GrpcUrl { get; set; }
 
     [Display(Name = "Macaroon")] public string? Macaroon { get; set; }
+
+    [Display(Name = "Certificate File Path")] public string? CertFilePath { get; set; }
 
     public BoltzMode? Mode { get; set; }
 
@@ -25,7 +38,7 @@ public class BoltzSettings
     public class Wallet
     {
         public ulong Id { get; set; }
-        public string? Name { get; set; }
+        public string Name { get; set; }
     }
 
     public Wallet? StandaloneWallet { get; set; }
@@ -36,7 +49,4 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
-
-    [Display(Name = "Allow Plugin for non-admin users")]
-    public bool AllowTenants { get; set; }
 }

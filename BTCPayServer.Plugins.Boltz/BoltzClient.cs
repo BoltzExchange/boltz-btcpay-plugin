@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
@@ -12,9 +14,11 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.X509;
 using GetInfoResponse = Boltzrpc.GetInfoResponse;
 using ImportWalletRequest = Boltzrpc.ImportWalletRequest;
 using UpdateChainConfigRequest = Autoswaprpc.UpdateChainConfigRequest;
+using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -28,18 +32,32 @@ public class BoltzClient : IDisposable
     private static GetPairsResponse? _pairs;
     private readonly ILogger<BoltzClient> _logger;
 
-    public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string? macaroon = null, string? tenant = null)
+    public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string macaroon, string certPath,
+        string? tenant = null)
     {
+        var expectedCollection = new X509Certificate2Collection();
+        expectedCollection.ImportFromPemFile(certPath);
+        var http = new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true,
+            KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+            KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+            PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
+            SslOptions = new SslClientAuthenticationOptions
+            {
+                RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+                {
+                    if (certificate == null) throw new ArgumentNullException(nameof(certificate));
+                    return expectedCollection.Contains(certificate);
+                },
+                ClientCertificates = expectedCollection,
+            },
+        };
+
         var opt = new GrpcChannelOptions
         {
-            Credentials = ChannelCredentials.Insecure,
-            HttpHandler = new SocketsHttpHandler()
-            {
-                EnableMultipleHttp2Connections = true,
-                KeepAlivePingDelay = TimeSpan.FromSeconds(60),
-                KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
-                PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan
-            }
+            Credentials = ChannelCredentials.SecureSsl,
+            HttpHandler = http
         };
 
         if (!Channels.TryGetValue(grpcEndpoint, out var channel))
@@ -53,10 +71,7 @@ public class BoltzClient : IDisposable
         _autoClient = new(channel);
 
         _metadata = new Metadata();
-        if (macaroon is not null)
-        {
-            _metadata.Add("macaroon", macaroon);
-        }
+        _metadata.Add("macaroon", macaroon);
 
         if (tenant is not null)
         {
@@ -85,9 +100,11 @@ public class BoltzClient : IDisposable
         return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = id }, _metadata);
     }
 
-    public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id, CancellationToken cancellationToken = default)
+    public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id,
+        CancellationToken cancellationToken = default)
     {
-        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata, cancellationToken: cancellationToken);
+        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata,
+            cancellationToken: cancellationToken);
     }
 
     public async Task<Wallets> GetWallets(bool includeReadonly)
@@ -98,6 +115,11 @@ public class BoltzClient : IDisposable
     public async Task<Wallet> GetWallet(string name)
     {
         return await _client.GetWalletAsync(new GetWalletRequest { Name = name }, _metadata);
+    }
+
+    public async Task<ListWalletTransactionsResponse> ListWalletTransactions(ListWalletTransactionsRequest request)
+    {
+        return await _client.ListWalletTransactionsAsync(request, _metadata);
     }
 
     public async Task<GetSubaccountsResponse> GetSubaccounts(ulong walletId)
@@ -119,6 +141,16 @@ public class BoltzClient : IDisposable
     public async Task<Wallet> GetWallet(ulong id)
     {
         return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
+    }
+
+    public async Task<RemoveWalletResponse> RemoveWallet(ulong id)
+    {
+        return await _client.RemoveWalletAsync(new RemoveWalletRequest { Id = id }, _metadata);
+    }
+
+    public async Task<WalletSendFee> GetWalletSendFee(WalletSendRequest request)
+    {
+        return await _client.GetWalletSendFeeAsync(request, _metadata);
     }
 
     public async Task<WalletCredentials> GetWalletCredentials(ulong id)

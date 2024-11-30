@@ -1,15 +1,14 @@
 @using Boltzrpc
 @using BTCPayServer.Abstractions.TagHelpers
 @using BTCPayServer.Components.TruncateCenter
-@using BTCPayServer.Payments
+@inject BTCPayServer.Security.ContentSecurityPolicies Csp
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
-@using BTCPayServer.Services
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @model BTCPayServer.Plugins.Boltz.Models.WalletSendModel
-@inject TransactionLinkProviders TransactionLinkProviders
 @inject BoltzService BoltzService
 @{
+    Csp.UnsafeEval();
     Layout = "_LayoutSetup";
     var currency = Model.Wallet.Currency;
     var currencyName = BoltzClient.CurrencyName(currency);
@@ -21,13 +20,6 @@
 @if (Model.SwapInfo != null)
 {
     <partial name="_SwapInfoPartial" model="Model.SwapInfo"/>
-}
-else if (balance == 0)
-{
-    ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(pair.To)} to swap out of your {currencyName} wallet";
-    <div class="alert alert-warning">
-        You have no confirmed balance in your wallet
-    </div>
 }
 else if (Model.TransactionId != null)
 {
@@ -44,120 +36,103 @@ else if (Model.TransactionId != null)
         </div>
     </div>
 }
+else if (balance == 0)
+{
+    ViewData["Description"] = $"Pick Lightning or {BoltzClient.CurrencyName(pair.To)} to swap out of your {currencyName} wallet";
+    <div class="alert alert-warning">
+        You have no confirmed balance in your wallet
+    </div>
+}
 else
 {
-    var lnInfo = (await BoltzService.GetPairInfo(pair, SwapType.Submarine))!;
-    var chainInfo = (await BoltzService.GetPairInfo(pair, SwapType.Chain))!;
-    var maxSend = Math.Max((long)(balance - Model.ReserveBalance), 0);
-    lnInfo.Limits.Maximal = Math.Min(lnInfo.Limits.Maximal, balance);
-    chainInfo.Limits.Maximal = Math.Min(chainInfo.Limits.Maximal, balance);
-
     @section PageFootContent {
         <partial name="_ValidationScriptsPartial"/>
+        <script src="/vendor/vuejs/vue.min.js" asp-append-version="true"></script>
+        <script src="~/Resources/js/walletSend.js" asp-append-version="true"></script>
         <script>
-        $(document).ready(() => {
-            const destination = $('#Destination')
-            const amount = $('#Amount')
-            const amountGroup = $('#AmountGroup')
-            const lnLimits = @Safe.Json(lnInfo.Limits)
-            const chainLimits = @Safe.Json(chainInfo.Limits)
-            const balance = @Safe.Json(balance)
-            const typeLn = @Safe.Json(SendType.Lightning.ToString());
-            const typeChain = @Safe.Json(SendType.Chain.ToString());
-            let prev = "";
-
-            const update = (sendType) => {
-                if (prev === sendType) return;
-                prev = sendType;
-                destination.val('')
-                if (sendType === typeLn) {
-                    amountGroup.hide()
-                    amount.removeAttr('required')
-                } else {
-                    amountGroup.show()
-                    amount.attr('required', true)
-                }
-                let limits = sendType === typeLn ? lnLimits : sendType === typeChain ? chainLimits : {minimal: 0, maximal: balance};
-                amount.attr({
-                    min: limits.minimal,
-                    max: limits.maximal,
-                })
-            }
-            update('@SendType.Native');
-            $('form').on('change', e => {
-                const formData = new FormData(e.currentTarget)
-                update(formData.get('SendType'))
-            })
-
-            $(".crypto-fee-link").on("click", function (elem) {
-                $(this).parent().children().removeClass("active");
-                const val = $(this).addClass("active").val();
-                $("#FeeSatoshiPerByte").val(val);
-                return false;
-            });
-
-            $(".crypto-balance-link").on("click", function (elem) {
-                const val = $(this).text();
-                const parentContainer = $(this).parents(".form-group");
-                const outputAmountElement = parentContainer.find("#Amount");
-                outputAmountElement.val(val);
-            });
-        })
-    </script>
+            initApp(@Json.Serialize(Model))
+        </script>
     }
 
-    <form method="post" class="mt-3">
-        <div id="SendTypeTablist" class="nav btcpay-pills align-items-center justify-content-center mb-3" role="tablist">
-            @foreach (var sendType in Enum.GetValues(typeof(SendType)).Cast<SendType>())
-            {
-                var enabled = Model.SendType == sendType;
-                var name = sendType switch
-                {
-                    SendType.Native => BoltzClient.CurrencyName(pair.From),
-                    SendType.Lightning => "Lightning",
-                    SendType.Chain => BoltzClient.CurrencyName(pair.To),
-                    _ => throw new ArgumentOutOfRangeException()
-                };
+    <form method="post" class="mt-3" id="WalletSend">
+        <div
+            id="SendTypeTablist"
+            class="nav btcpay-pills align-items-center justify-content-center mb-3"
+            role="tablist">
+            <input
+                type="radio"
+                asp-for="SendType"
+                id="SendType-Native"
+                v-model="sendType"
+                value="Native"/>
+            <label for="SendType-Native">L-BTC</label>
+
+            <input
+                type="radio"
+                asp-for="SendType"
+                id="SendType-Lightning"
+                v-model="sendType"
+                value="Lightning"/>
+            <label for="SendType-Lightning">Lightning</label>
+
+            <input
+                type="radio"
+                asp-for="SendType"
+                id="SendType-Chain"
+                v-model="sendType"
+                value="Chain"/>
+            <label for="SendType-Chain">BTC</label>
+        </div>
+
+        <div v-if="sendType === native">
+            <partial name="Boltz/_Stats" model="@(new List<Stat> { new() { Name = "Wallet Balance", Unit = Unit.Sat, Value = balance } })"/>
+        </div>
+        <div v-if="sendType === ln">
+            <partial name="Boltz/_Stats" model="BoltzService.PairStats(Model.LnInfo!)"/>
+        </div>
+        <div v-if="sendType === chain">
+            <partial name="Boltz/_Stats" model="BoltzService.PairStats(Model.ChainInfo!)"/>
+        </div>
+
+        <div class="alert alert-warning" v-if="limits.maximal < limits.minimal">
+            <span>Minimal amount is greater than maximal amount</span>
+        </div>
+        <div v-else>
+            <div class="form-group">
+                <label asp-for="Destination" class="form-label">Destination</label>
                 <input
-                    asp-for="SendType" value="@sendType" type="radio"
-                    id="SendType-@sendType" data-bs-toggle="pill" data-bs-target="#@sendType" role="tab"
-                    aria-controls="@sendType" aria-selected="@enabled" class="@(enabled ? "active" : "")"/>
-                <label for="SendType-@sendType">@name</label>
-            }
-        </div>
-
-
-        <div class="tab-content mb-3">
-            <div class="tab-pane show active" id="@SendType.Native" role="tabpanel">
-                <partial name="Boltz/_Stats" model="@(new List<Stat> { new() { Name = "Wallet Balance", Unit = Unit.Sat, Value = balance } })"/>
+                    required
+                    id="Destination" asp-for="Destination"
+                    :placeholder="sendType === ln ? 'Invoice, LNURL or offer' : 'Address'"
+                    class="form-control"/>
+                <span asp-validation-for="Destination" class="text-danger"></span>
             </div>
-            <div class="tab-pane" id="@SendType.Lightning" role="tabpanel">
-                <partial name="Boltz/_Stats" model="BoltzService.PairStats(lnInfo)"/>
+
+            <div class="form-group" id="AmountGroup">
+                <label asp-for="Amount" class="form-label">Amount (satoshi)</label>
+                <input id="Amount" v-model="amount" name="Amount" type="number"
+                       :placeholder="'How much to ' + (sendType === ln ? 'receive' : 'send')" class="form-control"
+                       :min="limits.minimal"
+                       :max="limits.maximal"
+                       :disabled="sendAll"/>
+                <span asp-validation-for="Amount" class="text-danger"></span>
+
+                <div class="form-group d-flex align-items-center mt-3" v-if="sendType === native">
+                    <input asp-for="SendAll" v-model="sendAll" type="checkbox" class="btcpay-toggle me-2"/>
+                    <label asp-for="SendAll" class="form-label mb-0 me-1">Send all</label>
+                </div>
+                <div class="form-text" v-else>
+                    Max (@Model.ReserveBalance sats reserve) is
+                    <button
+                        v-on:click.prevent="amount = limits.maximal"
+                        v-text="limits.maximal"
+                        class="btn btn-link p-0 align-baseline">
+                    </button> <span>sats</span>.
+                </div>
             </div>
-            <div class="tab-pane" id="@SendType.Chain" role="tabpanel">
-                <partial name="Boltz/_Stats" model="BoltzService.PairStats(chainInfo)"/>
-            </div>
+            <button type="submit" class="btn btn-success">
+                Send
+            </button>
         </div>
-
-        <div class="form-group">
-            <label asp-for="Destination" class="form-label">Destination</label>
-            <input required id="Destination" asp-for="Destination" placeholder="Paste invoice or address" class="form-control"/>
-            <span asp-validation-for="Destination" class="text-danger"></span>
-        </div>
-
-        <div class="form-group" id="AmountGroup">
-            <label asp-for="Amount" class="form-label">Amount (satoshi)</label>
-            <input id="Amount" asp-for="Amount" type="number" placeholder="How much to send" class="form-control"/>
-            <span asp-validation-for="Amount" class="text-danger"></span>
-            <div class="form-text crypto-info">
-                Max send (@Model.ReserveBalance sats reserve) is
-                <button type="button" class="crypto-balance-link btn btn-link p-0 align-baseline">@maxSend</button> <span>sats</span>.
-            </div>
-        </div>
-
-
-        <button type="submit" class="btn btn-success">
-            Send
-        </button>
     </form>
 }
