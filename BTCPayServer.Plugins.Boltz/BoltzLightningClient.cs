@@ -35,8 +35,7 @@ public class Node
 }
 
 public class BoltzLightningClient(
-    Uri grpcEndpoint,
-    string macaroon,
+    BoltzSettings settings,
     ulong walletId,
     Network network,
     BoltzDaemon daemon
@@ -48,14 +47,14 @@ public class BoltzLightningClient(
     private async Task<BoltzClient> GetClient()
     {
         await daemon.InitialStart.Task;
-        return daemon.GetClient(new BoltzSettings { GrpcUrl = grpcEndpoint, Macaroon = macaroon })!;
+        return daemon.GetClient(settings)!;
     }
 
     // TODO
 
     public override string ToString()
     {
-        return $"type=boltz;server={grpcEndpoint};macaroon={macaroon};walletId={walletId};allowinsecure=true";
+        return $"type=boltz;server={settings.GrpcUrl};macaroon={settings.Macaroon};walletId={walletId};allowinsecure=true";
     }
 
     private LightningPayment PaymentFromSwapInfo(SwapInfo info)
