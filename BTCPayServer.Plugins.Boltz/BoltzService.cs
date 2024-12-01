@@ -96,7 +96,8 @@ public class BoltzService(
         var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
                              new BoltzServerSettings
                              {
-                                 ConnectNode = _settings.Count == 0 || _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
+                                 ConnectNode = _settings.Count == 0 ||
+                                               _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
                              };
         await SetServerSettings(serverSettings);
 
@@ -106,14 +107,11 @@ public class BoltzService(
             {
                 if (settings.GrpcUrl?.Scheme == "http")
                 {
-                    var httpsUrl = new UriBuilder(settings.GrpcUrl) { Scheme = "https" }.Uri;
-                    if (httpsUrl == daemon.DefaultUri)
-                    {
-                        settings.GrpcUrl = daemon.DefaultUri;
-                        settings.CertFilePath = daemon.CertFile;
-                        await Set(storeId, settings);
-                    }
+                    settings.GrpcUrl = new UriBuilder(settings.GrpcUrl) { Scheme = "https" }.Uri;
+                    settings.CertFilePath = daemon.CertFile;
+                    await Set(storeId, settings);
                 }
+
                 try
                 {
                     await CheckStore(storeId);
