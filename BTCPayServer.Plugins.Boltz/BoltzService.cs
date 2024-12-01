@@ -317,7 +317,7 @@ public class BoltzService(
     {
         if (settings?.StandaloneWallet is not null)
         {
-            return new BoltzLightningClient(settings.GrpcUrl!, settings.Macaroon!, settings.StandaloneWallet.Id,
+            return new BoltzLightningClient(settings, settings.StandaloneWallet.Id,
                 BtcNetwork.NBitcoinNetwork, daemon);
         }
 

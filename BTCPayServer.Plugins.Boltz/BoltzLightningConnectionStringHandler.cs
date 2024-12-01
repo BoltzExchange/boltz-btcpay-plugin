@@ -72,6 +72,11 @@ public class BoltzLightningConnectionStringHandler(BoltzDaemon daemon) : ILightn
             return null;
         }
 
-        return new BoltzLightningClient(uri, macaroon, walletId, network, daemon);
+        return new BoltzLightningClient(new BoltzSettings
+        {
+            GrpcUrl = uri,
+            Macaroon = macaroon,
+            CertFilePath = daemon.CertFile,
+        }, walletId, network, daemon);
     }
 }
