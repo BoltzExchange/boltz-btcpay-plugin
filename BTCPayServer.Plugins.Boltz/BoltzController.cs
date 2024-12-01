@@ -1288,7 +1288,7 @@ public class BoltzController(
             if (command == "Skip")
             {
                 ChainSetup = null;
-                return RedirectToAction(nameof(Status), new { storeId });
+                return RedirectToAction(nameof(Enable), new { storeId });
             }
 
             ChainSetup = new ChainConfig(ChainSetup)
