@@ -100,7 +100,6 @@ else
                     Stats =
                     [
                         new() { Name = "Max Wallet Balance", Value = Model.Chain.MaxBalance, Unit = Unit.Sat },
-                        new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Total, Unit = Unit.Sat }
                     ]
                 };
 
@@ -109,13 +108,7 @@ else
 
                 <div class="widget d-flex gap-3 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
-                    @if (chainRecommendation.Swap is not null)
-                    {
-                        <div>
-                            <h5>Upcoming Swap</h5>
-                            <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
-                        </div>
-                    }
+                    <partial name="Boltz/_ChainRecommendations" model="chainRecommendation"/>
                     @if (pendingChainSwaps?.Count > 0)
                     {
                         <div>
