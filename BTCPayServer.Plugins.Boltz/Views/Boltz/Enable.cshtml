@@ -1,4 +1,3 @@
-@using ExchangeSharp
 @model Autoswaprpc.GetRecommendationsResponse
 @{
     Layout = "_LayoutSetup";
@@ -18,10 +17,10 @@
         <partial name="Boltz/_LightningRecommendations" model="Model.Lightning"/>
     }
 
-    @if (Model.Chain.FirstOrDefault()?.Swap is not null)
+    @if (Model.Chain.Count > 0)
     {
         <h4 class="mt-4">Chain</h4>
-        <partial name="Boltz/_ChainRecommendations" model="Model.Chain.First().Swap"/>
+        <partial name="Boltz/_ChainRecommendations" model="Model.Chain[0]"/>
     }
 
     <div class="d-flex flex-row gap-2 justify-content-between mt-4">

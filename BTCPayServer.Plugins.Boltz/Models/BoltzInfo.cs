@@ -52,7 +52,6 @@ public class AutoSwapStatus
     public Status Status { get; init; } = new();
     public SwapperType SwapperType { get; init; }
     public bool Compact { get; set; }
-    public List<Stat> Stats { get; set; } = new ();
     public string Wallet = "";
     public string ToWallet { get; set; } = "";
 }

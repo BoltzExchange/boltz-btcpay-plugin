@@ -6,10 +6,6 @@
 @{
     Layout = "_LayoutSetup";
     var storeId = Context.GetImplicitStoreId();
-    /*
-    var canUseInternal = await AuthorizationService.AuthorizeAsync(ViewContext.HttpContext.User null,
-        new PolicyRequirement(Policies.CanUseInternalLightningNode));
-    */
 }
 
 <h1 class="text-center">Get Started with Boltz</h1>
@@ -50,10 +46,6 @@ else
                             @if (tooltip is not null)
                             {
                                 <small class="d-block text-danger mt-2 mt-lg-0">@tooltip</small>
-                            }
-                            else
-                            {
-                                <small class="d-block text-warning mt-2 mt-lg-0">Experimental</small>
                             }
                         </div>
                     </div>

@@ -61,7 +61,15 @@ else
 
                     @if (Model.Recommendations is not null)
                     {
+                        var recommendation = Model.Recommendations.Lightning.FirstOrDefault();
                         <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
+                        if (recommendation?.Swap != null)
+                        {
+                            <form method="post">
+                                <input type="hidden" name="lnRecommendation" value="@recommendation"/>
+                                <button type="submit" class="btn btn-primary">Execute</button>
+                            </form>
+                        }
                     }
                     @if (pendingLnSwaps?.Count > 0)
                     {
@@ -98,24 +106,21 @@ else
                     SwapperType = SwapperType.Chain, Status = Model.Status.Chain,
                     Wallet = Model.Chain.FromWallet,
                     ToWallet = Model.Chain.ToWallet,
-                    Stats =
-                    [
-                        new() { Name = "Max Wallet Balance", Value = Model.Chain.MaxBalance, Unit = Unit.Sat },
-                        new() { Name = "From Wallet Balance", Value = chainRecommendation.WalletBalance.Total, Unit = Unit.Sat }
-                    ]
                 };
 
                 var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
                 var pendingChainSwaps = Model.PendingAutoSwaps?.Where(info => info.Type == SwapType.Chain).ToList();
+                var chainSwap = chainRecommendation.Swap;
 
                 <div class="widget d-flex gap-3 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
-                    @if (chainRecommendation.Swap is not null)
+                    <partial name="Boltz/_ChainRecommendations" model="chainRecommendation"/>
+                    @if (chainSwap != null)
                     {
-                        <div>
-                            <h5>Upcoming Swap</h5>
-                            <partial name="Boltz/_ChainRecommendations" model="chainRecommendation.Swap"/>
-                        </div>
+                        <form method="post">
+                            <input type="hidden" name="chainRecommendation" value="@chainRecommendation"/>
+                            <button type="submit" class="btn btn-primary">Execute</button>
+                        </form>
                     }
                     @if (pendingChainSwaps?.Count > 0)
                     {
