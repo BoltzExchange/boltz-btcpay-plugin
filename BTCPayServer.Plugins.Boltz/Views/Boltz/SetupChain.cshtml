@@ -13,13 +13,13 @@
     <div class="form-group absolute">
         <label asp-for="MaxBalance" class="form-label">Max Balance (@unitSats)</label>
         <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="If this balance is reached, a swap will be created"><vc:icon symbol="info"/></small>
-        <input asp-for="MaxBalance" type="number" min="@(Model.PairInfo.Limits.Minimal + 10000)" class="form-control"/>
+        <input asp-for="MaxBalance" type="number" min="@Model.PairInfo?.Limits.Minimal" class="form-control"/>
     </div>
 
     <div class="form-group absolute">
         <label asp-for="ReserveBalance" class="form-label">Reserve Balance (@unitSats)</label>
         <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top" title="How much sats to leave in the wallet as a reserve"><vc:icon symbol="info"/></small>
-        <input asp-for="ReserveBalance" type="number" min="10000" class="form-control"/>
+        <input asp-for="ReserveBalance" type="number" class="form-control"/>
     </div>
 
     <div class="d-flex flex-row gap-2 justify-content-between">

@@ -1280,15 +1280,12 @@ public class BoltzController(
             }
 
             var info = await Boltz.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
-            var vm = new ChainSetup
-            {
-                PairInfo = info,
-                ReserveBalance = 500_000
-            };
+            var vm = new ChainSetup { PairInfo = info };
 
             if (Settings?.Mode == BoltzMode.Standalone)
             {
                 vm.MaxBalance = 10_000_000;
+                vm.ReserveBalance = 500_000;
                 ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
                     new { flow = WalletSetupFlow.Standalone, storeId });
             }
