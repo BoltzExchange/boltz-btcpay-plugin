@@ -4,6 +4,7 @@
     var balance = Model.WalletBalance;
     var stats = new List<Stat>
     {
+        new() { Name = "Max Wallet Balance", Value = Model.MaxBalance, Unit = Unit.Sat },
         new() { Name = "Current Balance", Value = balance.Total, Unit = Unit.Sat },
     };
 

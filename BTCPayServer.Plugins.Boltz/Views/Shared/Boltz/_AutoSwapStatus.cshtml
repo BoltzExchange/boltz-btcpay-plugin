@@ -53,8 +53,9 @@
     @if (status.Budget != null)
     {
         var budget = status.Budget;
-        var stats = Model.Stats;
-        stats.Add(new() { Name = "Remaining Budget", Value = budget.Remaining, Unit = Unit.Sat });
+        var stats = new List<Stat>([
+            new() { Name = "Remaining Budget", Value = budget.Remaining, Unit = Unit.Sat },
+        ]);
         stats.AddRange(BoltzClient.ParseStats(budget.Stats));
         <partial name="Boltz/_Stats" model="stats"/>
     }

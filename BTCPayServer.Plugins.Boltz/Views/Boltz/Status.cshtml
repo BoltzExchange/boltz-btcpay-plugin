@@ -105,10 +105,6 @@ else
                     SwapperType = SwapperType.Chain, Status = Model.Status.Chain,
                     Wallet = Model.Chain.FromWallet,
                     ToWallet = Model.Chain.ToWallet,
-                    Stats =
-                    [
-                        new() { Name = "Max Wallet Balance", Value = Model.Chain.MaxBalance, Unit = Unit.Sat },
-                    ]
                 };
 
                 var fees = new FeesModel { Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType = SwapType.Chain };
