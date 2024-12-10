@@ -39,7 +39,7 @@
                 {
                     <a asp-action="WalletCredentials" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="dropdown-item">View seed</a>
                 }
-                <form method="get" asp-action="WalletDelete" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="d-inline">
+                <form method="post" asp-action="Wallet" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="d-inline">
                     <div type="button"
                          id="Delete"
                          class="dropdown-item"
