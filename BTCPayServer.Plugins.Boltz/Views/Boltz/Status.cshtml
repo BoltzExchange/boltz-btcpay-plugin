@@ -27,16 +27,16 @@ else
         @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null && Model.StandaloneWallet is not null)
         {
             var stats = BoltzClient.ParseStats(Model.Stats);
-            <div class="widget">
-                <header>
+            <div class="widget d-flex flex-column gap-4">
+                <div class="d-flex flex-column gap-2">
                     <h4 class="my-0">Lightning Payments</h4>
-                </header>
-                <div class="d-flex flex-column gap-2 align-items-start">
                     <div class="fw-semibold">
                         Using wallet
                         <partial name="Boltz/_WalletLink" model="Model.StandaloneWallet.Name"/>
                     </div>
                     <partial name="Boltz/_Stats" model="stats"/>
+                </div>
+                <div>
                     <h5>Fee Info</h5>
                     <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
                 </div>
@@ -55,7 +55,7 @@ else
                 };
                 var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
 
-                <div class="widget d-flex gap-3 flex-column">
+                <div class="widget d-flex gap-4 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="ln"/>
 
                     @if (Model.Recommendations is not null)
@@ -111,7 +111,7 @@ else
                 var pendingChainSwaps = Model.PendingAutoSwaps?.Where(info => info.Type == SwapType.Chain).ToList();
                 var chainSwap = chainRecommendation.Swap;
 
-                <div class="widget d-flex gap-3 flex-column">
+                <div class="widget d-flex gap-4 flex-column">
                     <partial name="Boltz/_AutoSwapStatus" model="chain"/>
                     <partial name="Boltz/_ChainRecommendations" model="chainRecommendation"/>
                     @if (chainSwap != null)
