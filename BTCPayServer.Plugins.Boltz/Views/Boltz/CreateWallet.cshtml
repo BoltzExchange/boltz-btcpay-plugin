@@ -6,7 +6,7 @@
     Layout = "_LayoutSetup";
 
     var action = Model.IsImport ? "Import" : "Create";
-    var actionTitle = Model.ImportMethod == WalletImportMethod.Mnemonic ? action : action + " Readonly ";
+    var actionTitle = !Model.IsImport || Model.ImportMethod == WalletImportMethod.Mnemonic ? action : action + " Readonly ";
     ViewData["Title"] = $"{actionTitle} {BoltzClient.CurrencyName(Model.Currency!.Value)} Wallet";
 
     var defaultName = Model.Flow switch
