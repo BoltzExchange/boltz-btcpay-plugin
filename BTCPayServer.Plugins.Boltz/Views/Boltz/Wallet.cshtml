@@ -12,6 +12,7 @@
 @{
     var storeId = Context.GetCurrentStoreId();
     var confirmModel = new ConfirmModel("Delete Wallet", "This action will remove the wallet. You will not be able to recover them if you don't have a backup.", "Delete");
+    var isNodeWallet = Model.Wallet.Name == "CLN" || Model.Wallet.Name == "LND";
 }
 
 <partial name="_Confirm" model="@confirmModel"/>
@@ -30,30 +31,33 @@
             <a class="btn btn-primary" asp-action="WalletSend" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId">Send</a>
         }
         <a class="btn btn-primary" asp-action="WalletReceive" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId">Receive</a>
-        <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" id="ActionsDropdownToggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Actions
-            </button>
-            <div class="dropdown-menu" aria-labelledby="ActionsDropdownToggle">
-                @if (!Model.Wallet.Readonly)
-                {
-                    <a asp-action="WalletCredentials" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="dropdown-item">View seed</a>
-                }
-                <form method="post" asp-action="Wallet" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="d-inline">
-                    <div type="button"
-                         id="Delete"
-                         class="dropdown-item"
-                         data-bs-toggle="modal"
-                         data-bs-target="#ConfirmModal"
-                         data-title="Remove wallet"
-                         data-description="Remove this wallet"
-                         data-confirm="Remove"
-                         data-confirm-input="REMOVE">
-                        Remove wallet
-                    </div>
-                </form>
+        @if (!isNodeWallet)
+        {
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="ActionsDropdownToggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Actions
+                </button>
+                <div class="dropdown-menu" aria-labelledby="ActionsDropdownToggle">
+                    @if (!Model.Wallet.Readonly)
+                    {
+                        <a asp-action="WalletCredentials" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="dropdown-item">View seed</a>
+                    }
+                    <form method="post" asp-action="Wallet" asp-route-walletId="@Model.Wallet.Id" asp-route-storeId="@storeId" class="d-inline">
+                        <div type="button"
+                             id="Delete"
+                             class="dropdown-item"
+                             data-bs-toggle="modal"
+                             data-bs-target="#ConfirmModal"
+                             data-title="Remove wallet"
+                             data-description="Remove this wallet"
+                             data-confirm="Remove"
+                             data-confirm-input="REMOVE">
+                            Remove wallet
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        }
     </div>
 </div>
 
@@ -127,4 +131,3 @@ else
 
     <vc:pager view-model="Model"/>
 }
-
