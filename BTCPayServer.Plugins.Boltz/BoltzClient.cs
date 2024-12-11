@@ -13,6 +13,7 @@ using BTCPayServer.Plugins.Boltz.Models;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
+using Grpc.Net.Client.Balancer;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.X509;
 using GetInfoResponse = Boltzrpc.GetInfoResponse;
@@ -35,8 +36,6 @@ public class BoltzClient : IDisposable
     public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string macaroon, string certPath,
         string? tenant = null)
     {
-        var expectedCollection = new X509Certificate2Collection();
-        expectedCollection.ImportFromPemFile(certPath);
         var http = new SocketsHttpHandler
         {
             EnableMultipleHttp2Connections = true,
@@ -48,9 +47,10 @@ public class BoltzClient : IDisposable
                 RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
                 {
                     if (certificate == null) throw new ArgumentNullException(nameof(certificate));
+                    var expectedCollection = new X509Certificate2Collection();
+                    expectedCollection.ImportFromPemFile(certPath);
                     return expectedCollection.Contains(certificate);
                 },
-                ClientCertificates = expectedCollection,
             },
         };
 
@@ -184,7 +184,8 @@ public class BoltzClient : IDisposable
         return await _autoClient.GetRecommendationsAsync(new GetRecommendationsRequest(), _metadata);
     }
 
-    public async Task<ExecuteRecommendationsResponse> ExecuteAutoSwapRecommendations(ExecuteRecommendationsRequest request)
+    public async Task<ExecuteRecommendationsResponse> ExecuteAutoSwapRecommendations(
+        ExecuteRecommendationsRequest request)
     {
         return await _autoClient.ExecuteRecommendationsAsync(request, _metadata);
     }
