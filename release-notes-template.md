@@ -2,6 +2,8 @@
 
 TODO
 
+**Do not attempt to install on BTCPay v1**
+
 # Uploading to BTCPay
 
 You can upload the `BTCPayServer.Plugins.Boltz.btcpay` file to your btcpay server by navigating to `Plugins` and scrolling all the way down to `Upload Plugin`.
