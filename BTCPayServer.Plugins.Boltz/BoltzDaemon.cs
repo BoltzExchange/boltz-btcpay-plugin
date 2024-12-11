@@ -95,6 +95,7 @@ public class BoltzDaemon(
 
     public async Task Wait(CancellationToken cancellationToken)
     {
+        var latestError = string.Empty;
         try
         {
             var path = Path.Combine(DataDir, "macaroons", "admin.macaroon");
@@ -108,14 +109,14 @@ public class BoltzDaemon(
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
             }
 
-            logger.LogDebug("Admin macaroon and certificate found");
-
-            var reader = await File.ReadAllBytesAsync(path, cancellationToken);
-            AdminMacaroon = Convert.ToHexString(reader).ToLower();
-            var client = new BoltzClient(clientLogger, DefaultUri, AdminMacaroon, CertFile, "all");
+            logger.LogInformation("Admin macaroon and certificate found");
 
             while (true)
             {
+                var reader = await File.ReadAllBytesAsync(path, cancellationToken);
+                AdminMacaroon = Convert.ToHexString(reader).ToLower();
+                var client = new BoltzClient(clientLogger, DefaultUri, AdminMacaroon, CertFile, "all");
+
                 try
                 {
                     await client.GetInfo(cancellationToken);
@@ -124,15 +125,20 @@ public class BoltzDaemon(
                     Error = null;
                     return;
                 }
-                catch (RpcException)
+                catch (RpcException e)
                 {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        latestError = e.Status.Detail;
+                    }
+
                     await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 }
             }
         }
         catch (TaskCanceledException)
         {
-            Error = "Start failed";
+            Error = !string.IsNullOrEmpty(latestError) ? $"Timeout: {latestError}" : "Cancelled";
         }
         catch (Exception e)
         {
@@ -263,7 +269,6 @@ public class BoltzDaemon(
                     return;
                 }
 
-                logger.LogInformation("Could not connect to node: " + Error);
                 NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : RecentOutput;
             }
 
@@ -271,6 +276,16 @@ public class BoltzDaemon(
         }
         finally
         {
+            if (!Running)
+            {
+                logger.LogInformation("Could not start: " + Error);
+                NodeError = null;
+            }
+            else if (NodeError != null)
+            {
+                logger.LogInformation("Could not connect to node: " + NodeError);
+            }
+
             InitialStart.TrySetResult(Running);
         }
     }
@@ -453,6 +468,7 @@ public class BoltzDaemon(
                 {
                     logger.LogInformation("Client version outdated");
                 }
+
                 await Download(ClientVersion);
             }
         }
