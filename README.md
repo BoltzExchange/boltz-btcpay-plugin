@@ -2,8 +2,8 @@
 
 [BTCPay Server](https://btcpayserver.org/) Plugin for [Boltz](https://boltz.exchange).
 
-The current master branch is only compatbile with BTCPay v1, which is the currently published plugin version. 
-If you want to run the plugin on BTCPay v2, you have to download it from [github](https://github.com/BoltzExchange/boltz-btcpay-plugin/releases).
+The current master branch is only compatbile with BTCPay v2, which is the currently published plugin version.
+If you want to run the plugin on BTCPay v1, you have to download it from [github](https://github.com/BoltzExchange/boltz-btcpay-plugin/releases).
 
 ## Documentation
 
