@@ -33,13 +33,13 @@
     @if (BoltzService.GetSettings(storeId)?.Mode != null)
     {
         <a asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" class="cancel">
-            <vc:icon symbol="close"/>
+            <vc:icon symbol="cross"/>
         </a>
     }
     else
     {
         <a asp-controller="UIStores" asp-action="Dashboard" asp-route-storeId="@storeId" class="cancel">
-            <vc:icon symbol="close"/>
+            <vc:icon symbol="cross"/>
         </a>
     }
 }

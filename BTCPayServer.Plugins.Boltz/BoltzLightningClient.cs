@@ -258,6 +258,7 @@ public class BoltzLightningClient(
         {
             throw new InvalidOperationException("payouts cant be made from readonly wallets");
         }
+
         var response = await client.CreateSwap(new CreateSwapRequest
         {
             Invoice = bolt11,
@@ -278,6 +279,7 @@ public class BoltzLightningClient(
             payDetails.Status = LightningPaymentStatus.Complete;
             return new PayResponse(PayResult.Ok, payDetails);
         }
+
         var source = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         cancellation.Register(source.Cancel);
         try
@@ -289,9 +291,11 @@ public class BoltzLightningClient(
                 if (swap.State == SwapState.Successful)
                 {
                     payDetails.Status = LightningPaymentStatus.Complete;
-                    if (!string.IsNullOrEmpty(swap.Preimage)) {
+                    if (!string.IsNullOrEmpty(swap.Preimage))
+                    {
                         payDetails.Preimage = uint256.Parse(swap.Preimage);
                     }
+
                     return new PayResponse(PayResult.Ok, payDetails);
                 }
 
@@ -302,9 +306,7 @@ public class BoltzLightningClient(
             }
         }
         catch (RpcException) when (source.IsCancellationRequested)
-        {
-            source.Token.ThrowIfCancellationRequested();
-        }
+        { }
 
         return new PayResponse(PayResult.Unknown, "payment is waiting for confirmation");
     }
@@ -363,6 +365,7 @@ public class BoltzLightningClient(
                 _client = await boltzLightningClient.GetClient();
                 _stream = _client.GetSwapInfoStream("");
             }
+
             try
             {
                 while (await _stream.ResponseStream.MoveNext(cancellation))
@@ -373,6 +376,7 @@ public class BoltzLightningClient(
                         return await boltzLightningClient.GetInvoice(id, cancellationToken);
                     }
                 }
+
                 throw new Exception("stream ended");
             }
             catch (Exception)

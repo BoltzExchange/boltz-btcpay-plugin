@@ -2,10 +2,11 @@
 @using BTCPayServer.Plugins.Boltz.Models
 @using BTCPayServer.Security
 @using Boltzrpc
+@using BTCPayServer.Plugins.Boltz.Views
 @model BTCPayServer.Plugins.Boltz.Models.BoltzInfo
 @inject BoltzService BoltzService
 @{
-    ViewData.SetActivePage("Boltz", "Status", "Status");
+    ViewData.SetActivePage(BoltzNavPages.Status, "Status");
 
     var storeId = Context.GetImplicitStoreId();
 

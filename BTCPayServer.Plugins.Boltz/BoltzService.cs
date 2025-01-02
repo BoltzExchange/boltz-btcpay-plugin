@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
-using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Client.Models;
 using BTCPayServer.Common;
 using BTCPayServer.Configuration;
@@ -20,8 +19,10 @@ using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
+using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
+using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
 using Grpc.Core;
@@ -51,8 +52,9 @@ public class BoltzService(
     TransactionLinkProviders transactionLinkProviders,
     PullPaymentHostedService pullPaymentHostedService,
     BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
-    LightningLikePayoutHandler lightningLikePayoutHandler,
-    PluginHookService pluginHookService
+    PluginHookService pluginHookService,
+    PaymentMethodHandlerDictionary paymentHandlers,
+    PayoutMethodHandlerDictionary payoutHandlers
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
@@ -164,11 +166,6 @@ public class BoltzService(
             if (status != "swap.created" || !isAuto) return;
         }
 
-        if (info.Swap is not null && info.Swap.State != SwapState.Successful)
-        {
-            return;
-        }
-
         var tenantId = info.ReverseSwap?.TenantId ?? info.ChainSwap?.TenantId ?? info.Swap!.TenantId;
         var found = _settings?.ToList()
             .Find(pair => pair.Value.ActualTenantId == tenantId);
@@ -192,7 +189,8 @@ public class BoltzService(
             {
                 if (BOLT11PaymentRequest.TryParse(info.Swap.Invoice, out var invoice, BtcNetwork.NBitcoinNetwork))
                 {
-                    var proof = lightningLikePayoutHandler.ParseProof(payout) as PayoutLightningBlob;
+                    var proof =
+                        payoutHandlers.TryGet(payout.GetPayoutMethodId())?.ParseProof(payout) as PayoutLightningBlob;
                     if (proof?.PaymentHash != null && proof.PaymentHash == invoice?.PaymentHash?.ToString())
                     {
                         proof.Preimage = info.Swap.Preimage;
@@ -233,7 +231,7 @@ public class BoltzService(
 
     public async Task<string> GenerateNewAddress(StoreData store)
     {
-        var derivation = store.GetDerivationSchemeSettings(btcPayNetworkProvider, "BTC");
+        var derivation = store.GetDerivationSchemeSettings(paymentHandlers, "BTC");
         if (derivation is null)
         {
             throw new InvalidOperationException("Store has no btc wallet configured");
@@ -346,7 +344,7 @@ public class BoltzService(
     public async Task Set(string storeId, BoltzSettings? settings)
     {
         var cryptoCode = "BTC";
-        var paymentMethodId = new PaymentMethodId(cryptoCode, PaymentTypes.LightningLike);
+        var paymentMethodId = PaymentTypes.LN.GetPaymentMethodId(cryptoCode);
 
         var data = await storeRepository.FindStore(storeId);
         if (settings is null)
@@ -358,13 +356,11 @@ public class BoltzService(
             }
 
             var boltzUrl = GetLightningClient(oldSettings)?.ToString();
-            var paymentMethod = data?.GetSupportedPaymentMethods(btcPayNetworkProvider)
-                .OfType<LightningSupportedPaymentMethod>()
-                .FirstOrDefault(method =>
-                    method.PaymentId == paymentMethodId && method.GetExternalLightningUrl() == boltzUrl);
-            if (paymentMethod is not null)
+            var paymentMethod =
+                data?.GetPaymentMethodConfig<LightningPaymentMethodConfig>(paymentMethodId, paymentHandlers);
+            if (paymentMethod is not null && paymentMethod.GetExternalLightningUrl() == boltzUrl)
             {
-                data!.SetSupportedPaymentMethod(paymentMethodId, null);
+                data!.SetPaymentMethodConfig(paymentMethodId, null);
                 await storeRepository.UpdateStore(data!);
             }
         }
@@ -374,15 +370,12 @@ public class BoltzService(
 
             if (settings.Mode == BoltzMode.Standalone)
             {
-                var paymentMethod = new LightningSupportedPaymentMethod
-                {
-                    CryptoCode = paymentMethodId.CryptoCode
-                };
-
+                var paymentMethod = new LightningPaymentMethodConfig();
                 var lightningClient = GetLightningClient(settings)!;
                 paymentMethod.SetLightningUrl(lightningClient);
 
-                data!.SetSupportedPaymentMethod(paymentMethodId, paymentMethod);
+                data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
+                    JObject.FromObject(paymentMethod));
             }
 
             await storeRepository.UpdateStore(data!);
@@ -442,7 +435,7 @@ public class BoltzService(
     public string? GetTransactionLink(Currency currency, string txId)
     {
         return transactionLinkProviders.GetTransactionLink(
-            new PaymentMethodId(currency.ToString().ToUpper(), PaymentTypes.BTCLike), txId);
+            PaymentTypes.CHAIN.GetPaymentMethodId(currency.ToString().ToUpper()), txId);
     }
 
     public static List<Stat> PairStats(PairInfo pairInfo) =>
