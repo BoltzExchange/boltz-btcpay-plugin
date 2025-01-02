@@ -32,6 +32,7 @@ using NBitcoin;
 using NBitcoin.Altcoins;
 using NBitcoin.Altcoins.Elements;
 using Newtonsoft.Json.Linq;
+using Octokit;
 using MarkPayoutRequest = BTCPayServer.HostedServices.MarkPayoutRequest;
 using PullPaymentHostedService = BTCPayServer.HostedServices.PullPaymentHostedService;
 using StoreData = BTCPayServer.Data.StoreData;
@@ -56,6 +57,8 @@ public class BoltzService(
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
+    private readonly GitHubClient _githubClient = new(new ProductHeaderValue("Boltz"));
+
     private static readonly string SettingsName = "Boltz";
 
     private Dictionary<string, BoltzSettings>? _settings;
@@ -70,6 +73,10 @@ public class BoltzService(
 
     public ILightningClient? InternalLightning =>
         lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
+
+    public Release? LatestRelease;
+    public bool UpdateAvailable => LatestRelease is not null &&
+                                   Version.Parse(LatestRelease.TagName.TrimStart('v')) > BoltzPlugin.CurrentVersion;
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -136,6 +143,16 @@ public class BoltzService(
                 await ModifyLnurlpAction((LNURLPayRequest)args.args);
             }
         };
+
+        _ = Task.Run(async () =>
+        {
+            // check for new version once every hour
+            while (true)
+            {
+                await CheckLatestRelease();
+                await Task.Delay(1000 * 60 * 60);
+            }
+        });
 
         await base.StartAsync(cancellationToken);
     }
@@ -478,6 +495,18 @@ public class BoltzService(
                     });
                 }
             }
+        }
+    }
+
+    public async Task CheckLatestRelease()
+    {
+        try
+        {
+            LatestRelease = await _githubClient.Repository.Release.GetLatest("BoltzExchange", "boltz-btcpay-plugin");
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning($"Could not get latest release from github: {e.Message}");
         }
     }
 

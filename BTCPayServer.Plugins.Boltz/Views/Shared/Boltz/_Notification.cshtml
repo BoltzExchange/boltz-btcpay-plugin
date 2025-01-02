@@ -1,7 +1,14 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Security
 @inject BoltzDaemon Daemon
+@inject BoltzService BoltzService
 
+@if (BoltzService.UpdateAvailable && User.IsInRole(Roles.ServerAdmin))
+{
+    <div class="alert alert-info mt-2 mb-4 d-flex align-items-center justify-content-between">
+        <a class="text-white" href="@BoltzService.LatestRelease!.HtmlUrl">A new boltz plugin version is available.</a>
+    </div>
+}
 @if (Daemon.Starting)
 {
     <div class="alert alert-info">
