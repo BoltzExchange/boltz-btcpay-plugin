@@ -1,2 +1,2 @@
-cp  ~/dev/boltz-client/boltzrpc/autoswaprpc/autoswaprpc.proto ./autoswaprpc/
-cp ~/dev/boltz-client/boltzrpc/boltzrpc.proto .
+cp  ~/dev/boltz-client/pkg/boltzrpc/autoswaprpc/autoswaprpc.proto ./autoswaprpc/
+cp ~/dev/boltz-client/pkg/boltzrpc/boltzrpc.proto .
