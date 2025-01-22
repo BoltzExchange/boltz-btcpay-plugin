@@ -457,7 +457,7 @@ public class BoltzDaemon(
                 }
                 else
                 {
-                    currentVersion = stdout.Split("\n").First().Split("-").First().Remove(0, 1);
+                    currentVersion = stdout.Split("\n").First().Split("-").First().TrimStart('v');
                 }
             }
 
