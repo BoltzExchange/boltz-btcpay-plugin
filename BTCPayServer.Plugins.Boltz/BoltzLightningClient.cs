@@ -130,8 +130,21 @@ public class BoltzLightningClient(
     public async Task<LightningPayment> GetPayment(string paymentHash,
         CancellationToken cancellation = new CancellationToken())
     {
-        var payments = await ListPayments(cancellation);
-        return payments.ToList().Find(payment => payment.PaymentHash == paymentHash)!;
+        var client = await GetClient();
+        try
+        {
+            var info = await client.GetSwapInfo(Convert.FromHexString(paymentHash));
+            return PaymentFromSwapInfo(info.Swap);
+        }
+        catch (RpcException e) when (e.StatusCode == StatusCode.NotFound)
+        {
+            return new LightningPayment
+            {
+                Id = paymentHash,
+                // this will be the case when the initial pay call failed, yet btcpay still tries to check if there was a payment
+                Status = LightningPaymentStatus.Failed
+            };
+        }
     }
 
     public async Task<LightningPayment[]> ListPayments(CancellationToken cancellation = new CancellationToken())

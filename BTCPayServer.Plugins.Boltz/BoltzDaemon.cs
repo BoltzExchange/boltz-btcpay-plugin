@@ -55,7 +55,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.3.4");
+    private static readonly Version ClientVersion = new("2.3.7");
 
     private Stream? _downloadStream;
     private Task? _startTask;
@@ -457,7 +457,7 @@ public class BoltzDaemon(
                 }
                 else
                 {
-                    currentVersion = stdout.Split("\n").First().Split("-").First().Remove(0, 1);
+                    currentVersion = stdout.Split("\n").First().Split("-").First().TrimStart('v');
                 }
             }
 
