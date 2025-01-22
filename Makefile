@@ -1,4 +1,4 @@
-VERSION := 2.1.6
+VERSION := 2.1.7
 RELEASE_PATH := ./release/BTCPayServer.Plugins.Boltz/$(VERSION)
 
 gh-release:
