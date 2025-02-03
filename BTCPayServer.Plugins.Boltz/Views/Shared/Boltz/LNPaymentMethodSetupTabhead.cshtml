@@ -23,5 +23,16 @@ else
 {
     <input value="Custom" type="radio" id="LightningNodeType-Boltz" data-bs-toggle="pill" data-bs-target="#BoltzSetup" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
     <label for="LightningNodeType-Boltz">Use Boltz</label>
-    <input asp-for="ConnectionString" value="@lnClient.ToString()" type="hidden">
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const typePrefix = '@lnClient.ToString()';
+            const connStringEl = document.getElementById('ConnectionString')
+            delegate('change', 'input[name="LightningNodeType"]', e => {
+                const activeEl = document.querySelector('input[name="LightningNodeType"]:checked')
+                if (activeEl.id === "LightningNodeType-Boltz"){
+                    connStringEl.value =typePrefix;
+                }
+            })
+        })
+    </script>
 }
