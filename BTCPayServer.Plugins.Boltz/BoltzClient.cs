@@ -365,11 +365,11 @@ public class BoltzClient : IDisposable
 
     public async Task Stop(CancellationToken cancellationToken = default)
     {
-        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
         if (_invoiceStreamCancel is not null)
         {
             await _invoiceStreamCancel.CancelAsync();
         }
+        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
     }
 
     public async Task<BakeMacaroonResponse> BakeMacaroon(ulong tenantId)
