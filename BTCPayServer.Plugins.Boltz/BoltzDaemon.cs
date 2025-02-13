@@ -504,31 +504,31 @@ public class BoltzDaemon(
         catch (OperationCanceledException)
         {
             process.Kill();
-            throw;
+            await process.WaitForExitAsync();
         }
-
-        var wasRunning = Running;
-        AdminClient?.Dispose();
-        AdminClient = null;
-
-        if (process.ExitCode != 0)
+        finally
         {
-            if (logOutput || wasRunning)
-            {
-                Error = $"Process exited with code {process.ExitCode}";
-                logger.LogError(Error);
-                logger.LogInformation(RecentOutput);
-            }
+            var wasRunning = Running;
+            AdminClient = null;
 
-            if (wasRunning)
+            if (process.ExitCode != 0)
             {
-                logger.LogInformation("Restarting in 10 seconds");
-                await Task.Delay(10000, daemonCancel.Token);
-                InitiateStart();
+                if (logOutput || wasRunning)
+                {
+                    Error = $"Process exited with code {process.ExitCode}";
+                    logger.LogError(Error);
+
+                    logger.LogInformation(RecentOutput);
+                }
+
+                if (wasRunning && !daemonCancel.IsCancellationRequested)
+                {
+                    logger.LogInformation("Restarting in 10 seconds");
+                    await Task.Delay(10000, daemonCancel.Token);
+                    InitiateStart();
+                }
             }
         }
-
-        await daemonCancel.CancelAsync();
     }
 
     private async Task Start(bool logOutput = true)
@@ -582,9 +582,11 @@ public class BoltzDaemon(
                 await _daemonCancel.CancelAsync();
             }
 
-            await _daemonTask.WaitAsync(source.Token);
+            await _daemonTask.WaitAsync(CancellationToken.None);
             logger.LogInformation("Stopped");
         }
+        // make sure to clear any leftover channels
+        BoltzClient.Clear();
     }
 
     private Process NewProcess(string fileName, string args)
