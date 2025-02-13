@@ -290,7 +290,7 @@ public class BoltzDaemon(
         }
     }
 
-    public NodeConfig GetNodeConfig(ILightningClient? node)
+    public NodeConfig? GetNodeConfig(ILightningClient? node)
     {
         switch (node)
         {
@@ -354,6 +354,8 @@ public class BoltzDaemon(
                         Port = 10009,
                     }
                 };
+            case null:
+                return null;
             default:
                 throw new Exception("Unsupported lightning client");
         }
