@@ -448,6 +448,16 @@ public class BoltzClient : IDisposable
         Channels.Clear();
     }
 
+    public static void Clear()
+    {
+        foreach (var channel in Channels.Values)
+        {
+            channel.Dispose();
+        }
+
+        Channels.Clear();
+    }
+
     public static List<Stat> ParseStats(SwapStats stats)
     {
         return
