@@ -1,0 +1,41 @@
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Plugins.Boltz.Models
+@using BTCPayServer.Security
+@using Boltzrpc
+@using BTCPayServer.Components
+@using BTCPayServer.Plugins.Boltz.Views
+@using Microsoft.AspNetCore.Mvc.TagHelpers;
+@using BTCPayServer.Abstractions.Extensions;
+@using BTCPayServer.Services;
+@model BTCPayServer.Plugins.Boltz.Models.WalletsModel;
+@inject DisplayFormatter DisplayFormatter
+@{
+    ViewData.SetActivePage(BoltzNavPages.Wallets, "Wallets");
+}
+
+@if (Model.Wallets?.Count > 0)
+{
+    <div class="row">
+        @foreach (var wallet in Model.Wallets)
+        {
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@wallet.Name</h5>
+                        <p class="card-text">
+                            Balance: @DisplayFormatter.Currency(wallet.Balance.Total, "SATS")<br/>
+                            Currency: @BoltzClient.CurrencyName(wallet.Currency)
+                        </p>
+                        <a asp-action="Wallets" asp-route-walletName="@wallet.Name" class="btn btn-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <p class="text-secondary mt-3">
+        No wallets found.
+    </p>
+}    

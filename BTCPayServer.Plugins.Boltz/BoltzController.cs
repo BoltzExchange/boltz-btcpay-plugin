@@ -182,8 +182,8 @@ public class BoltzController(
         return RedirectToAction(nameof(Status), new { storeId });
     }
 
-    [HttpGet("wallet/{walletName}")]
-    public async Task<IActionResult> Wallet(WalletViewModel vm, string walletName)
+    [HttpGet("wallets/{walletName?}")]
+    public async Task<IActionResult> Wallets(string? walletName)
     {
         if (Boltz is null)
         {
@@ -192,6 +192,12 @@ public class BoltzController(
 
         try
         {
+            if (string.IsNullOrEmpty(walletName))
+            {
+                var wallets = await Boltz.GetWallets(true);
+                return View(new WalletsModel { Wallets = wallets.Wallets_.ToList() });
+            }
+            var vm = new WalletViewModel();
             vm.Wallet = await Boltz.GetWallet(walletName);
             var response = await Boltz.ListWalletTransactions(new ListWalletTransactionsRequest
             {
@@ -200,17 +206,16 @@ public class BoltzController(
                 Offset = (ulong)vm.Skip,
             });
             vm.Transactions = response.Transactions.ToList();
+            return View("Wallet", vm);
         }
         catch (RpcException e)
         {
             if (!e.Status.Detail.Contains("not implemented"))
             {
                 TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
-                return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
             }
+            return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
         }
-
-        return View(vm);
     }
 
     [HttpPost("wallet/{walletId}")]
