@@ -14,7 +14,6 @@
     var storeId = Context.GetCurrentStoreId();
     var confirmModel = new ConfirmModel("Delete Wallet", "This action will remove the wallet. You will not be able to recover them if you don't have a backup.", "Delete");
     var isNodeWallet = Model.Wallet.Name == "CLN" || Model.Wallet.Name == "LND";
-    ViewData.SetActivePage(BoltzNavPages.Wallets, "Wallet");
 }
 
 <partial name="_Confirm" model="@confirmModel"/>
