@@ -1,3 +1,7 @@
+---
+description: This page describes how to manually build the plugin for plugin development
+---
+
 # 🧪 Regtest Setup
 
 First, set up [Boltz Regtest](https://github.com/BoltzExchange/regtest). Then clone this repository and build the plugin:
