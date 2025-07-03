@@ -1,12 +1,10 @@
----
-description: This page describes how to manually build the plugin for plugin development
----
-
 # 🧪 Regtest Setup
+
+This page describes how to manually build the plugin for plugin development
 
 First, set up [Boltz Regtest](https://github.com/BoltzExchange/regtest). Then clone this repository and build the plugin:
 
-```
+```bash
 git clone https://github.com/BoltzExchange/boltz-btcpay-plugin --recurse-submodules
 cd boltz-btcpay-plugin/
 dotnet build BTCPayServer.Plugins.Boltz
@@ -14,7 +12,7 @@ dotnet build BTCPayServer.Plugins.Boltz
 
 Next, exit the directory and set up BTCPay Server:
 
-```
+```bash
 git clone https://github.com/btcpayserver/btcpayserver
 cd btcpayserver/BTCPayServer
 echo "{
@@ -27,7 +25,7 @@ Where `/home/USER/boltz-btcpay-plugin` is the path to the Boltz BTCPay Plugin di
 
 You might have to update the client binaries to latest master.
 
-```
+```bash
 git clone https://github.com/BoltzExchange/boltz-client
 cd boltz-client
 make
@@ -36,9 +34,9 @@ cp ./boltzd ./boltzcli ~/.btcpayserver/RegTest/LocalStorage/Boltz/bin/linux_amd6
 
 In order to run with the previously setup regtest environnment, you need to open `launchsettings.json`:
 
-```
+```bash
 cd BTCPayServer/Properties
-nano launchsettings.json
+vim launchsettings.json
 ```
 
 Add the following launch profile to use the boltz regtest:

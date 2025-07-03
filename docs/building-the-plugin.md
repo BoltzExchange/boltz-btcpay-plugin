@@ -1,10 +1,7 @@
----
-description: >-
-  This page describes how to manually build the plugin for development and
-  testing purposes
----
-
 # 🏗️ Building the Plugin
+
+This page describes how to manually build the plugin for development and
+testing purposes
 
 ## Building the plugin
 

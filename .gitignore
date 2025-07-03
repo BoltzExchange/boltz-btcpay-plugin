@@ -455,3 +455,8 @@ $RECYCLE.BIN/
 
 publish
 release
+
+# Docs
+docs/node_modules
+docs/.vitepress/dist
+docs/.vitepress/cache
