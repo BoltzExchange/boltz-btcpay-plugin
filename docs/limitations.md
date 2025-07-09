@@ -1,5 +1,9 @@
 # 🚧 Limitations
 
+This page lists know limitations of the Boltz BTCPay Plugin
+
+## Known Limitations
+
 One **major limitation** that we are aware of today, is the lack of support for 0-amount invoices for pull payments. That's because 0-amount invoices can’t be handled non-custodially by Boltz. Nothing we can change about this fact, but the real UX issue with the Boltz BTCPay Plugin is that we can’t display an error to end-users when a 0-amount invoice is being used.
 
 The current UX for end-users is as follows: when they try to claim a pull payment payout using a 0-amount invoice, the payout shows as “Awaiting Payment”:

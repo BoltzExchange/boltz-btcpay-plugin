@@ -1,3 +1,9 @@
+---
+next:
+  text: '🚧 Limitations'
+  link: '/limitations'
+---
+
 # 👋 Introduction
 
 The Boltz BTCPay Plugin allows any merchant to accept Lightning payments in a
