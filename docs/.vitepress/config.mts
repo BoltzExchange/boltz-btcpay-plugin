@@ -4,14 +4,17 @@ const docsRoot = "https://docs.boltz.exchange";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "Boltz BTCPay Server Plugin",
-  description: "Boltz BTCPay Server Plugin Docs",
+  title: "Boltz BTCPay Plugin",
+  description: "Boltz BTCPay Plugin Docs",
+  head: [
+    ['link', { rel: 'icon', href: '/assets/logo.svg' }],
+  ],
   themeConfig: {
-    logo: "./assets/logo.svg",
+    logo: "/assets/logo.svg",
     search: {
       provider: "local",
     },
-    nav: [{ text: "Home", link: docsRoot }],
+    nav: [{ text: "🏠 Docs Home", link: docsRoot, target: '_self' }],
     sidebar: [
       {
         items: [
@@ -19,8 +22,7 @@ export default defineConfig({
           { text: "🚧 Limitations", link: "/limitations" },
           { text: "🏗️ Building the Plugin", link: "/building-the-plugin" },
           { text: "🧪 Regtest Setup", link: "/regtest-setup" },
-
-          { text: "🔙 Home", link: docsRoot },
+          { text: "🏠 Docs Home", link: docsRoot, target: '_self' },
         ],
       },
     ],
