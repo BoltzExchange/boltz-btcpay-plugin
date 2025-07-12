@@ -100,7 +100,7 @@ public class BoltzClient : IDisposable
     {
         return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id }, _metadata);
     }
-    
+
     public async Task<GetSwapInfoResponse> GetSwapInfo(byte[] paymentHash)
     {
         return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { PaymentHash = ByteString.CopyFrom(paymentHash) }, _metadata);
@@ -429,6 +429,10 @@ public class BoltzClient : IDisposable
                 {
                     _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
             }
             catch (Exception e) when (!_invoiceStreamCancel.IsCancellationRequested)
             {
