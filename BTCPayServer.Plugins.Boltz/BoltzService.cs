@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Globalization;
@@ -60,7 +61,7 @@ public class BoltzService(
 {
     private static readonly string SettingsName = "Boltz";
 
-    private Dictionary<string, BoltzSettings>? _settings;
+    private ConcurrentDictionary<string, BoltzSettings> _settings = new();
     public BoltzServerSettings ServerSettings { get; private set; }
     private GetPairsResponse? _pairs;
 
@@ -76,8 +77,9 @@ public class BoltzService(
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
-        _settings = (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
-            .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!);
+        _settings = new ConcurrentDictionary<string, BoltzSettings>(
+            (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
+            .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!));
 
 
         daemon.SwapUpdate += async (_, response) =>
@@ -197,7 +199,8 @@ public class BoltzService(
                         payout.SetProofBlob(proof, null);
                         await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
                         {
-                            PayoutId = payout.Id, State = PayoutState.Completed,
+                            PayoutId = payout.Id,
+                            State = PayoutState.Completed,
                             Proof = payout.GetProofBlobJson(),
                         });
                     }
@@ -277,7 +280,8 @@ public class BoltzService(
     {
         var settings = new BoltzSettings
         {
-            GrpcUrl = daemon.DefaultUri, Mode = mode,
+            GrpcUrl = daemon.DefaultUri,
+            Mode = mode,
             CertFilePath = daemon.CertFile,
         };
         await SetMacaroon(storeId, settings);
@@ -379,7 +383,7 @@ public class BoltzService(
             }
 
             await storeRepository.UpdateStore(data!);
-            _settings.AddOrReplace(storeId, settings);
+            _settings[storeId] = settings;
         }
 
         await storeRepository.UpdateSetting(storeId, SettingsName, settings!);
@@ -467,7 +471,8 @@ public class BoltzService(
                 {
                     await pullPaymentHostedService.MarkPaid(new MarkPayoutRequest
                     {
-                        PayoutId = payout.Id, State = PayoutState.Cancelled,
+                        PayoutId = payout.Id,
+                        State = PayoutState.Cancelled,
                     });
                 }
             }
