@@ -26,6 +26,7 @@ using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.Authentication
 using ChainConfig = Autoswaprpc.ChainConfig;
 using LightningConfig = Autoswaprpc.LightningConfig;
 using RpcException = Grpc.Core.RpcException;
+using BTCPayServer.Abstractions.Models;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -128,7 +129,7 @@ public class BoltzController(
             if (data.Ln is not null || data.Chain is not null)
             {
                 var response = await Boltz.ListSwaps(new ListSwapsRequest
-                    { Include = IncludeSwaps.Auto, Unify = true, State = SwapState.Pending });
+                { Include = IncludeSwaps.Auto, Unify = true, State = SwapState.Pending });
                 data.PendingAutoSwaps = response.AllSwaps.ToList();
                 data.Status = await Boltz.GetAutoSwapStatus();
                 data.Recommendations = await Boltz.GetAutoSwapRecommendations();
@@ -218,8 +219,21 @@ public class BoltzController(
         }
     }
 
-    [HttpPost("wallet/{walletId}")]
-    public async Task<IActionResult> Wallet(ulong walletId)
+    [HttpGet("wallets/{walletId}/remove")]
+    public IActionResult WalletRemove()
+    {
+        return View(
+            "Confirm",
+            new ConfirmModel(
+                "Delete Wallet",
+                "This action will remove the wallet. You will not be able to recover any funds if you don't have a backup.",
+                "Delete"
+            )
+        );
+    }
+
+    [HttpPost("wallets/{walletId}/remove")]
+    public async Task<IActionResult> WalletRemovePost(ulong walletId)
     {
         if (Boltz is null)
         {
@@ -228,6 +242,12 @@ public class BoltzController(
 
         try
         {
+            var standaloneWallet = Settings?.StandaloneWallet;
+            if (standaloneWallet?.Id == walletId)
+            {
+                TempData[WellKnownTempData.ErrorMessage] = "You cannot delete the wallet used for lightning payments";
+                return RedirectToAction(nameof(Wallets), new { storeId = CurrentStoreId, walletName = standaloneWallet?.Name });
+            }
             await Boltz.RemoveWallet(walletId);
             TempData[WellKnownTempData.SuccessMessage] = "Wallet deleted";
         }
@@ -989,7 +1009,7 @@ public class BoltzController(
                         }
 
                         ChainSetup = new ChainConfig(ChainSetup)
-                            { ToWallet = walletName };
+                        { ToWallet = walletName };
                         return RedirectToAction(nameof(SetupBudget),
                             new { storeId, swapperType = SwapperType.Chain });
                     case WalletSetupFlow.Manual:
@@ -1168,7 +1188,8 @@ public class BoltzController(
             LightningSetup = setup;
             return RedirectToAction(nameof(SetupBudget), new
             {
-                storeId, swapperType = SwapperType.Lightning
+                storeId,
+                swapperType = SwapperType.Lightning
             });
         }
 
