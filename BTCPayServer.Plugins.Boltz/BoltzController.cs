@@ -184,7 +184,7 @@ public class BoltzController(
     }
 
     [HttpGet("wallets/{walletName?}")]
-    public async Task<IActionResult> Wallets(string? walletName)
+    public async Task<IActionResult> Wallets(string? walletName, WalletViewModel vm)
     {
         if (Boltz is null)
         {
@@ -198,12 +198,11 @@ public class BoltzController(
                 var wallets = await Boltz.GetWallets(true);
                 return View(new WalletsModel { Wallets = wallets.Wallets_.ToList() });
             }
-            var vm = new WalletViewModel();
             vm.Wallet = await Boltz.GetWallet(walletName);
             var response = await Boltz.ListWalletTransactions(new ListWalletTransactionsRequest
             {
                 Id = vm.Wallet.Id,
-                Limit = Math.Min((ulong)vm.Count, 30),
+                Limit = (ulong)vm.Count,
                 Offset = (ulong)vm.Skip,
             });
             vm.Transactions = response.Transactions.ToList();
