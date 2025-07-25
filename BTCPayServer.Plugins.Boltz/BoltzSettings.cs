@@ -14,7 +14,7 @@ public class BoltzServerSettings
 {
     [Display(Name = "Allow Plugin for non-admin users")]
     public bool AllowTenants { get; set; }
-    
+
     [Display(Name = "Connect to Internal Lightning Node")]
     public bool ConnectNode { get; set; }
 
@@ -39,6 +39,7 @@ public class BoltzSettings
     {
         public ulong Id { get; set; }
         public string Name { get; set; }
+        public bool Readonly { get; set; }
     }
 
     public Wallet? StandaloneWallet { get; set; }

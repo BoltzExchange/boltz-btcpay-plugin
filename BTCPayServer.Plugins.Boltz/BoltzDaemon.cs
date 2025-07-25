@@ -540,7 +540,7 @@ public class BoltzDaemon(
         var daemonCancel = new CancellationTokenSource();
         _daemonTask = Run(daemonCancel, logOutput);
         var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-        wait.CancelAfter(TimeSpan.FromSeconds(60));
+        wait.CancelAfter(TimeSpan.FromSeconds(300));
         _daemonCancel = daemonCancel;
         await Wait(wait.Token);
         if (Running)

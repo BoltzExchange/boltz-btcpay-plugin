@@ -5,21 +5,17 @@
     Layout = "../Shared/_Layout.cshtml";
     var storeId = Context.GetImplicitStoreId();
 }
-<style>
-/*
-    #mainContent > section {
-        padding: 3rem !important;
-    }
- */
-</style>
 
-<div class="sticky-header">
-    <h2>@ViewData["Title"]</h2>
-    <a asp-action="SetupMode" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
-        Setup
-    </a>
-</div>
+@if (!ViewData.TryGetValue("NoHeader", out var noHeader))
+{
+    <div class="sticky-header">
+        <h2>@ViewData["Title"]</h2>
+        <a asp-action="SetupMode" asp-route-storeId="@storeId" class="btn btn-secondary text-nowrap">
+            Setup
+        </a>
+    </div>
+}
 
 <partial name="_StatusMessage" />
-<partial name="Boltz/_Notification"/>
+<partial name="Boltz/_Notification" />
 @RenderBody()

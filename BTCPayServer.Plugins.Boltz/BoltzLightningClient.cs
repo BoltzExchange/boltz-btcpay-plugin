@@ -267,10 +267,6 @@ public class BoltzLightningClient(
 
         var client = await GetClient();
         var wallet = await client.GetWallet(walletId);
-        if (wallet.Readonly)
-        {
-            throw new InvalidOperationException("payouts cant be made from readonly wallets");
-        }
 
         var response = await client.CreateSwap(new CreateSwapRequest
         {
@@ -278,7 +274,12 @@ public class BoltzLightningClient(
             SendFromInternal = !wallet.Readonly,
             WalletId = walletId,
             Pair = new Pair { From = Currency.Lbtc, To = Currency.Btc },
+            IgnoreMrh = true,
         }, cancellation);
+        if (wallet.Readonly)
+        {
+            return new PayResponse(PayResult.Unknown, "payout created - fund from payouts tab of boltz plugin");
+        }
         var payDetails = new PayDetails
         {
             TotalAmount = invoice.MinimumAmount,

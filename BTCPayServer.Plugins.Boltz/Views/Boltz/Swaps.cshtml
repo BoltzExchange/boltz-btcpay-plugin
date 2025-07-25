@@ -12,17 +12,19 @@
 
 @if (Model.SwapInfo != null)
 {
-    var type = Model.SwapInfo.ChainSwap != null ? SwapType.Chain : Model.SwapInfo.ReverseSwap != null ? SwapType.Reverse : SwapType.Submarine;
+    var type = Model.SwapInfo.ChainSwap != null ? SwapType.Chain : Model.SwapInfo.ReverseSwap != null ? SwapType.Reverse :
+    SwapType.Submarine;
     ViewData["Title"] = $"{type} Swap";
+    ViewData["NoHeader"] = true;
     <h3 class="text-center mx-auto">@ViewData["Title"]</h3>
-    <partial name="_SwapInfoPartial" model="Model.SwapInfo"/>
+    <partial name="_SwapInfoPartial" model="Model.SwapInfo" />
 }
 else if (Model.Swaps is not null)
 {
     @if (Model.Swaps.AllSwaps.Count > 0)
     {
-        <partial name="Boltz/_SwapsTable" model="Model.Swaps.AllSwaps.ToList()"/>
-        <vc:pager view-model="Model"/>
+        <partial name="Boltz/_SwapsTable" model="Model.Swaps.AllSwaps.ToList()" />
+        <vc:pager view-model="Model" />
     }
     else
     {

@@ -1,0 +1,43 @@
+@using BTCPayServer.Plugins.Boltz
+@using BTCPayServer.Security
+@using BTCPayServer.Plugins.Boltz.Models
+@using Boltzrpc
+@model List<PayoutModel>
+@{
+    var storeId = Context.GetImplicitStoreId();
+}
+<div class="table-responsive my-0">
+    <table class="table table-hover my-0">
+        <thead>
+            <tr>
+                <th></th>
+                <th class="text-nowrap">Payout ID</th>
+                <th>Amount</th>
+                <th>Destination</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var payoutSwap in Model)
+            {
+                <tr>
+                    <td>
+                        <a asp-action="Payouts" asp-controller="Boltz" asp-route-storeId="@storeId"
+                            asp-route-payoutId="@payoutSwap.PayoutId">
+                            Pay
+                        </a>
+                    </td>
+                    <td>
+                        <span class="text-muted">@payoutSwap.PayoutId.Substring(0, Math.Min(8,
+                                                    payoutSwap.PayoutId.Length))</span>
+                </td>
+                <td>@payoutSwap.Amount BTC</td>
+                <td class="align-middle">
+                    <vc:truncate-center text="@payoutSwap.Destination" classes="truncate-center-id" />
+                </td>
+                <td>@payoutSwap.CreatedAt.ToBrowserDate()</td>
+            </tr>
+                        }
+        </tbody>
+    </table>
+</div>

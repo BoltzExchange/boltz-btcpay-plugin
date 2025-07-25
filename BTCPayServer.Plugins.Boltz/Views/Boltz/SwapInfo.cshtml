@@ -2,22 +2,26 @@
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @using Boltzrpc
 @using BTCPayServer.Abstractions.TagHelpers
+@using BTCPayServer.Plugins.Boltz.Views
 @model Boltzrpc.GetSwapInfoResponse
 @{
     var storeId = Context.GetImplicitStoreId();
 
     var common = Model.Swap != null ? new
-        {
-            Type = SwapType.Submarine, Model.Swap.Id
-        }
-        : Model.ReverseSwap != null ? new
-        {
-            Type = SwapType.Reverse, Model.ReverseSwap.Id
-        }
-        : Model.ChainSwap != null ? new
-        {
-            Type = SwapType.Chain, Model.ChainSwap.Id
-        } : null;
+    {
+        Type = SwapType.Submarine,
+        Model.Swap.Id
+    }
+    : Model.ReverseSwap != null ? new
+    {
+        Type = SwapType.Reverse,
+        Model.ReverseSwap.Id
+    }
+    : Model.ChainSwap != null ? new
+    {
+        Type = SwapType.Chain,
+        Model.ChainSwap.Id
+    } : null;
     if (common is null) return;
 }
 
@@ -25,13 +29,13 @@
     document.addEventListener("DOMContentLoaded", async () => {
         const source = new EventSource("@Url.Action("SwapInfoStream", "Boltz", new { id = common.Id, storeId })");
         source.
-        source.onmessage = async () => {
-            const url = @Safe.Json(Url.Action("SwapInfoPartial", "Boltz", new { id = common.Id, storeId }));
-            const response = await fetch(url);
-            if (response.ok) {
-                document.getElementById('swap-info').innerHTML = await response.text();
-            }
-        };
+            source.onmessage = async () => {
+                const url = @Safe.Json(Url.Action("SwapInfoPartial", "Boltz", new { id = common.Id, storeId }));
+                const response = await fetch(url);
+                if (response.ok) {
+                    document.getElementById('swap-info').innerHTML = await response.text();
+                }
+            };
     })
 </script>
 
@@ -43,4 +47,4 @@
 }
 
 
-<partial name="_SwapInfoPartial" model="@Model"/>
+<partial name="_SwapInfoPartial" model="@Model" />
