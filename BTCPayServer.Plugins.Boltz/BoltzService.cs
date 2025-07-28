@@ -411,7 +411,7 @@ public class BoltzService(
         return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To);
     }
 
-    public PaymentUrlBuilder GenerateBIP21(Currency currency, string cryptoInfoAddress, decimal? cryptoInfoDue = null,
+    public PaymentUrlBuilder GenerateBIP21(Currency currency, string cryptoInfoAddress, decimal? sats = null,
         string? label = null)
     {
         var isLbtc = currency == Currency.Lbtc;
@@ -420,9 +420,10 @@ public class BoltzService(
             : "bitcoin";
         var builder = new PaymentUrlBuilder(prefix);
         builder.Host = cryptoInfoAddress;
-        if (cryptoInfoDue is not null && cryptoInfoDue.Value != 0.0m)
+        if (sats is not null && sats.Value != 0.0m)
         {
-            builder.QueryParams.Add("amount", cryptoInfoDue.Value.ToString(CultureInfo.InvariantCulture));
+            var amount = LightMoney.FromUnit(sats.Value, LightMoneyUnit.Satoshi).ToUnit(LightMoneyUnit.BTC);
+            builder.QueryParams.Add("amount", amount.ToString(CultureInfo.InvariantCulture));
         }
 
         builder.QueryParams.Add("label", label ?? "Send to BTCPayserver");
