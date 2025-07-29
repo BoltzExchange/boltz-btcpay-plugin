@@ -303,6 +303,17 @@ public class BoltzService(
         return daemon.GetClient(GetSettings(storeId));
     }
 
+    public async Task<bool> IsSwapRefundable(string? storeId, string? swapId)
+    {
+        var client = GetClient(storeId);
+        if (client is null)
+        {
+            return false;
+        }
+        var info = await client!.GetInfo();
+        return info.RefundableSwaps.Contains(swapId);
+    }
+
     public bool StoreConfigured(string? storeId)
     {
         return GetSettings(storeId)?.Mode is not null;
