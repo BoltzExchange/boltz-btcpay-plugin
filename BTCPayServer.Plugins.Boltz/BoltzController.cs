@@ -291,6 +291,32 @@ public class BoltzController(
         return View(vm);
     }
 
+    [HttpGet("payouts/{payoutId?}")]
+    public async Task<IActionResult> Payouts(PayoutsModel vm, string? payoutId)
+    {
+        ClearSetup();
+        if (!Configured || boltzService is null)
+        {
+            return RedirectSetup();
+        }
+
+        try
+        {
+            if (!string.IsNullOrEmpty(payoutId))
+            {
+                var swapId = await boltzService.GetOrCreatePayoutSwap(CurrentStoreId!, payoutId);
+                return RedirectToAction(nameof(Swaps), new { swapId, storeId = CurrentStoreId });
+            }
+            vm.Payouts = await boltzService.GetPayouts(CurrentStoreId!);
+        }
+        catch (Exception e)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+        }
+
+        return View(vm);
+    }
+
 
     [HttpGet("configuration")]
     public async Task<IActionResult> Configuration(string storeId)
@@ -565,26 +591,7 @@ public class BoltzController(
     }
 
 
-    [HttpGet("swap/{id}")]
-    public async Task<IActionResult> SwapInfo(string id)
-    {
-        if (Boltz != null)
-        {
-            try
-            {
-                var info = await Boltz.GetSwapInfo(id);
-                return View(info);
-            }
-            catch (RpcException)
-            {
-                return NotFound();
-            }
-        }
-
-        return RedirectSetup();
-    }
-
-    [HttpGet("swap/{id}/partial")]
+    [HttpGet("swaps/{id}/partial")]
     public async Task<IActionResult> SwapInfoPartial(string id)
     {
         if (Boltz != null)
@@ -653,7 +660,7 @@ public class BoltzController(
     private async Task<BoltzSettings> SetStandaloneWallet(BoltzSettings settings, string name)
     {
         var wallet = await Boltz!.GetWallet(name);
-        settings.StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name };
+        settings.StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name, Readonly = wallet.Readonly };
         return settings;
     }
 
@@ -663,41 +670,41 @@ public class BoltzController(
         switch (command)
         {
             case "BoltzSetLnConfig":
-            {
-                if (vm.Ln is not null)
                 {
-                    if (vm.Ln.Wallet != "")
+                    if (vm.Ln is not null)
                     {
-                        var wallet = await Boltz!.GetWallet(vm.Ln.Wallet);
-                        vm.Ln.Currency = wallet.Currency;
-                    }
-                    else
-                    {
-                        vm.Ln.Currency = Currency.Btc;
+                        if (vm.Ln.Wallet != "")
+                        {
+                            var wallet = await Boltz!.GetWallet(vm.Ln.Wallet);
+                            vm.Ln.Currency = wallet.Currency;
+                        }
+                        else
+                        {
+                            vm.Ln.Currency = Currency.Btc;
+                        }
+
+                        await SetLightningConfig(vm.Ln);
                     }
 
-                    await SetLightningConfig(vm.Ln);
+                    TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
+                    break;
                 }
-
-                TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
-                break;
-            }
             case "BoltzSetChainConfig":
-            {
-                var name = vm.Settings?.StandaloneWallet?.Name;
-                if (name is not null)
                 {
-                    await boltzService.Set(CurrentStoreId!, await SetStandaloneWallet(Settings!, name));
-                }
+                    var name = vm.Settings?.StandaloneWallet?.Name;
+                    if (name is not null)
+                    {
+                        await boltzService.Set(CurrentStoreId!, await SetStandaloneWallet(Settings!, name));
+                    }
 
-                if (vm.Chain is not null)
-                {
-                    await SetChainConfig(vm.Chain);
-                }
+                    if (vm.Chain is not null)
+                    {
+                        await SetChainConfig(vm.Chain);
+                    }
 
-                TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
-                break;
-            }
+                    TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
+                    break;
+                }
         }
 
         return RedirectToAction(nameof(Configuration), new { storeId });
@@ -776,42 +783,42 @@ public class BoltzController(
         switch (command)
         {
             case "Save":
-            {
-                try
                 {
-                    var settings = vm.ServerSettings!;
-                    await boltzService.SetServerSettings(settings);
-
-                    if (settings is { ConnectNode: true, NodeConfig: null })
+                    try
                     {
-                        settings.NodeConfig = boltzDaemon.GetNodeConfig(boltzService.InternalLightning);
+                        var settings = vm.ServerSettings!;
+                        await boltzService.SetServerSettings(settings);
+
+                        if (settings is { ConnectNode: true, NodeConfig: null })
+                        {
+                            settings.NodeConfig = boltzDaemon.GetNodeConfig(boltzService.InternalLightning);
+                        }
+
+                        if (!settings.ConnectNode)
+                        {
+                            settings.NodeConfig = null;
+                        }
+                    }
+                    catch (Exception err)
+                    {
+                        TempData[WellKnownTempData.ErrorMessage] = err.Message;
+                        return View(vm);
                     }
 
-                    if (!settings.ConnectNode)
-                    {
-                        settings.NodeConfig = null;
-                    }
+                    TempData[WellKnownTempData.SuccessMessage] = "Settings updated";
+                    break;
                 }
-                catch (Exception err)
-                {
-                    TempData[WellKnownTempData.ErrorMessage] = err.Message;
-                    return View(vm);
-                }
-
-                TempData[WellKnownTempData.SuccessMessage] = "Settings updated";
-                break;
-            }
             case "Clear":
-            {
-                await boltzService.Set(CurrentStoreId!, null);
-                TempData[WellKnownTempData.SuccessMessage] = "Boltz plugin credentials cleared";
-                break;
-            }
+                {
+                    await boltzService.Set(CurrentStoreId!, null);
+                    TempData[WellKnownTempData.SuccessMessage] = "Boltz plugin credentials cleared";
+                    break;
+                }
             case "Start":
-            {
-                boltzDaemon.InitiateStart();
-                break;
-            }
+                {
+                    boltzDaemon.InitiateStart();
+                    break;
+                }
         }
 
         return RedirectToAction(nameof(Admin), new { storeId });

@@ -1,10 +1,30 @@
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Security
+@using BTCPayServer.Plugins.Boltz.Views
 @inject BoltzDaemon Daemon
+@inject BoltzService BoltzService
 
 @if (Daemon.Starting)
 {
     <div class="alert alert-info">
         <span>Boltz Client is Starting...</span>
     </div>
+}
+
+@{
+    var storeId = Context.GetImplicitStoreId();
+    if (BoltzService.IsStoreReadonly(storeId) && !ViewData.IsPageActive([BoltzNavPages.Payouts, BoltzNavPages.Swaps]))
+    {
+        var payouts = await BoltzService.GetPayouts(storeId);
+        if (payouts.Count > 0)
+        {
+            <div class="alert alert-info">
+                <span>
+                    There are payouts awaiting payment.
+                    <a href="@Url.Action("Payouts", "Boltz", new { storeId = Context.GetImplicitStoreId() })"
+                        class="alert-link">View payouts</a>
+                </span>
+            </div>
+        }
+    }
 }

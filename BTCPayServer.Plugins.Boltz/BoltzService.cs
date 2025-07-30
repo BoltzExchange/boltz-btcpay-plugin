@@ -6,6 +6,7 @@ using System.Configuration;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Autoswaprpc;
@@ -20,6 +21,7 @@ using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.PayoutProcessors;
+using BTCPayServer.PayoutProcessors.Lightning;
 using BTCPayServer.Payouts;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
@@ -33,6 +35,7 @@ using Microsoft.Extensions.Options;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using NBitcoin.Altcoins.Elements;
+using NBitcoin.DataEncoders;
 using Newtonsoft.Json.Linq;
 using MarkPayoutRequest = BTCPayServer.HostedServices.MarkPayoutRequest;
 using PullPaymentHostedService = BTCPayServer.HostedServices.PullPaymentHostedService;
@@ -55,7 +58,8 @@ public class BoltzService(
     BTCPayNetworkJsonSerializerSettings jsonSerializerSettings,
     PluginHookService pluginHookService,
     PaymentMethodHandlerDictionary paymentHandlers,
-    PayoutMethodHandlerDictionary payoutHandlers
+    PayoutMethodHandlerDictionary payoutHandlers,
+    LightningAutomatedPayoutSenderFactory lightningAutomatedPayoutSenderFactory
 )
     : EventHostedServiceBase(eventAggregator, logger)
 {
@@ -299,6 +303,17 @@ public class BoltzService(
         return daemon.GetClient(GetSettings(storeId));
     }
 
+    public async Task<bool> IsSwapRefundable(string? storeId, string? swapId)
+    {
+        var client = GetClient(storeId);
+        if (client is null)
+        {
+            return false;
+        }
+        var info = await client!.GetInfo();
+        return info.RefundableSwaps.Contains(swapId);
+    }
+
     public bool StoreConfigured(string? storeId)
     {
         return GetSettings(storeId)?.Mode is not null;
@@ -313,6 +328,11 @@ public class BoltzService(
 
         _settings!.TryGetValue(storeId, out var settings);
         return settings;
+    }
+
+    public bool IsStoreReadonly(string? storeId)
+    {
+        return GetSettings(storeId)?.StandaloneWallet?.Readonly ?? false;
     }
 
     public BoltzLightningClient? GetLightningClient(BoltzSettings? settings)
@@ -481,4 +501,105 @@ public class BoltzService(
     }
 
     public string Hook => "before-automated-payout-processing";
+
+    public async Task<Data.PayoutData?> GetPayout(string storeId, string payoutId)
+    {
+        var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
+        {
+            PayoutIds = [payoutId],
+            Stores = [storeId]
+        });
+        return payouts.FirstOrDefault(p => p.Id == payoutId);
+    }
+
+    public async Task<string?> GetPayoutSwap(string storeId, string payoutId)
+    {
+        var payout = await GetPayout(storeId, payoutId);
+        if (payout is null)
+        {
+            return null;
+        }
+
+        var client = GetClient(storeId);
+        if (client is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var destination = payout.GetBlob(jsonSerializerSettings).Destination;
+            var proof =
+                payoutHandlers.TryGet(payout.GetPayoutMethodId())?.ParseProof(payout) as PayoutLightningBlob;
+            var paymentHash = proof?.PaymentHash != null ? Encoders.Hex.DecodeData(proof.PaymentHash) : null;
+            if (paymentHash is not null)
+            {
+                var swapInfo = await client.GetSwapInfo(paymentHash);
+                return swapInfo.Swap!.Id;
+            }
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Could not get swap for payout {PayoutId}", payout.Id);
+        }
+
+        return null;
+    }
+
+    public async Task<string?> GetOrCreatePayoutSwap(string storeId, string payoutId)
+    {
+        var swapId = await GetPayoutSwap(storeId, payoutId);
+        if (swapId is not null)
+        {
+            return swapId;
+        }
+
+        var payout = await GetPayout(storeId, payoutId);
+        if (payout is null)
+        {
+            return null;
+        }
+
+        var store = await storeRepository.FindStore(storeId);
+        var processor = lightningAutomatedPayoutSenderFactory.ConstructProcessor(new Data.PayoutProcessorData()
+        {
+            Store = store!,
+            StoreId = storeId,
+            PayoutMethodId = payout.GetPayoutMethodId().ToString(),
+            Processor = LightningAutomatedPayoutSenderFactory.ProcessorName,
+            Id = Guid.NewGuid().ToString()
+        });
+
+        var ln = GetLightningClient(GetSettings(storeId));
+        var result = await processor.HandlePayout(payout, ln!, CancellationToken.None);
+        if (result.Success is false)
+        {
+            logger.LogError("Could not create payout swap for {PayoutId}: {Message}", payoutId, result.Message);
+            throw new Exception(result.Message);
+        }
+        return await GetPayoutSwap(storeId, payoutId);
+    }
+
+    public async Task<List<PayoutModel>> GetPayouts(string storeId)
+    {
+        var result = new List<PayoutModel>();
+
+        var payouts = await pullPaymentHostedService.GetPayouts(new PullPaymentHostedService.PayoutQuery
+        {
+            States = [PayoutState.AwaitingPayment, PayoutState.InProgress],
+            Stores = [storeId]
+        });
+
+        foreach (var payout in payouts)
+        {
+            result.Add(new PayoutModel
+            {
+                PayoutId = payout.Id,
+                Destination = payout.GetBlob(jsonSerializerSettings).Destination,
+                Amount = payout.Amount ?? 0,
+                CreatedAt = payout.Date,
+            });
+        }
+        return result;
+    }
 }

@@ -245,9 +245,10 @@
         </h5>
     }
 
-    @if (!string.IsNullOrEmpty(common.Error))
+    @if (!string.IsNullOrEmpty(common.Error) && common.State != SwapState.Refunded)
     {
-        if (common.Status == "transaction.lockupFailed")
+        var isRefundable = await BoltzService.IsSwapRefundable(storeId, common.Id);
+        if (isRefundable)
         {
             <form class="mb-3" method="post" asp-controller="Boltz" asp-action="RefundSwap" asp-route-id="@common.Id" asp-route-storeId="@Context.GetImplicitStoreId()">
                 <div class="form-group">

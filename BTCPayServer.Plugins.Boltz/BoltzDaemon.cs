@@ -55,7 +55,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.8.1");
+    private static readonly Version ClientVersion = new("2.8.2");
 
     private Stream? _downloadStream;
     private Task? _startTask;
@@ -540,7 +540,7 @@ public class BoltzDaemon(
         var daemonCancel = new CancellationTokenSource();
         _daemonTask = Run(daemonCancel, logOutput);
         var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-        wait.CancelAfter(TimeSpan.FromSeconds(60));
+        wait.CancelAfter(TimeSpan.FromSeconds(300));
         _daemonCancel = daemonCancel;
         await Wait(wait.Token);
         if (Running)

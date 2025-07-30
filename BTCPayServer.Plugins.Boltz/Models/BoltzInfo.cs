@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using Autoswaprpc;
 using Boltzrpc;
@@ -81,6 +82,19 @@ public class SwapsModel : BasePagingViewModel
     public ListSwapsResponse? Swaps { get; set; }
     public GetSwapInfoResponse? SwapInfo { get; set; }
     public override int CurrentPageCount => Swaps?.AllSwaps.Count ?? 0;
+}
+
+public class PayoutsModel
+{
+    public List<PayoutModel> Payouts { get; set; } = new();
+}
+
+public class PayoutModel
+{
+    public string PayoutId { get; set; } = string.Empty;
+    public string Destination { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public class FeesModel
