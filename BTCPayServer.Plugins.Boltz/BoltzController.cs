@@ -199,13 +199,40 @@ public class BoltzController(
                 return View(new WalletsModel { Wallets = wallets.Wallets_.ToList() });
             }
             vm.Wallet = await Boltz.GetWallet(walletName);
-            var response = await Boltz.ListWalletTransactions(new ListWalletTransactionsRequest
+            const int MaxCount = 30;
+            var allTransactions = new List<WalletTransaction>();
+            int remaining = vm.Count;
+            ulong offset = (ulong)vm.Skip;
+
+            while (remaining > 0)
             {
-                Id = vm.Wallet.Id,
-                Limit = (ulong)vm.Count,
-                Offset = (ulong)vm.Skip,
-            });
-            vm.Transactions = response.Transactions.ToList();
+                int fetchCount = Math.Min(remaining, MaxCount);
+                var response = await Boltz.ListWalletTransactions(new ListWalletTransactionsRequest
+                {
+                    Id = vm.Wallet.Id,
+                    Limit = (ulong)fetchCount,
+                    Offset = offset,
+                });
+
+                var transactions = response.Transactions.ToList();
+                if (transactions.Count == 0)
+                {
+                    break;
+                }
+
+                allTransactions.AddRange(transactions);
+
+                if (transactions.Count < fetchCount)
+                {
+                    // No more transactions to fetch
+                    break;
+                }
+
+                remaining -= transactions.Count;
+                offset += (ulong)transactions.Count;
+            }
+
+            vm.Transactions = allTransactions;
             return View("Wallet", vm);
         }
         catch (RpcException e)
