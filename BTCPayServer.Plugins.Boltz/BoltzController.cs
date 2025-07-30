@@ -199,7 +199,7 @@ public class BoltzController(
                 return View(new WalletsModel { Wallets = wallets.Wallets_.ToList() });
             }
             vm.Wallet = await Boltz.GetWallet(walletName);
-            const int MaxCount = 30;
+            const int MaxCount = 2;
             var allTransactions = new List<WalletTransaction>();
             int remaining = vm.Count;
             ulong offset = (ulong)vm.Skip;
