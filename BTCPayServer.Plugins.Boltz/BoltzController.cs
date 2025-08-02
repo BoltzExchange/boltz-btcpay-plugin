@@ -27,6 +27,7 @@ using ChainConfig = Autoswaprpc.ChainConfig;
 using LightningConfig = Autoswaprpc.LightningConfig;
 using RpcException = Grpc.Core.RpcException;
 using BTCPayServer.Abstractions.Models;
+using AngleSharp.Text;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -1152,6 +1153,12 @@ public class BoltzController(
                 {
                     TempData[WellKnownTempData.ErrorMessage] = "Mnemonic import is not allowed";
                     return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStoreId });
+                }
+
+                if (vm.WalletCredentials.CoreDescriptor is not null)
+                {
+                    var split = vm.WalletCredentials.CoreDescriptor.Split('\n');
+                    vm.WalletCredentials.CoreDescriptor = split[0].StripLineBreaks();
                 }
 
                 await Boltz.ImportWallet(walletParams, vm.WalletCredentials);
