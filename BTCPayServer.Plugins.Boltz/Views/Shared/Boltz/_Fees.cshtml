@@ -3,9 +3,18 @@
 @inject BoltzService BoltzService
 @model FeesModel
 @{
-    var pairInfo = await BoltzService.GetPairInfo(Model.Pair!, Model.SwapType!.Value);
-    if (pairInfo is null) return;
-    var stats = BoltzService.PairStats(pairInfo);
-}
+    try
+    {
+        var pairInfo = await BoltzService.GetPairInfo(Model.Pair!, Model.SwapType!.Value);
+        var stats = BoltzService.PairStats(pairInfo);
 
-<partial name="Boltz/_Stats" model="stats"/>
+        <partial name="Boltz/_Stats" model="stats" />
+    }
+    catch (Exception)
+    {
+        <div class="alert alert-danger">
+            Fee info not available, check logs for more details.
+        </div>
+        return;
+    }
+}

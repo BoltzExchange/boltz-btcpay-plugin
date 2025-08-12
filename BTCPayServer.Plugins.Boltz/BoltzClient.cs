@@ -34,6 +34,16 @@ public class BoltzClient : IDisposable
     private static GetPairsResponse? _pairs;
     private readonly ILogger<BoltzClient> _logger;
 
+    // Add default timeout and call options helpers
+    private static readonly TimeSpan DefaultGrpcTimeout = TimeSpan.FromSeconds(5);
+    private CallOptions _callOptions => new CallOptions(headers: _metadata, cancellationToken: new CancellationTokenSource(DefaultGrpcTimeout).Token);
+    private CallOptions CreateCallOptions(CancellationToken cancellationToken)
+    {
+        return cancellationToken == default
+            ? _callOptions
+            : new CallOptions(headers: _metadata, cancellationToken: cancellationToken);
+    }
+
     public BoltzClient(ILogger<BoltzClient> logger, Uri grpcEndpoint, string macaroon, string certPath,
         string? tenant = null)
     {
@@ -82,7 +92,7 @@ public class BoltzClient : IDisposable
 
     public async Task<GetInfoResponse> GetInfo(CancellationToken cancellationToken = default)
     {
-        return await _client.GetInfoAsync(new GetInfoRequest(), _metadata, cancellationToken: cancellationToken);
+        return await _client.GetInfoAsync(new GetInfoRequest(), CreateCallOptions(cancellationToken));
     }
 
     public async Task<ListSwapsResponse> ListSwaps()
@@ -92,45 +102,44 @@ public class BoltzClient : IDisposable
 
     public async Task<ListSwapsResponse> ListSwaps(ListSwapsRequest request)
     {
-        return await _client.ListSwapsAsync(request, _metadata);
+        return await _client.ListSwapsAsync(request, _callOptions);
     }
 
 
     public async Task<GetSwapInfoResponse> GetSwapInfo(string id)
     {
-        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id }, _metadata);
+        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id }, _callOptions);
     }
 
     public async Task<GetSwapInfoResponse> GetSwapInfo(byte[] paymentHash)
     {
-        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { PaymentHash = ByteString.CopyFrom(paymentHash) }, _metadata);
+        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { PaymentHash = ByteString.CopyFrom(paymentHash) }, _callOptions);
     }
 
     public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id,
         CancellationToken cancellationToken = default)
     {
-        return _client.GetSwapInfoStream(new GetSwapInfoRequest { SwapId = id }, _metadata,
-            cancellationToken: cancellationToken);
+        return _client.GetSwapInfoStream(new GetSwapInfoRequest { SwapId = id }, CreateCallOptions(cancellationToken));
     }
 
     public async Task<Wallets> GetWallets(bool includeReadonly)
     {
-        return await _client.GetWalletsAsync(new GetWalletsRequest { IncludeReadonly = includeReadonly }, _metadata);
+        return await _client.GetWalletsAsync(new GetWalletsRequest { IncludeReadonly = includeReadonly }, _callOptions);
     }
 
     public async Task<Wallet> GetWallet(string name)
     {
-        return await _client.GetWalletAsync(new GetWalletRequest { Name = name }, _metadata);
+        return await _client.GetWalletAsync(new GetWalletRequest { Name = name }, _callOptions);
     }
 
     public async Task<ListWalletTransactionsResponse> ListWalletTransactions(ListWalletTransactionsRequest request)
     {
-        return await _client.ListWalletTransactionsAsync(request, _metadata);
+        return await _client.ListWalletTransactionsAsync(request, _callOptions);
     }
 
     public async Task<GetSubaccountsResponse> GetSubaccounts(ulong walletId)
     {
-        return await _client.GetSubaccountsAsync(new GetSubaccountsRequest() { WalletId = walletId }, _metadata);
+        return await _client.GetSubaccountsAsync(new GetSubaccountsRequest() { WalletId = walletId }, _callOptions);
     }
 
     public async Task SetSubaccount(ulong walletId, ulong? subaccount)
@@ -141,93 +150,80 @@ public class BoltzClient : IDisposable
             request.Subaccount = subaccount.Value;
         }
 
-        await _client.SetSubaccountAsync(request, _metadata);
+        await _client.SetSubaccountAsync(request, _callOptions);
     }
 
     public async Task<Wallet> GetWallet(ulong id)
     {
-        return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _metadata);
+        return await _client.GetWalletAsync(new GetWalletRequest { Id = id }, _callOptions);
     }
 
     public async Task<RemoveWalletResponse> RemoveWallet(ulong id)
     {
-        return await _client.RemoveWalletAsync(new RemoveWalletRequest { Id = id }, _metadata);
+        return await _client.RemoveWalletAsync(new RemoveWalletRequest { Id = id }, _callOptions);
     }
 
     public async Task<WalletSendFee> GetWalletSendFee(WalletSendRequest request)
     {
-        return await _client.GetWalletSendFeeAsync(request, _metadata);
+        return await _client.GetWalletSendFeeAsync(request, _callOptions);
     }
 
     public async Task<WalletCredentials> GetWalletCredentials(ulong id)
     {
-        return await _client.GetWalletCredentialsAsync(new GetWalletCredentialsRequest { Id = id }, _metadata);
+        return await _client.GetWalletCredentialsAsync(new GetWalletCredentialsRequest { Id = id }, _callOptions);
     }
 
     public async Task<CreateWalletResponse> CreateWallet(WalletParams @params)
     {
-        return await _client.CreateWalletAsync(new CreateWalletRequest { Params = @params }, _metadata);
+        return await _client.CreateWalletAsync(new CreateWalletRequest { Params = @params }, _callOptions);
     }
 
     public async Task<Wallet> ImportWallet(WalletParams @params, WalletCredentials credentials)
     {
         return await _client.ImportWalletAsync(new ImportWalletRequest { Params = @params, Credentials = credentials },
-            _metadata);
+            _callOptions);
     }
 
     public async Task<WalletSendResponse> WalletSend(WalletSendRequest request)
     {
-        return await _client.WalletSendAsync(request, _metadata);
+        return await _client.WalletSendAsync(request, _callOptions);
     }
 
     public async Task<WalletReceiveResponse> WalletReceive(ulong id)
     {
-        return await _client.WalletReceiveAsync(new WalletReceiveRequest { Id = id }, _metadata);
+        return await _client.WalletReceiveAsync(new WalletReceiveRequest { Id = id }, _callOptions);
     }
 
     public async Task<GetRecommendationsResponse> GetAutoSwapRecommendations()
     {
-        return await _autoClient.GetRecommendationsAsync(new GetRecommendationsRequest(), _metadata);
+        return await _autoClient.GetRecommendationsAsync(new GetRecommendationsRequest(), _callOptions);
     }
 
     public async Task<ExecuteRecommendationsResponse> ExecuteAutoSwapRecommendations(
         ExecuteRecommendationsRequest request)
     {
-        return await _autoClient.ExecuteRecommendationsAsync(request, _metadata);
-    }
-
-    public async Task<PairInfo> GetPairInfo(Pair pair, SwapType swapType)
-    {
-        _pairs ??= await GetPairs();
-        var search = swapType switch
-        {
-            SwapType.Reverse => _pairs.Reverse,
-            SwapType.Submarine => _pairs.Submarine,
-            SwapType.Chain => _pairs.Chain,
-            _ => throw new ArgumentOutOfRangeException(nameof(swapType), swapType, null)
-        };
-        return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To)!;
+        return await _autoClient.ExecuteRecommendationsAsync(request, _callOptions);
     }
 
     public async Task<GetPairsResponse> GetPairs()
     {
-        _pairs = await _client.GetPairsAsync(new Empty(), _metadata);
+        _pairs = await _client.GetPairsAsync(new Empty(), _callOptions);
         return _pairs;
     }
 
     public async Task<SwapStats> GetStats()
     {
-        return (await _client.GetStatsAsync(new GetStatsRequest { Include = IncludeSwaps.Manual }, _metadata)).Stats;
+        return (await _client.GetStatsAsync(new GetStatsRequest { Include = IncludeSwaps.Manual }, _callOptions)).Stats;
     }
 
     public async Task ResetLnConfig()
     {
-        await _autoClient.UpdateLightningConfigAsync(new UpdateLightningConfigRequest { Reset = true }, _metadata);
+        await _autoClient.UpdateLightningConfigAsync(new UpdateLightningConfigRequest { Reset = true }, _callOptions);
     }
 
     public async Task ResetChainConfig()
     {
-        await _autoClient.UpdateChainConfigAsync(new UpdateChainConfigRequest { Reset = true }, _metadata);
+        await _autoClient.UpdateChainConfigAsync(new UpdateChainConfigRequest { Reset = true }, _callOptions);
     }
 
     private ChainConfig? ChainConfig(Config config)
@@ -258,7 +254,7 @@ public class BoltzClient : IDisposable
 
     public async Task<(LightningConfig?, ChainConfig?)> GetAutoSwapConfig()
     {
-        var config = await _autoClient.GetConfigAsync(new GetConfigRequest(), _metadata);
+        var config = await _autoClient.GetConfigAsync(new GetConfigRequest(), _callOptions);
         return (LightningConfig(config), ChainConfig(config));
     }
 
@@ -278,7 +274,7 @@ public class BoltzClient : IDisposable
 
     public async Task<GetStatusResponse> GetAutoSwapStatus()
     {
-        return await _autoClient.GetStatusAsync(new GetStatusRequest(), _metadata);
+        return await _autoClient.GetStatusAsync(new GetStatusRequest(), _callOptions);
     }
 
     public async Task UpdateAutoSwapConfig(BoltzConfig data)
@@ -288,7 +284,7 @@ public class BoltzClient : IDisposable
             await _autoClient.UpdateChainConfigAsync(new UpdateChainConfigRequest()
             {
                 Config = data.Chain
-            }, _metadata);
+            }, _callOptions);
         }
 
         if (data.Ln != null)
@@ -296,7 +292,7 @@ public class BoltzClient : IDisposable
             await _autoClient.UpdateLightningConfigAsync(new UpdateLightningConfigRequest
             {
                 Config = data.Ln
-            }, _metadata);
+            }, _callOptions);
         }
     }
 
@@ -308,7 +304,7 @@ public class BoltzClient : IDisposable
             request.FieldMask = FieldMask.FromStringEnumerable<LightningConfig>(paths);
         }
 
-        var result = await _autoClient.UpdateLightningConfigAsync(request, _metadata);
+        var result = await _autoClient.UpdateLightningConfigAsync(request, _callOptions);
         return result.Lightning[0];
     }
 
@@ -320,7 +316,7 @@ public class BoltzClient : IDisposable
             request.FieldMask = FieldMask.FromStringEnumerable<ChainConfig>(paths);
         }
 
-        var result = await _autoClient.UpdateChainConfigAsync(request, _metadata);
+        var result = await _autoClient.UpdateChainConfigAsync(request, _callOptions);
         return result.Chain[0];
     }
 
@@ -332,35 +328,35 @@ public class BoltzClient : IDisposable
     public async Task<CreateReverseSwapResponse> CreateReverseSwap(CreateReverseSwapRequest request,
         CancellationToken cancellation = new CancellationToken())
     {
-        return await _client.CreateReverseSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+        return await _client.CreateReverseSwapAsync(request, CreateCallOptions(cancellation));
     }
 
     public async Task<ChainSwapInfo> CreateChainSwap(CreateChainSwapRequest request,
         CancellationToken cancellation = default)
     {
-        return await _client.CreateChainSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+        return await _client.CreateChainSwapAsync(request, CreateCallOptions(cancellation));
     }
 
     public async Task<CreateSwapResponse> CreateSwap(CreateSwapRequest request,
         CancellationToken cancellation = default)
     {
-        return await _client.CreateSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+        return await _client.CreateSwapAsync(request, CreateCallOptions(cancellation));
     }
 
     public async Task<GetSwapInfoResponse> RefundSwap(RefundSwapRequest request,
         CancellationToken cancellation = default)
     {
-        return await _client.RefundSwapAsync(request, headers: _metadata, cancellationToken: cancellation);
+        return await _client.RefundSwapAsync(request, CreateCallOptions(cancellation));
     }
 
     public async Task<Tenant> CreateTenant(string name)
     {
-        return await _client.CreateTenantAsync(new CreateTenantRequest { Name = name }, _metadata);
+        return await _client.CreateTenantAsync(new CreateTenantRequest { Name = name }, _callOptions);
     }
 
     public async Task<Tenant> GetTenant(string name)
     {
-        return await _client.GetTenantAsync(new GetTenantRequest { Name = name }, _metadata);
+        return await _client.GetTenantAsync(new GetTenantRequest { Name = name }, _callOptions);
     }
 
     public async Task Stop(CancellationToken cancellationToken = default)
@@ -369,7 +365,7 @@ public class BoltzClient : IDisposable
         {
             await _invoiceStreamCancel.CancelAsync();
         }
-        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
+        await _client.StopAsync(new Empty(), CreateCallOptions(cancellationToken));
     }
 
     public async Task<BakeMacaroonResponse> BakeMacaroon(ulong tenantId)
@@ -388,7 +384,7 @@ public class BoltzClient : IDisposable
                     Action = MacaroonAction.Write,
                 },
             },
-        }, _metadata);
+        }, _callOptions);
     }
 
     private EventHandler<GetSwapInfoResponse>? _swapUpdate;
@@ -423,8 +419,7 @@ public class BoltzClient : IDisposable
         {
             try
             {
-                using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), _metadata,
-                    cancellationToken: _invoiceStreamCancel.Token);
+                using var stream = _client.GetSwapInfoStream(new GetSwapInfoRequest(), CreateCallOptions(_invoiceStreamCancel.Token));
                 while (await stream.ResponseStream.MoveNext(_invoiceStreamCancel.Token))
                 {
                     _swapUpdate?.Invoke(this, stream.ResponseStream.Current);
