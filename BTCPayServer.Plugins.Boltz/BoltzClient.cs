@@ -205,19 +205,6 @@ public class BoltzClient : IDisposable
         return await _autoClient.ExecuteRecommendationsAsync(request, _callOptions);
     }
 
-    public async Task<PairInfo> GetPairInfo(Pair pair, SwapType swapType)
-    {
-        _pairs ??= await GetPairs();
-        var search = swapType switch
-        {
-            SwapType.Reverse => _pairs.Reverse,
-            SwapType.Submarine => _pairs.Submarine,
-            SwapType.Chain => _pairs.Chain,
-            _ => throw new ArgumentOutOfRangeException(nameof(swapType), swapType, null)
-        };
-        return search.ToList().Find(p => p.Pair.From == pair.From && p.Pair.To == pair.To)!;
-    }
-
     public async Task<GetPairsResponse> GetPairs()
     {
         _pairs = await _client.GetPairsAsync(new Empty(), _callOptions);

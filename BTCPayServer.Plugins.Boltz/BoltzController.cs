@@ -148,9 +148,9 @@ public class BoltzController(
                 }
             }
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+            SetErrorMessage(e);
         }
 
         return View(data);
@@ -176,9 +176,9 @@ public class BoltzController(
             await Boltz.ExecuteAutoSwapRecommendations(request);
             TempData[WellKnownTempData.SuccessMessage] = "Recommendations executed";
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+            SetErrorMessage(e);
         }
 
         return RedirectToAction(nameof(Status), new { storeId });
@@ -236,12 +236,9 @@ public class BoltzController(
             vm.Transactions = allTransactions;
             return View("Wallet", vm);
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            if (!e.Status.Detail.Contains("not implemented"))
-            {
-                TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
-            }
+            SetErrorMessage(e);
             return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
         }
     }
@@ -278,9 +275,9 @@ public class BoltzController(
             await Boltz.RemoveWallet(walletId);
             TempData[WellKnownTempData.SuccessMessage] = "Wallet deleted";
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+            SetErrorMessage(e);
         }
 
         return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
@@ -311,9 +308,9 @@ public class BoltzController(
                 });
             }
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+            SetErrorMessage(e);
         }
 
         return View(vm);
@@ -339,7 +336,7 @@ public class BoltzController(
         }
         catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Message;
+            SetErrorMessage(e);
         }
 
         return View(vm);
@@ -374,7 +371,7 @@ public class BoltzController(
         }
         catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = "Error connecting to Boltz: " + e.Message;
+            SetErrorMessage(e, "Error connecting to Boltz");
         }
 
         return View(data);
@@ -415,8 +412,8 @@ public class BoltzController(
 
                 var pair = new Pair { From = vm.Wallet.Currency, To = Currency.Btc };
                 var maxSend = (ulong)Math.Max((long)(vm.WalletSendFee.Amount - vm.ReserveBalance), 0);
-                vm.LnInfo = await Boltz.GetPairInfo(pair, SwapType.Submarine);
-                vm.ChainInfo = await Boltz.GetPairInfo(pair, SwapType.Chain);
+                vm.LnInfo = await boltzService.GetPairInfo(pair, SwapType.Submarine);
+                vm.ChainInfo = await boltzService.GetPairInfo(pair, SwapType.Chain);
                 var fees = vm.LnInfo.Fees;
                 // the service fee is applied to the LN amount
                 var maxLn = (ulong)Math.Floor((maxSend - fees.MinerFees) / (1 + fees.Percentage / 100));
@@ -424,9 +421,10 @@ public class BoltzController(
                 vm.ChainInfo.Limits.Maximal = Math.Min(vm.ChainInfo.Limits.Maximal, maxSend);
             }
         }
-        catch (RpcException)
+        catch (Exception e)
         {
-            return NotFound();
+            SetErrorMessage(e);
+            return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
         }
 
         return View(vm);
@@ -457,9 +455,10 @@ public class BoltzController(
                 RequireConfirm = false,
             });
         }
-        catch (RpcException)
+        catch (Exception e)
         {
-            return NotFound();
+            SetErrorMessage(e);
+            return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
         }
     }
 
@@ -531,9 +530,9 @@ public class BoltzController(
 
             vm.Wallet = await Boltz.GetWallet(walletId);
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+            SetErrorMessage(e);
         }
 
         return RedirectToAction(nameof(WalletSend), new { storeId = CurrentStoreId, walletId });
@@ -554,12 +553,20 @@ public class BoltzController(
             {
                 vm.SwapInfo = await Boltz.GetSwapInfo(swapId);
             }
+            vm.ChainPair = new Pair
+            {
+                From = vm.Wallet.Currency == Currency.Btc ? Currency.Lbtc : Currency.Btc,
+                To = vm.Wallet.Currency
+            };
+            vm.ChainInfo = await boltzService.GetPairInfo(vm.ChainPair, SwapType.Chain);
+            vm.LnInfo = await boltzService.GetPairInfo(vm.ChainPair, SwapType.Reverse);
 
             return View(vm);
         }
-        catch (RpcException)
+        catch (Exception e)
         {
-            return NotFound();
+            SetErrorMessage(e);
+            return RedirectToAction(nameof(Status), new { storeId = CurrentStoreId });
         }
     }
 
@@ -610,9 +617,9 @@ public class BoltzController(
                     return RedirectToAction(nameof(WalletReceive), new { storeId, walletId, swapId = chainSwap.Id });
             }
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+            SetErrorMessage(e);
         }
 
         return RedirectToAction(nameof(WalletReceive), new { storeId = CurrentStoreId, walletId });
@@ -629,9 +636,9 @@ public class BoltzController(
                 var info = await Boltz.GetSwapInfo(id);
                 return PartialView("_SwapInfoPartial", info);
             }
-            catch (RpcException)
+            catch (Exception e)
             {
-                return NotFound();
+                SetErrorMessage(e);
             }
         }
 
@@ -651,12 +658,20 @@ public class BoltzController(
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.Headers.Append("Cache-Control", "no-cache");
         Response.Headers.Append("Connection", "keep-alive");
-        while (await stream.ResponseStream.MoveNext(CancellationToken.None))
+        var ct = HttpContext.RequestAborted;
+        try
         {
-            var info = stream.ResponseStream.Current;
-            var swapId = info.Swap?.Id ?? info.ReverseSwap?.Id ?? info.ChainSwap?.Id ?? "";
-            await Response.WriteAsync($"data: {swapId}\r\r");
-            await Response.Body.FlushAsync();
+            while (await stream.ResponseStream.MoveNext(ct))
+            {
+                var info = stream.ResponseStream.Current;
+                var swapId = info.Swap?.Id ?? info.ReverseSwap?.Id ?? info.ChainSwap?.Id ?? "";
+                await Response.WriteAsync($"data: {swapId}\r\r", ct);
+                await Response.Body.FlushAsync(ct);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // client disconnected; end silently
         }
     }
 
@@ -677,9 +692,9 @@ public class BoltzController(
             });
             TempData[WellKnownTempData.SuccessMessage] = "Swap refunded";
         }
-        catch (RpcException e)
+        catch (Exception e)
         {
-            TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+            SetErrorMessage(e);
         }
 
         return RedirectToAction(nameof(Status), new { storeId, swapId = id });
@@ -750,9 +765,9 @@ public class BoltzController(
             {
                 vm.Info = await boltzDaemon.AdminClient.GetInfo();
             }
-            catch (RpcException e)
+            catch (Exception e)
             {
-                TempData[WellKnownTempData.ErrorMessage] = "Error connecting to Boltz: " + e.Status.Detail;
+                SetErrorMessage(e, "Error connecting to Boltz");
             }
         }
 
@@ -856,6 +871,16 @@ public class BoltzController(
     private RedirectToActionResult RedirectSetup()
     {
         return RedirectToAction(nameof(SetupMode), new { storeId = CurrentStoreId });
+    }
+
+    private void SetErrorMessage(Exception e, string? prefix = null)
+    {
+        var message = e is RpcException rpc ? rpc.Status.Detail : e.Message;
+        if (!string.IsNullOrEmpty(prefix))
+        {
+            message = $"{prefix}: {message}";
+        }
+        TempData[WellKnownTempData.ErrorMessage] = message;
     }
 
     [HttpGet("setup/{mode?}")]
@@ -1090,9 +1115,9 @@ public class BoltzController(
                         return await SetupSubaccount(vm, null);
                     }
                 }
-                catch (RpcException e)
+                catch (Exception e)
                 {
-                    TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+                    SetErrorMessage(e);
                 }
             }
 
@@ -1112,9 +1137,9 @@ public class BoltzController(
                 var wallet = await Boltz.GetWallet(vm.WalletName!);
                 await Boltz.SetSubaccount(wallet.Id, subaccount);
             }
-            catch (RpcException e)
+            catch (Exception e)
             {
-                TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+                SetErrorMessage(e);
             }
 
             return await SetupWallet(vm, vm.StoreId!);
@@ -1169,9 +1194,9 @@ public class BoltzController(
 
                 return RedirectToAction(nameof(SetupSubaccount), vm.GetRouteData("initialRender", true));
             }
-            catch (RpcException e)
+            catch (Exception e)
             {
-                TempData[WellKnownTempData.ErrorMessage] = e.Status.Detail;
+                SetErrorMessage(e);
                 return RedirectToAction(vm.ImportMethod is null ? "CreateWallet" : "ImportWallet", vm.RouteData);
             }
         }
@@ -1338,46 +1363,54 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            var fromWallet = await GetChainSwapsFromWallet();
-            if (fromWallet is null)
+            try
             {
-                TempData[WellKnownTempData.ErrorMessage] = "No suitable wallet found for chain swaps";
+                var fromWallet = await GetChainSwapsFromWallet();
+                if (fromWallet is null)
+                {
+                    TempData[WellKnownTempData.ErrorMessage] = "No suitable wallet found for chain swaps";
+                    return RedirectToAction(nameof(Status), new { storeId });
+                }
+
+                var info = await boltzService.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
+                var vm = new ChainSetup { PairInfo = info };
+
+                if (Settings?.Mode == BoltzMode.Standalone)
+                {
+                    vm.MaxBalance = 10_000_000;
+                    vm.ReserveBalance = 500_000;
+                    ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                        new { flow = WalletSetupFlow.Standalone, storeId });
+                }
+                else
+                {
+                    var recommendations = await Boltz.GetAutoSwapRecommendations();
+                    foreach (var recommendation in recommendations.Lightning)
+                    {
+                        vm.MaxBalance += recommendation.Channel.Capacity;
+                    }
+
+                    var swapType = LightningSetup?.SwapType;
+                    if (swapType is null)
+                    {
+                        var (ln, _) = await Boltz.GetAutoSwapConfig();
+                        swapType = ln?.SwapType;
+                    }
+
+                    if (swapType != "reverse")
+                    {
+                        vm.ReserveBalance = Math.Max(vm.ReserveBalance, vm.MaxBalance / 2);
+                    }
+                }
+
+                ChainSetup = new ChainConfig { FromWallet = fromWallet };
+                return View(vm);
+            }
+            catch (Exception e)
+            {
+                SetErrorMessage(e);
                 return RedirectToAction(nameof(Status), new { storeId });
             }
-
-            var info = await Boltz.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
-            var vm = new ChainSetup { PairInfo = info };
-
-            if (Settings?.Mode == BoltzMode.Standalone)
-            {
-                vm.MaxBalance = 10_000_000;
-                vm.ReserveBalance = 500_000;
-                ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
-                    new { flow = WalletSetupFlow.Standalone, storeId });
-            }
-            else
-            {
-                var recommendations = await Boltz.GetAutoSwapRecommendations();
-                foreach (var recommendation in recommendations.Lightning)
-                {
-                    vm.MaxBalance += recommendation.Channel.Capacity;
-                }
-
-                var swapType = LightningSetup?.SwapType;
-                if (swapType is null)
-                {
-                    var (ln, _) = await Boltz.GetAutoSwapConfig();
-                    swapType = ln?.SwapType;
-                }
-
-                if (swapType != "reverse")
-                {
-                    vm.ReserveBalance = Math.Max(vm.ReserveBalance, vm.MaxBalance / 2);
-                }
-            }
-
-            ChainSetup = new ChainConfig { FromWallet = fromWallet };
-            return View(vm);
         }
 
         return RedirectSetup();
@@ -1411,30 +1444,38 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            if (LightningSetup is not null)
+            try
             {
-                await SetLightningConfig(LightningSetup);
-            }
+                if (LightningSetup is not null)
+                {
+                    await SetLightningConfig(LightningSetup);
+                }
 
-            if (ChainSetup is not null)
+                if (ChainSetup is not null)
+                {
+                    await SetChainConfig(ChainSetup);
+                }
+                else
+                {
+                    await Boltz.ResetChainConfig();
+                }
+
+                await boltzService.Set(CurrentStoreId!, Settings);
+
+                if (await Boltz.IsAutoSwapConfigured())
+                {
+                    var vm = await Boltz.GetAutoSwapRecommendations();
+                    return View(vm);
+                }
+
+                return RedirectToAction(nameof(Status),
+                    new { storeId });
+            }
+            catch (Exception e)
             {
-                await SetChainConfig(ChainSetup);
+                SetErrorMessage(e);
+                return RedirectToAction(nameof(Configuration), new { storeId });
             }
-            else
-            {
-                await Boltz.ResetChainConfig();
-            }
-
-            await boltzService.Set(CurrentStoreId!, Settings);
-
-            if (await Boltz.IsAutoSwapConfigured())
-            {
-                var vm = await Boltz.GetAutoSwapRecommendations();
-                return View(vm);
-            }
-
-            return RedirectToAction(nameof(Status),
-                new { storeId });
         }
 
         return RedirectSetup();
@@ -1445,21 +1486,29 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            if (command == "Enable")
+            try
             {
-                await Boltz.EnableAutoSwap();
-                TempData[WellKnownTempData.SuccessMessage] = "Auto swap enabled";
-            }
+                if (command == "Enable")
+                {
+                    await Boltz.EnableAutoSwap();
+                    TempData[WellKnownTempData.SuccessMessage] = "Auto swap enabled";
+                }
 
-            if (LightningSetup != null && await GetChainSwapsFromWallet() != null)
-            {
-                LightningSetup = null;
-                return RedirectToAction(nameof(SetupChain),
+                if (LightningSetup != null && await GetChainSwapsFromWallet() != null)
+                {
+                    LightningSetup = null;
+                    return RedirectToAction(nameof(SetupChain),
+                        new { storeId });
+                }
+
+                return RedirectToAction(nameof(Status),
                     new { storeId });
             }
-
-            return RedirectToAction(nameof(Status),
-                new { storeId });
+            catch (Exception e)
+            {
+                SetErrorMessage(e);
+                return RedirectToAction(nameof(Enable), new { storeId });
+            }
         }
 
         return RedirectSetup();

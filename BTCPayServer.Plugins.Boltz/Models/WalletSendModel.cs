@@ -41,4 +41,9 @@ public class WalletReceiveModel
     public string? Address { get; set; }
 
     public GetSwapInfoResponse? SwapInfo { get; set; }
+
+    public PairInfo? LnInfo { get; set; }
+    public PairInfo? ChainInfo { get; set; }
+
+    public Pair ChainPair { get; set; }
 }
