@@ -44,72 +44,73 @@
     {
         <style>
             @@media(min - width: 1400px) {
-                    .widget.boltz-lightning {
-                        grid-column-start: 1;
-                        grid-column-end: 7;
-                    }
-
-                    .widget.boltz-chain {
-                        grid-column-start: 7;
-                        grid-column-end: 13;
-                    }
+                .widget.boltz-lightning {
+                    grid-column-start: 1;
+                    grid-column-end: 7;
                 }
-            </style>
-        }
 
-        @if (isStandalone)
+                .widget.boltz-chain {
+                    grid-column-start: 7;
+                    grid-column-end: 13;
+                }
+            }
+        </style>
+    }
+
+    @if (isStandalone)
+    {
+        var stats = await client.GetStats();
+        <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
+            <header>
+                <div class="d-flex align-items-center justify-content-start gap-2">
+                    <span class="btcpay-status btcpay-status--enabled"></span>
+                    <h6 class="text-truncate">Lightning Payments</h6>
+                </div>
+                <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
+                    Manage
+                </a>
+            </header>
+            <partial name="Boltz/_Stats" model="@BoltzClient.ParseStats(stats)" />
+        </div>
+    }
+
+
+    @if (lnConfigured || chainConfigured)
+    {
+        var status = await client.GetAutoSwapStatus();
+
+        @if (lnConfigured)
         {
-            var stats = await client.GetStats();
+            var lnStatus = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = status.Lightning, Compact = true };
             <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
-                <header>
-                    <div class="d-flex align-items-center justify-content-start gap-2">
-                        <span class="btcpay-status btcpay-status--enabled"></span>
-                        <h6 class="text-truncate">Lightning Payments</h6>
-                    </div>
-                    <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
-                        Manage
-                    </a>
-                </header>
-                <partial name="Boltz/_Stats" model="@BoltzClient.ParseStats(stats)" />
+                <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
             </div>
         }
 
-
-        @if (lnConfigured || chainConfigured)
+        @if (chainConfigured)
         {
-            var status = await client.GetAutoSwapStatus();
-
-            @if (lnConfigured)
-            {
-                var lnStatus = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = status.Lightning, Compact = true };
-                <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
-                    <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
-                </div>
-            }
-
-            @if (chainConfigured)
-            {
-                var chainStatus = new AutoSwapStatus { SwapperType = SwapperType.Chain, Status = status.Chain, Compact = true };
-                <div id="StoreBoltzChain-@Model.StoreId" class="widget boltz-chain">
-                    <partial name="Boltz/_AutoSwapStatus" model="chainStatus" />
-                </div>
-            }
+            var chainStatus = new AutoSwapStatus { SwapperType = SwapperType.Chain, Status = status.Chain, Compact = true };
+            <div id="StoreBoltzChain-@Model.StoreId" class="widget boltz-chain">
+                <partial name="Boltz/_AutoSwapStatus" model="chainStatus" />
+            </div>
         }
     }
-catch (RpcException)
-{
-    <div class="alert alert-warning">
-        <p>
-            Boltz connection not working.
-        </p>
-    </div>
 }
-catch (Exception ex)
+catch (Exception)
 {
-    <div class="alert alert-danger">
-        <p>
-            An error occurred while fetching Boltz information.
-        </p>
-        <pre>@ex</pre>
+    <div style="grid-column-start: 1; grid-column-end: 13">
+        @if (User.IsInRole(Roles.ServerAdmin))
+        {
+            <a asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetImplicitStoreId()"
+                class="alert alert-danger d-block">
+                Boltz connection not working
+            </a>
+        }
+        else
+        {
+            <div class="alert alert-danger">
+                <p>Boltz connection not working, tell a server admin.</p>
+            </div>
+        }
     </div>
 }

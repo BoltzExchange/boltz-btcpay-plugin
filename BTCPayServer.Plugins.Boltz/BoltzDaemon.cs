@@ -131,6 +131,13 @@ public class BoltzDaemon(
                     {
                         latestError = e.Status.Detail;
                     }
+                    // dont block startup if backend is unavailable - it will retry connecting in the background and
+                    // the grpc calls will simply fail until the backend is available
+                    if (e.Status.StatusCode == StatusCode.Unavailable && !e.Status.Detail.Contains("sync"))
+                    {
+                        AdminClient = client;
+                        return;
+                    }
 
                     await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 }
