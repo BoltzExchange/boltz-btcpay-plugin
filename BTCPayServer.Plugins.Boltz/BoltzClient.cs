@@ -35,7 +35,7 @@ public class BoltzClient : IDisposable
     private readonly ILogger<BoltzClient> _logger;
 
     // Add default timeout and call options helpers
-    private static readonly TimeSpan DefaultGrpcTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DefaultGrpcTimeout = TimeSpan.FromSeconds(10);
     private CallOptions _callOptions => new CallOptions(headers: _metadata, cancellationToken: new CancellationTokenSource(DefaultGrpcTimeout).Token);
     private CallOptions CreateCallOptions(CancellationToken cancellationToken)
     {
