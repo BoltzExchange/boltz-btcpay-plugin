@@ -55,7 +55,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.3.4");
+    private static readonly Version ClientVersion = new("2.6.1");
 
     private Stream? _downloadStream;
     private Task? _startTask;
@@ -290,7 +290,7 @@ public class BoltzDaemon(
         }
     }
 
-    public NodeConfig GetNodeConfig(ILightningClient? node)
+    public NodeConfig? GetNodeConfig(ILightningClient? node)
     {
         switch (node)
         {
@@ -354,6 +354,8 @@ public class BoltzDaemon(
                         Port = 10009,
                     }
                 };
+            case null:
+                return null;
             default:
                 throw new Exception("Unsupported lightning client");
         }
@@ -457,7 +459,7 @@ public class BoltzDaemon(
                 }
                 else
                 {
-                    currentVersion = stdout.Split("\n").First().Split("-").First().Remove(0, 1);
+                    currentVersion = stdout.Split("\n").First().Split("-").First().TrimStart('v');
                 }
             }
 
@@ -504,31 +506,31 @@ public class BoltzDaemon(
         catch (OperationCanceledException)
         {
             process.Kill();
-            throw;
+            await process.WaitForExitAsync();
         }
-
-        var wasRunning = Running;
-        AdminClient?.Dispose();
-        AdminClient = null;
-
-        if (process.ExitCode != 0)
+        finally
         {
-            if (logOutput || wasRunning)
-            {
-                Error = $"Process exited with code {process.ExitCode}";
-                logger.LogError(Error);
-                logger.LogInformation(RecentOutput);
-            }
+            var wasRunning = Running;
+            AdminClient = null;
 
-            if (wasRunning)
+            if (process.ExitCode != 0)
             {
-                logger.LogInformation("Restarting in 10 seconds");
-                await Task.Delay(10000, daemonCancel.Token);
-                InitiateStart();
+                if (logOutput || wasRunning)
+                {
+                    Error = $"Process exited with code {process.ExitCode}";
+                    logger.LogError(Error);
+
+                    logger.LogInformation(RecentOutput);
+                }
+
+                if (wasRunning && !daemonCancel.IsCancellationRequested)
+                {
+                    logger.LogInformation("Restarting in 10 seconds");
+                    await Task.Delay(10000, daemonCancel.Token);
+                    InitiateStart();
+                }
             }
         }
-
-        await daemonCancel.CancelAsync();
     }
 
     private async Task Start(bool logOutput = true)
@@ -543,7 +545,10 @@ public class BoltzDaemon(
         await Wait(wait.Token);
         if (Running)
         {
-            AdminClient!.SwapUpdate += SwapUpdate!;
+            AdminClient!.SwapUpdate += (sender, response) =>
+            {
+                SwapUpdate?.Invoke(sender, response);
+            };
         }
     }
 
@@ -582,9 +587,11 @@ public class BoltzDaemon(
                 await _daemonCancel.CancelAsync();
             }
 
-            await _daemonTask.WaitAsync(source.Token);
+            await _daemonTask.WaitAsync(CancellationToken.None);
             logger.LogInformation("Stopped");
         }
+        // make sure to clear any leftover channels
+        BoltzClient.Clear();
     }
 
     private Process NewProcess(string fileName, string args)

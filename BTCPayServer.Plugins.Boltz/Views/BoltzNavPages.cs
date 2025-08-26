@@ -5,5 +5,7 @@ public enum BoltzNavPages
     Status,
     Swaps,
     Configuration,
-    Admin
+    Admin,
+    Wallets,
+    OnchainSettings,
 }

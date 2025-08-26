@@ -1,12 +1,7 @@
-@using BTCPayServer.Security
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @using BTCPayServer.Plugins.Boltz
 @using BTCPayServer.Plugins.Boltz.Models
-@using Boltzrpc
-@using BTCPayServer.Services
 @model BTCPayServer.Plugins.Boltz.Models.WalletSetup
-@inject PoliciesSettings PoliciesSettings
-@inject BoltzService BoltzService
 @{
     Layout = "_LayoutSetup";
     var routeData = Model.RouteData;
@@ -16,6 +11,7 @@
         WalletSetupFlow.Chain => "Your mainchain BTC will be sent to this wallet",
         WalletSetupFlow.Standalone => "Select the wallet to be used for receiving lightning payments",
         WalletSetupFlow.Lightning => "Select the wallet to be used for rebalancing your channels",
+        WalletSetupFlow.OnchainPayments => "Select the wallet where funds should be sent if the swap to lightning fails",
         _ => "",
     };
 }

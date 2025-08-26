@@ -47,11 +47,13 @@ public enum WalletSetupFlow
     Lightning,
     Chain,
     Manual,
+    OnchainPayments,
 }
 
 public class ExistingWallet
 {
     public String Name { get; set; } = "";
+    public ulong? Id { get; set; }
     public bool IsBtcpay { get; set; }
     public bool IsReadonly { get; set; }
     public ulong? Balance { get; set; }

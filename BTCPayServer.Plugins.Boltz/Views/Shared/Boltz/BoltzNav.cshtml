@@ -7,7 +7,7 @@
 @inject BoltzService BoltzService
 @{
     var storeId = ScopeProvider.GetCurrentStoreId();
-    var pages = new List<BoltzNavPages> { BoltzNavPages.Configuration, BoltzNavPages.Swaps, BoltzNavPages.Admin };
+    var pages = new List<BoltzNavPages> { BoltzNavPages.Configuration, BoltzNavPages.Swaps, BoltzNavPages.Admin, BoltzNavPages.Wallets };
 }
 
 @if (!string.IsNullOrEmpty(storeId))

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Autoswaprpc;
 using Boltzrpc;
 using BTCPayServer.Plugins.Boltz.Models;
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -97,13 +98,18 @@ public class BoltzClient : IDisposable
 
     public async Task<GetSwapInfoResponse> GetSwapInfo(string id)
     {
-        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { Id = id }, _metadata);
+        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id }, _metadata);
+    }
+    
+    public async Task<GetSwapInfoResponse> GetSwapInfo(byte[] paymentHash)
+    {
+        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { PaymentHash = ByteString.CopyFrom(paymentHash) }, _metadata);
     }
 
     public AsyncServerStreamingCall<GetSwapInfoResponse> GetSwapInfoStream(string id,
         CancellationToken cancellationToken = default)
     {
-        return _client.GetSwapInfoStream(new GetSwapInfoRequest { Id = id }, _metadata,
+        return _client.GetSwapInfoStream(new GetSwapInfoRequest { SwapId = id }, _metadata,
             cancellationToken: cancellationToken);
     }
 
@@ -359,11 +365,11 @@ public class BoltzClient : IDisposable
 
     public async Task Stop(CancellationToken cancellationToken = default)
     {
-        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
         if (_invoiceStreamCancel is not null)
         {
             await _invoiceStreamCancel.CancelAsync();
         }
+        await _client.StopAsync(new Empty(), _metadata, cancellationToken: cancellationToken);
     }
 
     public async Task<BakeMacaroonResponse> BakeMacaroon(ulong tenantId)
@@ -433,6 +439,16 @@ public class BoltzClient : IDisposable
     }
 
     public void Dispose()
+    {
+        foreach (var channel in Channels.Values)
+        {
+            channel.Dispose();
+        }
+
+        Channels.Clear();
+    }
+
+    public static void Clear()
     {
         foreach (var channel in Channels.Values)
         {
