@@ -703,7 +703,7 @@ public class BoltzController(
     private async Task<BoltzSettings> SetStandaloneWallet(BoltzSettings settings, string name)
     {
         var wallet = await Boltz!.GetWallet(name);
-        settings.StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name, Readonly = wallet.Readonly };
+        settings.SetStandaloneWallet(wallet);
         return settings;
     }
 
