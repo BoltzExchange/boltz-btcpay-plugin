@@ -50,4 +50,8 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(GrpcUrl?.ToString()) &&
             !string.IsNullOrWhiteSpace(Macaroon);
     }
+
+    public void SetStandaloneWallet(Boltzrpc.Wallet wallet) {
+        StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name, Readonly = wallet.Readonly };
+    }
 }
