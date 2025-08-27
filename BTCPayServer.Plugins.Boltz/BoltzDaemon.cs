@@ -133,7 +133,7 @@ public class BoltzDaemon(
                     }
                     // dont block startup if backend is unavailable - it will retry connecting in the background and
                     // the grpc calls will simply fail until the backend is available
-                    if (RecentOutput.Contains("Boltz backend be unavailable"))
+                    if (RecentOutput.Contains("Boltz backend be unavailable") || RecentOutput.Contains("Boltz backend is unavailable"))
                     {
                         AdminClient = client;
                         return;
