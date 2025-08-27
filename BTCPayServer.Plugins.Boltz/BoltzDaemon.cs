@@ -530,11 +530,15 @@ public class BoltzDaemon(
                     logger.LogInformation(RecentOutput);
                 }
 
-                if (wasRunning && !daemonCancel.IsCancellationRequested)
+                if (!daemonCancel.IsCancellationRequested)
                 {
-                    logger.LogInformation("Restarting in 10 seconds");
-                    await Task.Delay(10000, daemonCancel.Token);
-                    InitiateStart();
+                    await daemonCancel.CancelAsync();
+                    if (wasRunning)
+                    {
+                        logger.LogInformation("Restarting in 10 seconds");
+                        await Task.Delay(10000, daemonCancel.Token);
+                        InitiateStart();
+                    }
                 }
             }
         }
