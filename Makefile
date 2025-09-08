@@ -12,3 +12,16 @@ gh-release:
 		gpg --detach-sig SHA256SUMS
 	gh release create v$(VERSION) --title v$(VERSION) --draft --notes-file release-notes-template.md $(RELEASE_PATH)/*
 
+btcpay-appsettings:
+	echo "{ \
+	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net8.0/BTCPayServer.Plugins.Boltz.dll\" \
+	}" > ./btcpayserver/BTCPayServer/appsettings.dev.json
+
+build:
+	dotnet build BTCPayServer.Plugins.Boltz
+
+run:
+	cd ./btcpayserver/BTCPayServer && dotnet run --launch-profile "Bitcoin-Boltz"
+
+dev: btcpay-appsettings build run
+
