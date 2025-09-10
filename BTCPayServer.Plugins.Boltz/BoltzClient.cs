@@ -440,12 +440,7 @@ public class BoltzClient : IDisposable
 
     public void Dispose()
     {
-        foreach (var channel in Channels.Values)
-        {
-            channel.Dispose();
-        }
-
-        Channels.Clear();
+        Clear();
     }
 
     public static void Clear()

@@ -21,7 +21,6 @@ using Microsoft.Extensions.Options;
 using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
-using OperationCanceledException = System.OperationCanceledException;
 using SHA256 = System.Security.Cryptography.SHA256;
 
 namespace BTCPayServer.Plugins.Boltz;
@@ -59,8 +58,7 @@ public class BoltzDaemon(
 
     private Stream? _downloadStream;
     private Task? _startTask;
-    private CancellationTokenSource? _daemonCancel;
-    private Task? _daemonTask;
+    private Process? _daemonProcess;
     private readonly List<string> _output = new();
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
@@ -92,68 +90,6 @@ public class BoltzDaemon(
         System.Runtime.InteropServices.Architecture.X64 => "amd64",
         _ => throw new NotSupportedException("Unsupported architecture")
     };
-
-    public async Task Wait(CancellationToken cancellationToken)
-    {
-        var latestError = string.Empty;
-        try
-        {
-            var path = Path.Combine(DataDir, "macaroons", "admin.macaroon");
-            while (!File.Exists(path))
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
-            }
-
-            while (!File.Exists(CertFile))
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
-            }
-
-            logger.LogInformation("Admin macaroon and certificate found");
-
-            while (true)
-            {
-                var reader = await File.ReadAllBytesAsync(path, cancellationToken);
-                AdminMacaroon = Convert.ToHexString(reader).ToLower();
-                var client = new BoltzClient(clientLogger, DefaultUri, AdminMacaroon, CertFile, "all");
-
-                try
-                {
-                    await client.GetInfo(cancellationToken);
-                    logger.LogInformation("Running");
-                    AdminClient = client;
-                    Error = null;
-                    return;
-                }
-                catch (RpcException e)
-                {
-                    if (!cancellationToken.IsCancellationRequested)
-                    {
-                        latestError = e.Status.Detail;
-                    }
-                    // dont block startup if backend is unavailable - it will retry connecting in the background and
-                    // the grpc calls will simply fail until the backend is available
-                    if (RecentOutput.Contains("Boltz backend be unavailable") || RecentOutput.Contains("Boltz backend is unavailable"))
-                    {
-                        AdminClient = client;
-                        return;
-                    }
-
-                    await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
-                }
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            Error = !string.IsNullOrEmpty(latestError) ? $"Timeout: {latestError}" : "Cancelled";
-        }
-        catch (Exception e)
-        {
-            Error = e.Message;
-        }
-
-        await Stop();
-    }
 
     public async Task Download(Version version)
     {
@@ -269,7 +205,7 @@ public class BoltzDaemon(
             {
                 _output.Clear();
                 await Configure(node);
-                if (String.IsNullOrEmpty(Error))
+                if (Running)
                 {
                     Node = node;
                     NodeError = null;
@@ -433,7 +369,7 @@ public class BoltzDaemon(
             }
 
             await File.WriteAllTextAsync(ConfigFile, newConfig);
-            await Start(node == null);
+            await Start();
         }
         catch (Exception e)
         {
@@ -488,10 +424,40 @@ public class BoltzDaemon(
         }
     }
 
-    private async Task Run(CancellationTokenSource daemonCancel, bool logOutput)
+    private async Task CheckStarted(CancellationToken token)
+    {
+        var path = Path.Combine(DataDir, "macaroons", "admin.macaroon");
+        if (File.Exists(path) && File.Exists(CertFile))
+        {
+            var reader = await File.ReadAllBytesAsync(path, token);
+            var macaroon = Convert.ToHexString(reader).ToLower();
+            var client = new BoltzClient(clientLogger, DefaultUri, macaroon, CertFile, "all");
+
+            if (
+                RecentOutput.Contains("Boltz backend be unavailable") ||
+                RecentOutput.Contains("Boltz backend is unavailable")
+            )
+            {
+                // dont block startup if backend is unavailable - it will retry connecting in the background and
+                // the grpc calls will simply fail until the backend is available
+                logger.LogInformation("Boltz backend is unavailable, continuing with startup");
+            }
+            else
+            {
+                await client.GetInfo(token);
+            }
+            logger.LogInformation("Client started");
+            AdminClient = client;
+            AdminMacaroon = macaroon;
+            Error = null;
+        }
+    }
+
+    private async Task<Process?> StartDaemon(CancellationToken cancellationToken)
     {
         _output.Clear();
-        using var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
+        var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
+        process.EnableRaisingEvents = true;
         try
         {
             process.Start();
@@ -500,60 +466,70 @@ public class BoltzDaemon(
         {
             logger.LogError(e, "Failed to start client process");
             Error = $"Failed to start process {e.Message}";
-            return;
+            return null;
         }
 
-        MonitorStream(process.StandardOutput, daemonCancel.Token);
-        MonitorStream(process.StandardError, daemonCancel.Token, true);
 
+        var latestError = string.Empty;
         try
         {
-            await process.WaitForExitAsync(daemonCancel.Token);
+            MonitorStream(process.StandardOutput, cancellationToken);
+            MonitorStream(process.StandardError, cancellationToken, true);
+
+            while (!process.HasExited && !Running && !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await CheckStarted(cancellationToken);
+                }
+                catch (RpcException e)
+                {
+                    latestError = e.Status.Detail;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            }
+
         }
         catch (OperationCanceledException)
         {
-            process.Kill();
-            await process.WaitForExitAsync();
+            Error = latestError;
         }
-        finally
+        catch (Exception e)
         {
-            var wasRunning = Running;
-            AdminClient = null;
-
-            if (process.ExitCode != 0)
-            {
-                if (logOutput || wasRunning)
-                {
-                    Error = $"Process exited with code {process.ExitCode}";
-                    logger.LogError(Error);
-
-                    logger.LogInformation(RecentOutput);
-                }
-
-                if (!daemonCancel.IsCancellationRequested)
-                {
-                    await daemonCancel.CancelAsync();
-                    if (wasRunning)
-                    {
-                        logger.LogInformation("Restarting in 10 seconds");
-                        await Task.Delay(10000, daemonCancel.Token);
-                        InitiateStart();
-                    }
-                }
-            }
+            logger.LogError(e, "Unexpected error during daemon startup");
+            Error = $"Unexpected error during startup: {e.Message}";
         }
+
+        if (Running)
+        {
+            process.Exited += async (_, _) =>
+            {
+                // non-zero exit and null AdminClient means that the graceful stop from `Stop` timed out and we killed the process ourselves.
+                if (process.ExitCode != 0 && AdminClient is not null)
+                {
+                    Clear();
+                    Error = $"Exited with code {process.ExitCode}. Check logs for more information.";
+                    logger.LogError(Error);
+                    logger.LogInformation(RecentOutput);
+
+                    logger.LogInformation("Restarting in 10 seconds");
+                    await Task.Delay(10000);
+                    InitiateStart();
+                }
+            };
+            return process;
+        }
+        await Stop();
+        return null;
     }
 
-    private async Task Start(bool logOutput = true)
+    private async Task Start()
     {
         await Stop();
         logger.LogInformation("Starting client process");
-        var daemonCancel = new CancellationTokenSource();
-        _daemonTask = Run(daemonCancel, logOutput);
-        var wait = CancellationTokenSource.CreateLinkedTokenSource(daemonCancel.Token);
-        wait.CancelAfter(TimeSpan.FromSeconds(300));
-        _daemonCancel = daemonCancel;
-        await Wait(wait.Token);
+        var wait = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+        _daemonProcess = await StartDaemon(wait.Token);
         if (Running)
         {
             AdminClient!.SwapUpdate += SwapUpdate!;
@@ -568,9 +544,16 @@ public class BoltzDaemon(
         }
     }
 
+    private void Clear()
+    {
+        BoltzClient.Clear();
+        AdminClient = null;
+        _daemonProcess = null;
+    }
+
     public async Task Stop()
     {
-        if (_daemonTask is not null && !_daemonTask.IsCompleted)
+        if (_daemonProcess is not null && !_daemonProcess.HasExited)
         {
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (AdminClient is not null)
@@ -584,22 +567,19 @@ public class BoltzDaemon(
                 {
                     logger.LogInformation("Graceful stop timed out, killing client process");
                     logger.LogInformation(RecentOutput);
-                    if (_daemonCancel is not null)
-                    {
-                        await _daemonCancel.CancelAsync();
-                    }
+                    _daemonProcess.Kill();
+
                 }
             }
-            else if (_daemonCancel is not null)
+            else
             {
-                await _daemonCancel.CancelAsync();
+                _daemonProcess.Kill();
             }
 
-            await _daemonTask.WaitAsync(CancellationToken.None);
-            logger.LogInformation("Stopped");
+            Clear();
+
+            logger.LogInformation("Client stopped");
         }
-        // make sure to clear any leftover channels
-        BoltzClient.Clear();
     }
 
     private Process NewProcess(string fileName, string args)
