@@ -1,0 +1,8 @@
+{
+    "dotnet.defaultSolution": "boltz-btcpay-plugin.sln",
+    "omnisharp.defaultLaunchSolution": "boltz-btcpay-plugin.sln",
+    "editor.defaultFormatter": "anysphere.csharp",
+    "[csharp]": {
+        "editor.defaultFormatter": "anysphere.csharp"
+    }
+}
