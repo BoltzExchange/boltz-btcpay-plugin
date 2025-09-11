@@ -34,12 +34,12 @@
     }
 
     <div class="form-group d-flex align-items-center">
-        <input asp-for="ServerSettings.AllowTenants" type="checkbox" class="btcpay-toggle me-2"/>
+        <input asp-for="ServerSettings.AllowTenants" type="checkbox" class="btcpay-toggle me-2" />
         <label asp-for="ServerSettings.AllowTenants" class="form-label mb-0 me-1"></label>
     </div>
 
     <div class="form-group d-flex align-items-center">
-        <input asp-for="ServerSettings.ConnectNode" type="checkbox" class="btcpay-toggle me-2"/>
+        <input asp-for="ServerSettings.ConnectNode" type="checkbox" class="btcpay-toggle me-2" />
         <label asp-for="ServerSettings.ConnectNode" class="form-label mb-0 me-1"></label>
     </div>
 
@@ -47,12 +47,16 @@
     {
         var hasNodeError = Daemon.NodeError != null;
         <div>
-            <button class="d-inline-flex mb-3 align-items-center btn btn-link fw-semibold p-0 @(hasNodeError ? "text-danger" : "")" type="button" data-bs-toggle="collapse" data-bs-target="#NodeConfig" aria-expanded="@(hasNodeError ? "true" : "false")" aria-controls="NodeConfig">
-                <vc:icon symbol="caret-down"/>
+            <button
+                class="d-inline-flex mb-3 align-items-center btn btn-link fw-semibold p-0 @(hasNodeError ? "text-danger" : "")"
+                type="button" data-bs-toggle="collapse" data-bs-target="#NodeConfig"
+                aria-expanded="@(hasNodeError ? "true" : "false")" aria-controls="NodeConfig">
+                <vc:icon symbol="caret-down" />
                 <span class="ms-1">Node Config</span>
             </button>
             <div id="NodeConfig" class="collapse @(hasNodeError ? "show" : "")">
-                @if(hasNodeError) {
+                @if (hasNodeError)
+                {
                     <pre style="max-height: 25rem">@Daemon.NodeError</pre>
                 }
 
@@ -119,11 +123,16 @@
             @foreach (var file in Model.Log.LogFiles)
             {
                 <li>
-                    <a asp-action="Admin" asp-route-logFile="@file.Name" asp-route-offset="@Model.Log.LogFileOffset">@file.Name</a>
-                    <a asp-action="Admin" asp-route-logFile="@file.Name" asp-route-offset="@Model.Log.LogFileOffset" asp-route-download="true" class="mx-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
-                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
-                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
+                    <a asp-action="Admin" asp-route-logFile="@file.Name"
+                        asp-route-offset="@Model.Log.LogFileOffset">@file.Name</a>
+                    <a asp-action="Admin" asp-route-logFile="@file.Name" asp-route-offset="@Model.Log.LogFileOffset"
+                        asp-route-download="true" class="mx-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                            class="bi bi-download" viewBox="0 0 16 16">
+                            <path
+                                d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" />
+                            <path
+                                d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z" />
                         </svg>
                     </a>
                 </li>
@@ -136,19 +145,22 @@
                     <a class="page-link" asp-action="Admin" asp-route-offset="@(Model.Log.LogFileOffset - 5)">&laquo;</a>
                 </li>
                 <li class="page-item disabled">
-                    <span class="page-link">Showing @Model.Log.LogFileOffset - (@(Model.Log.LogFileOffset + Model.Log.LogFiles.Count)) of @Model.Log.LogFileCount</span>
-                </li>
-                <li class="page-item @((Model.Log.LogFileOffset + Model.Log.LogFiles.Count) < Model.Log.LogFileCount ? null : "disabled")">
-                    <a class="page-link" asp-action="Admin" asp-route-offset="@(Model.Log.LogFileOffset + Model.Log.LogFiles.Count)">&raquo;</a>
-                </li>
-            </ul>
-        </nav>
+                    <span class="page-link">Showing @Model.Log.LogFileOffset - (@(Model.Log.LogFileOffset +
+                                            Model.Log.LogFiles.Count)) of @Model.Log.LogFileCount</span>
+            </li>
+            <li
+                class="page-item @((Model.Log.LogFileOffset + Model.Log.LogFiles.Count) < Model.Log.LogFileCount ? null : "disabled")">
+                <a class="page-link" asp-action="Admin"
+                    asp-route-offset="@(Model.Log.LogFileOffset + Model.Log.LogFiles.Count)">&raquo;</a>
+            </li>
+        </ul>
+    </nav>
 
-        @if (!string.IsNullOrEmpty(Model.Log.Log))
+    @if (!string.IsNullOrEmpty(Model.Log.Log))
         {
-            <br/>
-            <br/>
-            <br/>
+            <br />
+            <br />
+            <br />
             <pre>@Model.Log.Log</pre>
         }
     }
