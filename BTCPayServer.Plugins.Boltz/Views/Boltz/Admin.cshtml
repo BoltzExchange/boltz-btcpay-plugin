@@ -8,11 +8,10 @@
 
 <form method="post">
     <div class="d-flex gap-3 mt-3 mt-sm-0 mb-3">
-        <button name="command" type="submit" value="Start" class="btn btn-secondary">
+        <button name="command" type="submit" value="Start" class="btn btn-secondary" disabled="@Daemon.Starting">
             @(Daemon.Running ? "Restart" : "Start")
         </button>
     </div>
-
     @if (Daemon.HasError)
     {
         <div class="alert alert-danger">
