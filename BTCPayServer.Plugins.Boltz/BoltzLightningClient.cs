@@ -298,7 +298,7 @@ public class BoltzLightningClient(
         cancellation.Register(source.Cancel);
         try
         {
-            using var stream = client.GetSwapInfoStream(response.Id);
+            using var stream = client.GetSwapInfoStream(response.Id, cancellation);
             while (await stream.ResponseStream.MoveNext(source.Token))
             {
                 var swap = stream.ResponseStream.Current.Swap;
@@ -377,7 +377,7 @@ public class BoltzLightningClient(
             if (_stream is null)
             {
                 _client = await boltzLightningClient.GetClient();
-                _stream = _client.GetSwapInfoStream("");
+                _stream = _client.GetSwapInfoStream("", cancellationToken);
             }
 
             try
