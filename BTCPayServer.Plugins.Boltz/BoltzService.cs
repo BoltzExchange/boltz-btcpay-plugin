@@ -20,6 +20,7 @@ using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Payments;
 using BTCPayServer.Payments.Lightning;
+using BTCPayServer.Payments.LNURLPay;
 using BTCPayServer.PayoutProcessors;
 using BTCPayServer.PayoutProcessors.Lightning;
 using BTCPayServer.Payouts;
@@ -141,7 +142,10 @@ public class BoltzService(
         {
             if (args.hook == "modify-lnurlp-request")
             {
-                await ModifyLnurlpAction((LNURLPayRequest)args.args);
+                if (args.args is StoreLNURLPayRequest data)
+                {
+                    await ModifyLnurlpAction(data);
+                }
             }
         };
 
@@ -471,12 +475,17 @@ public class BoltzService(
         new() { Name = "Max Amount", Value = pairInfo.Limits.Maximal, Unit = Unit.Sat }
     ];
 
-    private async Task ModifyLnurlpAction(LNURLPayRequest data)
+    private async Task ModifyLnurlpAction(StoreLNURLPayRequest data)
     {
-        var pairInfo = await GetPairInfo(new Pair { From = Currency.Btc, To = Currency.Lbtc }, SwapType.Reverse);
-        if (pairInfo != null)
+        var settings = GetSettings(data.Store?.Id);
+        if (settings?.Mode == BoltzMode.Standalone)
         {
-            data.MinSendable = Math.Max(data.MinSendable, LightMoney.Satoshis(pairInfo.Limits.Minimal));
+            var pairInfo = await GetPairInfo(new Pair { From = Currency.Btc, To = Currency.Lbtc }, SwapType.Reverse);
+            if (pairInfo != null)
+            {
+                data.MinSendable = Math.Max(data.MinSendable, LightMoney.Satoshis(pairInfo.Limits.Minimal));
+                data.MaxSendable = Math.Min(data.MaxSendable, LightMoney.Satoshis(pairInfo.Limits.Maximal));
+            }
         }
     }
 
