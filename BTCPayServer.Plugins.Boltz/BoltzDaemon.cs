@@ -312,6 +312,7 @@ public class BoltzDaemon(
                          network = "{networkName}"
                          referralId = "btcpay"
                          logmaxsize = 1
+                         mempool = "https://mempool.bullbitcoin.space"
 
                          [RPC]
                          host = "{DefaultUri.Host}"
