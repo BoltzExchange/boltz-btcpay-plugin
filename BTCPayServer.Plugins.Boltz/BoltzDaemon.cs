@@ -312,7 +312,6 @@ public class BoltzDaemon(
                          network = "{networkName}"
                          referralId = "btcpay"
                          logmaxsize = 1
-                         mempoolApi = "https://mempool.bullbitcoin.space"
 
                          [RPC]
                          host = "{DefaultUri.Host}"
@@ -569,7 +568,6 @@ public class BoltzDaemon(
                     logger.LogInformation("Graceful stop timed out, killing client process");
                     logger.LogInformation(RecentOutput);
                     _daemonProcess.Kill();
-
                 }
             }
             else
