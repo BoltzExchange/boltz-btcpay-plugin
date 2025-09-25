@@ -54,7 +54,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.8.2");
+    private static readonly Version ClientVersion = new("2.8.7");
 
     private Stream? _downloadStream;
     private Task? _startTask;
@@ -312,7 +312,6 @@ public class BoltzDaemon(
                          network = "{networkName}"
                          referralId = "btcpay"
                          logmaxsize = 1
-                         mempoolApi = "https://mempool.bullbitcoin.space"
 
                          [RPC]
                          host = "{DefaultUri.Host}"
@@ -569,7 +568,6 @@ public class BoltzDaemon(
                     logger.LogInformation("Graceful stop timed out, killing client process");
                     logger.LogInformation(RecentOutput);
                     _daemonProcess.Kill();
-
                 }
             }
             else
