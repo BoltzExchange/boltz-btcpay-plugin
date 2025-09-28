@@ -18,6 +18,9 @@ public class BoltzServerSettings
     [Display(Name = "Connect to Internal Lightning Node")]
     public bool ConnectNode { get; set; }
 
+    [Display(Name = "Log Level")]
+    public string LogLevel { get; set; } = "info";
+
     public NodeConfig? NodeConfig { get; set; }
 }
 
@@ -51,7 +54,8 @@ public class BoltzSettings
             !string.IsNullOrWhiteSpace(Macaroon);
     }
 
-    public void SetStandaloneWallet(Boltzrpc.Wallet wallet) {
+    public void SetStandaloneWallet(Boltzrpc.Wallet wallet)
+    {
         StandaloneWallet = new BoltzSettings.Wallet { Id = wallet.Id, Name = wallet.Name, Readonly = wallet.Readonly };
     }
 }

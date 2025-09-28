@@ -41,8 +41,15 @@ public class ClnConfig
     public string? ServerName { get; set; }
 }
 
+public class DaemonConfig
+{
+    public string? LogLevel { get; set; }
+    public NodeConfig? Node { get; set; }
+}
+
 public class NodeConfig
 {
+    public string? LogLevel { get; set; }
     public LndConfig? Lnd { get; set; }
     public ClnConfig? Cln { get; set; }
 }
@@ -197,25 +204,26 @@ public class BoltzDaemon(
     }
 
 
-    public async Task TryConfigure(NodeConfig? node)
+    public async Task TryConfigure(DaemonConfig config)
     {
         try
         {
-            if (node != null)
+            if (config.Node is not null)
             {
                 _output.Clear();
-                await Configure(node);
+                await Configure(config);
                 if (Running)
                 {
-                    Node = node;
+                    Node = config.Node;
                     NodeError = null;
                     return;
                 }
 
                 NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : RecentOutput;
+                config.Node = null;
             }
 
-            await Configure(node: null);
+            await Configure(config);
         }
         finally
         {
@@ -304,7 +312,7 @@ public class BoltzDaemon(
         }
     }
 
-    public string GetConfig(NodeConfig? nodeConfig)
+    public string GetConfig(DaemonConfig? nodeConfig)
     {
         var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
 
@@ -312,6 +320,7 @@ public class BoltzDaemon(
                          network = "{networkName}"
                          referralId = "btcpay"
                          logmaxsize = 1
+                         loglevel = "{nodeConfig?.LogLevel ?? "info"}"
 
                          [RPC]
                          host = "{DefaultUri.Host}"
@@ -319,30 +328,32 @@ public class BoltzDaemon(
                          rest.disable = true
                          """;
 
-        if (nodeConfig?.Lnd != null)
+        if (nodeConfig?.Node?.Lnd != null)
         {
+            var lnd = nodeConfig.Node.Lnd;
             return $"""
                     node = "lnd"
                     {shared}
 
                     [LND]
-                    host = "{nodeConfig.Lnd.Host}"
-                    port = {nodeConfig.Lnd.Port}
-                    macaroon = "{nodeConfig.Lnd.Macaroon}"
-                    certificate = "{nodeConfig.Lnd.Certificate}"
+                    host = "{lnd.Host}"
+                    port = {lnd.Port}
+                    macaroon = "{lnd.Macaroon}"
+                    certificate = "{lnd.Certificate}"
                     """;
         }
 
-        if (nodeConfig?.Cln != null)
+        if (nodeConfig?.Node?.Cln != null)
         {
+            var cln = nodeConfig.Node.Cln;
             return $"""
                     node = "cln"
                     {shared}
 
                     [CLN]
-                    host = "{nodeConfig.Cln.Host}"
-                    port = {nodeConfig.Cln.Port}
-                    dataDir = "{nodeConfig.Cln.DataDir}"
+                    host = "{cln.Host}"
+                    port = {cln.Port}
+                    dataDir = "{cln.DataDir}"
                     """;
         }
 
@@ -352,7 +363,7 @@ public class BoltzDaemon(
                 """;
     }
 
-    private async Task Configure(NodeConfig? node)
+    private async Task Configure(DaemonConfig? node)
     {
         try
         {

@@ -43,6 +43,16 @@
         <label asp-for="ServerSettings.ConnectNode" class="form-label mb-0 me-1"></label>
     </div>
 
+    <div class="form-group">
+        <label asp-for="ServerSettings.LogLevel" class="form-label"></label>
+        <select asp-for="ServerSettings.LogLevel" class="form-select">
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+            <option value="silly">Silly</option>
+        </select>
+        <span asp-validation-for="ServerSettings.LogLevel" class="text-danger"></span>
+    </div>
+
     @if (Model.ServerSettings?.ConnectNode ?? false)
     {
         var hasNodeError = Daemon.NodeError != null;

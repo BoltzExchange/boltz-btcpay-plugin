@@ -364,7 +364,7 @@ public class BoltzService(
             settings.NodeConfig = null;
         }
 
-        await daemon.TryConfigure(settings.NodeConfig);
+        await daemon.TryConfigure(new DaemonConfig { Node = settings.NodeConfig, LogLevel = settings.LogLevel });
 
         ServerSettings = settings;
     }
