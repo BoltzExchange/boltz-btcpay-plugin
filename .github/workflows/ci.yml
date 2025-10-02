@@ -27,3 +27,6 @@ jobs:
 
       - name: Build plugin
         run: dotnet build BTCPayServer.Plugins.Boltz --configuration Release --no-restore
+
+      - name: Run tests
+        run: ./run-boltz-tests.sh
