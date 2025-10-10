@@ -187,7 +187,7 @@ public class BoltzClient : IDisposable
     {
         // We do not add the default timeout here because it can take quite a bit if the wallet has a big tx history
         return await _client.ImportWalletAsync(new ImportWalletRequest { Params = @params, Credentials = credentials },
-            CreateCallOptionsWithTimeout(CancellationToken.None));
+            CreateCallOptions(CancellationToken.None));
     }
 
     public async Task<WalletSendResponse> WalletSend(WalletSendRequest request)
