@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BTCPayServer.Plugins.Boltz", "BTCPayServer.Plugins.Boltz\BTCPayServer.Plugins.Boltz.csproj", "{5A47898E-1704-4EDF-AB93-2AE8160F4253}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BTCPayServer.Plugins.Boltz.Tests", "BTCPayServer.Plugins.Boltz.Tests\BTCPayServer.Plugins.Boltz.Tests.csproj", "{B6653B6F-2A29-487B-B441-D6C4F7CEF2C2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "btcpayserver", "btcpayserver", "{BE03BBB7-7C69-4CAB-840A-E1B3712B074D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BTCPayServer", "btcpayserver\BTCPayServer\BTCPayServer.csproj", "{49383730-7B3F-4727-AF26-E38717B4E469}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BTCPayServer.Tests", "btcpayserver\BTCPayServer.Tests\BTCPayServer.Tests.csproj", "{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5A47898E-1704-4EDF-AB93-2AE8160F4253}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A47898E-1704-4EDF-AB93-2AE8160F4253}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A47898E-1704-4EDF-AB93-2AE8160F4253}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A47898E-1704-4EDF-AB93-2AE8160F4253}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6653B6F-2A29-487B-B441-D6C4F7CEF2C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6653B6F-2A29-487B-B441-D6C4F7CEF2C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6653B6F-2A29-487B-B441-D6C4F7CEF2C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6653B6F-2A29-487B-B441-D6C4F7CEF2C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49383730-7B3F-4727-AF26-E38717B4E469}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49383730-7B3F-4727-AF26-E38717B4E469}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49383730-7B3F-4727-AF26-E38717B4E469}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49383730-7B3F-4727-AF26-E38717B4E469}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{49383730-7B3F-4727-AF26-E38717B4E469} = {BE03BBB7-7C69-4CAB-840A-E1B3712B074D}
+		{2269F45F-9F8B-448B-9FE8-D1561C7F7D9A} = {BE03BBB7-7C69-4CAB-840A-E1B3712B074D}
+	EndGlobalSection
+EndGlobal
