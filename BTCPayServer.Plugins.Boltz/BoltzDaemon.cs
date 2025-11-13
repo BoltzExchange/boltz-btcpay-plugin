@@ -484,8 +484,8 @@ public class BoltzDaemon(
         var latestError = string.Empty;
         try
         {
-            MonitorStream(process.StandardOutput, cancellationToken);
-            MonitorStream(process.StandardError, cancellationToken, true);
+            MonitorStream(process.StandardOutput);
+            MonitorStream(process.StandardError, true);
 
             while (!process.HasExited && !Running && !cancellationToken.IsCancellationRequested)
             {
@@ -617,31 +617,38 @@ public class BoltzDaemon(
         return (process.ExitCode, stdout, stderr);
     }
 
-    private void MonitorStream(StreamReader streamReader, CancellationToken cancellationToken, bool logAll = false)
+    private void MonitorStream(StreamReader streamReader, bool logAll = false)
     {
         Task.Factory.StartNew(async () =>
         {
             while (!streamReader.EndOfStream)
             {
-                var line = await streamReader.ReadLineAsync(cancellationToken);
-                if (line != null)
+                try
                 {
+                    var line = await streamReader.ReadLineAsync();
+                    if (line != null)
                     {
-                        if (line.Contains("ERROR") || line.Contains("WARN"))
                         {
-                            logger.LogWarning(line);
-                        }
+                            if (line.Contains("ERROR") || line.Contains("WARN"))
+                            {
+                                logger.LogWarning(line);
+                            }
 
-                        if (_output.Count >= MaxLogLines && !logAll)
-                        {
-                            _output.RemoveAt(0);
-                        }
+                            if (_output.Count >= MaxLogLines && !logAll)
+                            {
+                                _output.RemoveAt(0);
+                            }
 
-                        _output.Add(line);
+                            _output.Add(line);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to read line from stream");
+                }
             }
-        }, cancellationToken);
+        });
     }
 
     public BoltzClient? GetClient(BoltzSettings? settings)
