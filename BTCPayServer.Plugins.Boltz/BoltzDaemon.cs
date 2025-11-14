@@ -418,11 +418,11 @@ public class BoltzDaemon(
             }
 
             Version.TryParse(currentVersion, out var current);
-            if (current == null || current.CompareTo(ClientVersion) < 0)
+            if (current == null || current != ClientVersion)
             {
                 if (current != null)
                 {
-                    logger.LogInformation("Client version outdated");
+                    logger.LogInformation("Client version mismatch");
                 }
 
                 await Download(ClientVersion);
