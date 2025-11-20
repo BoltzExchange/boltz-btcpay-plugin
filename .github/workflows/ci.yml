@@ -22,8 +22,26 @@ jobs:
           cache: true
           cache-dependency-path: ./BTCPayServer.Plugins.Boltz/packages.lock.json
 
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
       - name: Restore dependencies
         run: dotnet restore BTCPayServer.Plugins.Boltz --locked-mode
 
       - name: Build plugin
         run: dotnet build BTCPayServer.Plugins.Boltz --configuration Release --no-restore
+
+      - name: Install Node.js dependencies
+        working-directory: ./docs
+        run: npm ci
+
+      - name: Prettier docs
+        working-directory: ./docs
+        run: npm run prettier:check
+
+      - name: Build docs
+        working-directory: ./docs
+        run: npm run docs:build
