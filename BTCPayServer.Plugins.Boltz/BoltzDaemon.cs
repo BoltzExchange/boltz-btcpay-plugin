@@ -61,7 +61,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.8.9");
+    private static readonly Version ClientVersion = new("2.10.0");
 
     private Stream? _downloadStream;
     private Task? _startTask;
