@@ -559,7 +559,8 @@ public class BoltzController(
                 To = vm.Wallet.Currency
             };
             vm.ChainInfo = await boltzService.GetPairInfo(vm.ChainPair, SwapType.Chain);
-            vm.LnInfo = await boltzService.GetPairInfo(vm.ChainPair, SwapType.Reverse);
+            var lnPair = new Pair { From = Currency.Btc, To = vm.Wallet.Currency };
+            vm.LnInfo = await boltzService.GetPairInfo(lnPair, SwapType.Reverse);
 
             return View(vm);
         }
