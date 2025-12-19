@@ -146,8 +146,12 @@
 
             <div class="form-group">
                 <label asp-for="Chain.ReserveBalance" class="form-label">Reserve Balance (satoshis)</label>
-                <input type="number" asp-for="Chain.ReserveBalance" class="form-control"/>
-                <span asp-validation-for="Chain.ReserveBalance" class="text-danger"></span>
+                <small class="text-danger mx-1" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="How much sats to leave in the wallet as a reserve. Leave a considerable amount if you want to make outgoing lightning payments.">
+                    <vc:icon symbol="info" />
+                </small>
+                <!-- TODO: rm min once https://github.com/BoltzExchange/boltz-client/issues/623 is fixed-->
+                <input asp-for="Chain.ReserveBalance" type="number" class="form-control" min="1000" />
             </div>
 
 

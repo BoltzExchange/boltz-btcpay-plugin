@@ -1354,6 +1354,12 @@ public class BoltzController(
             config.ToAddress = await boltzService.GenerateNewAddress(CurrentStore!);
         }
 
+        // TODO: rm once https://github.com/BoltzExchange/boltz-client/issues/623 is fixed
+        if (config.ReserveBalance < 1000)
+        {
+            throw new Exception("Reserve balance must be at least 1000 sats");
+        }
+
         config.BudgetInterval = DaysToSeconds(config.BudgetInterval);
 
         await Boltz!.UpdateAutoSwapChainConfig(config);
