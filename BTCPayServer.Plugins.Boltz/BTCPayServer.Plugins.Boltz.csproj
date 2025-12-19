@@ -37,6 +37,7 @@
     <ItemGroup>
         <ProjectReference Include="..\btcpayserver\BTCPayServer\BTCPayServer.csproj" />
         <EmbeddedResource Include="Resources\**" />
+        <EmbeddedResource Include="../boltz-client-manifest.txt" LogicalName="boltz-client-manifest.txt" />
         <Protobuf Include="Protos\boltzrpc\boltzrpc.proto" GrpcServices="Client" />
         <Protobuf Include="Protos\boltzrpc\autoswaprpc\autoswaprpc.proto" ProtoRoot="Protos\boltzrpc" GrpcServices="Client" />
         <PackageReference Include="Google.Protobuf" Version="3.18.0" />
