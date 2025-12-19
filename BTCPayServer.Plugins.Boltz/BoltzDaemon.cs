@@ -142,7 +142,7 @@ public class BoltzDaemon(
         string manifestName = $"boltz-client-manifest-v{version}.txt";
         string sigName = $"boltz-client-manifest-v{version}.txt.sig";
         string pubKey = "boltz.asc";
-        string pubKeyUrl = "https://canary.boltz.exchange/pgp.asc";
+        string pubKeyUrl = "https://boltz.exchange/static/boltz.asc";
 
         await using var sigStream = await DownloadFile(releaseUrl + sigName, sigName);
         await using var pubKeyStream = await DownloadFile(pubKeyUrl, pubKey);
