@@ -386,28 +386,14 @@ public class BoltzDaemon(
                 Directory.CreateDirectory(DataDir);
             }
 
-            string? currentVersion = null;
-            if (Path.Exists(DaemonBinary))
+            try
             {
-                var (code, stdout, _) = await RunCommand(DaemonBinary, "--version");
-                if (code != 0)
-                {
-                    logger.LogInformation($"Failed to get current client version: {stdout}");
-                }
-                else
-                {
-                    currentVersion = stdout.Split("\n").First().Split("-").First().TrimStart('v');
-                }
+                CheckBinaries();
             }
-
-            Version.TryParse(currentVersion, out var current);
-            if (current == null || current != ClientVersion)
+            catch (Exception e)
             {
-                if (current != null)
-                {
-                    logger.LogInformation("Client version mismatch");
-                }
-
+                // CheckBinaries re-runs after Download, in which case its gonna succeed if they were just outdated
+                // Or still fail if they are corrupted
                 await Download();
             }
         }
