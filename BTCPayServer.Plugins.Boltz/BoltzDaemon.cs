@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +19,6 @@ using BTCPayServer.Lightning.LND;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Org.BouncyCastle.Bcpg.OpenPgp;
 using FileMode = System.IO.FileMode;
 using FileStream = System.IO.FileStream;
 using SHA256 = System.Security.Cryptography.SHA256;
@@ -62,6 +62,13 @@ public class BoltzDaemon(
 )
 {
     private static readonly Version ClientVersion = new("2.10.2");
+    private static readonly Lazy<string> ExpectedManifest = new(() =>
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("boltz-client-manifest.txt");
+        if (stream is null) throw new InvalidOperationException("Embedded manifest resource not found");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    });
 
     private Stream? _downloadStream;
     private Task? _startTask;
@@ -98,13 +105,14 @@ public class BoltzDaemon(
         _ => throw new NotSupportedException("Unsupported architecture")
     };
 
-    public async Task Download(Version version)
+    public async Task Download()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             throw new NotSupportedException("Only linux is supported");
         }
 
+        var version = ClientVersion;
         logger.LogInformation($"Downloading boltz client {version}");
 
         string archiveName = $"boltz-client-linux-{Architecture}-v{version}.tar.gz";
@@ -115,7 +123,7 @@ public class BoltzDaemon(
         await TarFile.ExtractToDirectoryAsync(gzip, DataDir, true);
         _downloadStream = null;
 
-        await CheckBinaries(version);
+        CheckBinaries();
     }
 
     private string ReleaseUrl(Version version)
@@ -136,38 +144,13 @@ public class BoltzDaemon(
         return File.OpenRead(path);
     }
 
-    private async Task CheckBinaries(Version version)
+    private void CheckBinaries()
     {
-        string releaseUrl = ReleaseUrl(version);
-        string manifestName = $"boltz-client-manifest-v{version}.txt";
-        string sigName = $"boltz-client-manifest-v{version}.txt.sig";
-        string pubKey = "boltz.asc";
-        string pubKeyUrl = "https://canary.boltz.exchange/pgp.asc";
-
-        await using var sigStream = await DownloadFile(releaseUrl + sigName, sigName);
-        await using var pubKeyStream = await DownloadFile(pubKeyUrl, pubKey);
-
-        var keyRing = new PgpPublicKeyRing(PgpUtilities.GetDecoderStream(pubKeyStream));
-        var pgpFactory = new PgpObjectFactory(PgpUtilities.GetDecoderStream(sigStream));
-        PgpSignatureList sigList = (PgpSignatureList)pgpFactory.NextPgpObject();
-        PgpSignature sig = sigList[0];
-
-        var manifest = await _httpClient.GetByteArrayAsync(releaseUrl + manifestName);
-        string manifestPath = Path.Combine(DataDir, manifestName);
-        await File.WriteAllBytesAsync(manifestPath, manifest);
-        PgpPublicKey publicKey = keyRing.GetPublicKey(sig.KeyId);
-        sig.InitVerify(publicKey);
-        sig.Update(manifest);
-        if (!sig.Verify())
-        {
-            throw new Exception("Signature verification failed.");
-        }
-
-        CheckShaSums(DaemonBinary, manifestPath);
-        CheckShaSums(DaemonCli, manifestPath);
+        CheckShaSums(DaemonBinary);
+        CheckShaSums(DaemonCli);
     }
 
-    private void CheckShaSums(string fileToCheck, string manifestFile)
+    private void CheckShaSums(string fileToCheck)
     {
         // Compute the SHA256 hash of the file
         using var sha256 = SHA256.Create();
@@ -175,7 +158,7 @@ public class BoltzDaemon(
         byte[] hashBytes = sha256.ComputeHash(stream);
         string computedHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 
-        foreach (var line in File.ReadLines(manifestFile))
+        foreach (var line in ExpectedManifest.Value.Split("\n"))
         {
             var split = line.Split();
             if (fileToCheck.Contains(split.Last()))
@@ -425,7 +408,7 @@ public class BoltzDaemon(
                     logger.LogInformation("Client version mismatch");
                 }
 
-                await Download(ClientVersion);
+                await Download();
             }
         }
         catch (Exception e)
@@ -467,6 +450,7 @@ public class BoltzDaemon(
     private async Task<Process?> StartDaemon(CancellationToken cancellationToken)
     {
         _output.Clear();
+        CheckShaSums(DaemonBinary);
         var process = NewProcess(DaemonBinary, $"--datadir {DataDir}");
         process.EnableRaisingEvents = true;
         try

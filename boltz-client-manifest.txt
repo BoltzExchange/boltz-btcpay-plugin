@@ -1,0 +1,6 @@
+fe4cbb080fe59afdafdc46189debde47d8f15fde202f2a603bf664654fa243a8  boltz-client-linux-amd64-v2.10.2.tar.gz
+8f82663e5f3005cf030aecf6f03e9d9f881f0089c09fd4495ee63a6f86d63119  boltz-client-linux-arm64-v2.10.2.tar.gz
+c0f21ba4a898f45def21690a07bd838e796caa502a118ee875883b28f5f8c123  bin/linux_amd64/boltzcli
+d213270d52dfe7576dc69cb4b67f876267825b872641ecbfde97e47cede7dfda  bin/linux_amd64/boltzd
+285d8dd32d489e4aa78055e40a585dd389e6906478b679d0cbfd0808cdfea62a  bin/linux_arm64/boltzcli
+d45f591371aa944db4e0ef40d7a4f896d6b1756925a14198acadac27d1562430  bin/linux_arm64/boltzd
