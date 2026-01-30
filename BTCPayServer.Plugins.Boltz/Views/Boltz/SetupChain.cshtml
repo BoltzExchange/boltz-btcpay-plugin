@@ -22,8 +22,7 @@
             title="How much sats to leave in the wallet as a reserve. Leave a considerable amount if you want to make outgoing lightning payments.">
             <vc:icon symbol="info" />
         </small>
-        <!-- TODO: rm min once https://github.com/BoltzExchange/boltz-client/issues/623 is fixed-->
-        <input asp-for="ReserveBalance" type="number" class="form-control" min="1000" />
+        <input asp-for="ReserveBalance" type="number" class="form-control" />
     </div>
 
     <div class="d-flex flex-row gap-2 justify-content-between">
