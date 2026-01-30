@@ -18,7 +18,7 @@ The current master branch is only compatbile with BTCPay v2, which is the distri
 
 ## Resources
 
-* Get Help: [Support](https://support.boltz.exchange/hc/center) | [Discord](https://discord.gg/QBvZGcW) | [Telegram](https://t.me/boltzhq)
+* Get Help: [Support](https://support.boltz.exchange/hc/center) | [Telegram](https://t.me/boltzhq)
 * Read our Docs: [Docs Home](https://docs.boltz.exchange/)
 * Read our Blog: [Substack](https://blog.boltz.exchange/)
 * Follow us: [X/Twitter](https://twitter.com/Boltzhq) | [Nostr](https://primal.net/p/nprofile1qqsqcdcltmv4qanpx3p7svcufdsg9rkk00x7l2sknra4e6whkv59l7clgcdzj)
