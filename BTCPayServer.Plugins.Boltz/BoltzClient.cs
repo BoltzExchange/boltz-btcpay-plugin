@@ -186,6 +186,11 @@ public class BoltzClient : IDisposable
     public async Task<Wallet> ImportWallet(WalletParams @params, WalletCredentials credentials)
     {
         // We do not add the default timeout here because it can take quite a bit if the wallet has a big tx history
+        if (!string.IsNullOrEmpty(credentials.CoreDescriptor))
+        {
+            credentials.CoreDescriptor = credentials.CoreDescriptor.Split('\n')[0].Trim();
+        }
+
         return await _client.ImportWalletAsync(new ImportWalletRequest { Params = @params, Credentials = credentials },
             CreateCallOptions(CancellationToken.None));
     }

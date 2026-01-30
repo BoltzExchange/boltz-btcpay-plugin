@@ -261,7 +261,11 @@ public class BoltzService(
 
     public async Task SetMacaroon(string storeId, BoltzSettings settings)
     {
-        if (settings.Mode == BoltzMode.Standalone)
+        if (settings.Mode == BoltzMode.Rebalance)
+        {
+            settings.Macaroon = daemon.AdminMacaroon!;
+        }
+        else
         {
             var tenantName = "btcpay-" + storeId;
             Tenant tenant;
@@ -278,13 +282,9 @@ public class BoltzService(
             settings.TenantId = tenant.Id;
             settings.Macaroon = response.Macaroon;
         }
-        else
-        {
-            settings.Macaroon = daemon.AdminMacaroon!;
-        }
     }
 
-    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode mode)
+    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode? mode = null)
     {
         var settings = new BoltzSettings
         {
@@ -305,6 +305,35 @@ public class BoltzService(
     public BoltzClient? GetClient(string? storeId)
     {
         return daemon.GetClient(GetSettings(storeId));
+    }
+
+
+    public async Task<BoltzClient?> GetOrCreateClient(string storeId)
+    {
+        var settings = GetSettings(storeId);
+        if (settings == null)
+        {
+            settings = await InitializeStore(storeId);
+            await Set(storeId, settings);
+        }
+        return daemon.GetClient(settings);
+    }
+
+    public async Task<BoltzSettings> EnableStandalone(string storeId, string walletName)
+    {
+        var settings = GetSettings(storeId) ?? await InitializeStore(storeId);
+        settings.Mode = BoltzMode.Standalone;
+        var client = daemon.GetClient(settings) ?? throw new InvalidOperationException("Boltz daemon is not available");
+        var wallet = await client.GetWallet(walletName);
+        settings.SetStandaloneWallet(wallet);
+        await Set(storeId, settings);
+        return settings;
+    }
+
+    public bool IsWalletInUse(string storeId, ulong walletId)
+    {
+        var settings = GetSettings(storeId);
+        return settings?.StandaloneWallet?.Id == walletId;
     }
 
     public async Task<bool> IsSwapRefundable(string? storeId, string? swapId)
