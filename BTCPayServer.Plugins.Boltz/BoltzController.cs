@@ -1180,6 +1180,12 @@ public class BoltzController(
                     return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStoreId });
                 }
 
+                if (vm.WalletCredentials.CoreDescriptor is not null)
+                {
+                    var split = vm.WalletCredentials.CoreDescriptor.Split('\n');
+                    vm.WalletCredentials.CoreDescriptor = split[0].StripLineBreaks();
+                }
+
                 await Boltz.ImportWallet(walletParams, vm.WalletCredentials);
                 if (string.IsNullOrEmpty(vm.WalletCredentials.Mnemonic))
                 {
