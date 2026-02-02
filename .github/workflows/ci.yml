@@ -29,7 +29,7 @@ jobs:
           cache: "npm"
 
       - name: Restore dependencies
-        run: dotnet restore BTCPayServer.Plugins.Boltz --locked-mode --force-evaluate
+        run: dotnet restore BTCPayServer.Plugins.Boltz --locked-mode
 
       - name: Build plugin
         run: dotnet build BTCPayServer.Plugins.Boltz --configuration Release --no-restore
