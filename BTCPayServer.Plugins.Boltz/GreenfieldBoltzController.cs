@@ -28,6 +28,9 @@ public class GreenfieldBoltzController(
     private bool AllowImportHot => IsAdmin || policiesSettings.AllowHotWalletRPCImportForAll;
     private bool AllowCreateHot => IsAdmin || policiesSettings.AllowHotWalletForAll;
 
+    private const string BoltzUnavailable = "boltz-unavailable";
+    private const string BoltzError = "boltz-error";
+
     [HttpGet("~/api/v1/stores/{storeId}/boltz/setup")]
     [Authorize(Policy = Policies.CanViewStoreSettings)]
     public async Task<IActionResult> GetSetup(string storeId)
@@ -47,8 +50,9 @@ public class GreenfieldBoltzController(
                 var wallet = await client.GetWallet(settings.StandaloneWallet.Name);
                 response.Wallet = ToWalletData(wallet);
             }
-            catch (RpcException)
+            catch (RpcException e)
             {
+                return this.CreateAPIError(BoltzError, e.Status.Detail);
             }
         }
 
@@ -77,11 +81,11 @@ public class GreenfieldBoltzController(
         }
         catch (RpcException e)
         {
-            return this.CreateAPIError("boltz-error", e.Status.Detail);
+            return this.CreateAPIError(BoltzError, e.Status.Detail);
         }
         catch (InvalidOperationException e)
         {
-            return this.CreateAPIError("boltz-unavailable", e.Message);
+            return this.CreateAPIError(BoltzUnavailable, e.Message);
         }
         catch (Exception e)
         {
@@ -122,7 +126,7 @@ public class GreenfieldBoltzController(
         }
         catch (RpcException e)
         {
-            return this.CreateAPIError("boltz-error", e.Status.Detail);
+            return this.CreateAPIError(BoltzError, e.Status.Detail);
         }
     }
 
@@ -150,7 +154,7 @@ public class GreenfieldBoltzController(
             var client = await boltzService.GetOrCreateClient(storeId);
             if (client == null)
             {
-                return this.CreateAPIError("boltz-unavailable", "Boltz daemon is not available. Please ensure Boltz is properly configured.");
+                return this.CreateAPIError(BoltzUnavailable, "Boltz daemon is not available, ensure Boltz is properly configured.");
             }
 
             bool isImport = !string.IsNullOrEmpty(request.Mnemonic) || !string.IsNullOrEmpty(request.CoreDescriptor);
@@ -215,7 +219,7 @@ public class GreenfieldBoltzController(
         }
         catch (RpcException e)
         {
-            return this.CreateAPIError("boltz-error", e.Status.Detail);
+            return this.CreateAPIError(BoltzError, e.Status.Detail);
         }
         catch (Exception e)
         {
@@ -237,7 +241,7 @@ public class GreenfieldBoltzController(
             var client = await boltzService.GetOrCreateClient(storeId);
             if (client == null)
             {
-                return this.CreateAPIError("boltz-unavailable", "Boltz daemon is not available. Please ensure Boltz is properly configured.");
+                    return this.CreateAPIError(BoltzUnavailable, "Boltz daemon is not available, ensure Boltz is properly configured.");
             }
 
             await client.RemoveWallet(walletId);
@@ -245,7 +249,7 @@ public class GreenfieldBoltzController(
         }
         catch (RpcException e)
         {
-            return this.CreateAPIError("boltz-error", e.Status.Detail);
+            return this.CreateAPIError(BoltzError, e.Status.Detail);
         }
     }
 
