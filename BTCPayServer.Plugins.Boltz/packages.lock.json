@@ -2167,15 +2167,16 @@
         "type": "Project",
         "dependencies": {
           "BIP78.Sender": "[0.2.5, )",
-          "BTCPayServer.Abstractions": "[2.3.4, )",
+          "BTCPayServer.Abstractions": "[2.2.0, )",
           "BTCPayServer.Client": "[2.0.1, )",
-          "BTCPayServer.Common": "[2.3.4, )",
-          "BTCPayServer.Data": "[2.3.4, )",
+          "BTCPayServer.Common": "[2.2.0, )",
+          "BTCPayServer.Data": "[2.2.0, )",
           "BTCPayServer.Hwi": "[2.0.6, )",
           "BTCPayServer.Lightning.All": "[1.6.11, )",
           "BTCPayServer.NTag424": "[1.0.25, )",
-          "BTCPayServer.Rating": "[2.3.4, )",
+          "BTCPayServer.Rating": "[2.2.0, )",
           "CsvHelper": "[32.0.3, )",
+          "Dapper": "[2.1.35, )",
           "Fido2": "[3.0.1, )",
           "Fido2.AspNet": "[3.0.1, )",
           "LNURL": "[0.0.36, )",
@@ -2231,9 +2232,8 @@
       "btcpayserver.data": {
         "type": "Project",
         "dependencies": {
-          "BTCPayServer.Abstractions": "[2.3.4, )",
+          "BTCPayServer.Abstractions": "[2.2.0, )",
           "BTCPayServer.Client": "[2.0.1, )",
-          "Dapper": "[2.1.35, )",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "[8.0.11, )",
           "NBitcoin.Altcoins": "[5.0.0, )"
         }
