@@ -67,9 +67,18 @@ public class GreenfieldBoltzController(
 
         try
         {
-            var settings = await boltzService.EnableStandalone(storeId, request.WalletName);
-            var client = boltzService.GetClient(storeId);
-            var wallet = await client!.GetWallet(settings.StandaloneWallet!.Name);
+            var client = boltzService.GetClient(storeId)!;
+            if (client is null)
+            {
+                return this.CreateAPIError(BoltzUnavailable, "Boltz daemon is not available, ensure Boltz is properly configured.");
+
+            }
+
+            var settings = boltzService.GetSettings(storeId)!;
+            var wallet = await client.GetWallet(request.WalletName);
+            settings.Mode = BoltzMode.Standalone;
+            settings.SetStandaloneWallet(wallet);
+            await boltzService.Set(storeId, settings);
 
             return Ok(new BoltzSetupData
             {

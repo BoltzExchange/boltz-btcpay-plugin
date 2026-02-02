@@ -323,17 +323,6 @@ public class BoltzService(
         return daemon.GetClient(settings);
     }
 
-    public async Task<BoltzSettings> EnableStandalone(string storeId, string walletName)
-    {
-        var settings = GetSettings(storeId) ?? await InitializeStore(storeId);
-        settings.Mode = BoltzMode.Standalone;
-        var client = daemon.GetClient(settings) ?? throw new InvalidOperationException("Boltz daemon is not available");
-        var wallet = await client.GetWallet(walletName);
-        settings.SetStandaloneWallet(wallet);
-        await Set(storeId, settings);
-        return settings;
-    }
-
     public bool IsWalletInUse(string storeId, ulong walletId)
     {
         var settings = GetSettings(storeId);
