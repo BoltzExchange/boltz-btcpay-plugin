@@ -310,6 +310,10 @@ public class BoltzService(
 
     public async Task<BoltzClient?> GetOrCreateClient(string storeId)
     {
+        if (!daemon.Running)
+        {
+            return null;
+        }
         var settings = GetSettings(storeId);
         if (settings == null)
         {
