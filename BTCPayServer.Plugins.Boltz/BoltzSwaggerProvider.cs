@@ -8,12 +8,13 @@ namespace BTCPayServer.Plugins.Boltz;
 
 public class BoltzSwaggerProvider : ISwaggerProvider
 {
+    private const string ResourceName = "BTCPayServer.Plugins.Boltz.Resources.swagger.boltz.json";
+
     public async Task<JObject> Fetch()
     {
         var assembly = typeof(BoltzSwaggerProvider).Assembly;
-        var resourceName = "BTCPayServer.Plugins.Boltz.Resources.swagger.boltz.json";
         
-        await using var stream = assembly.GetManifestResourceStream(resourceName);
+        await using var stream = assembly.GetManifestResourceStream(ResourceName);
         if (stream == null)
         {
             return new JObject();
