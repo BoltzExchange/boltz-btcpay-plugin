@@ -42,8 +42,8 @@ public class BoltzController(
 )
     : Controller
 {
-    private BoltzClient? Boltz => boltzDaemon.GetClient(Settings);
-    private BoltzSettings? Settings => SetupSettings ?? SavedSettings;
+    public BoltzClient? Boltz => boltzDaemon.GetClient(Settings);
+    public BoltzSettings? Settings => SetupSettings ?? SavedSettings;
     private bool Configured => boltzService.StoreConfigured(CurrentStoreId);
     private BoltzSettings? SavedSettings => boltzService.GetSettings(CurrentStoreId);
     private bool IsAdmin => User.IsInRole(Roles.ServerAdmin);
@@ -54,7 +54,7 @@ public class BoltzController(
     private const string BackUrl = "BackUrl";
 
     private StoreData? CurrentStore => HttpContext.GetStoreData();
-    private string? CurrentStoreId => HttpContext.GetCurrentStoreId();
+    private string? CurrentStoreId => CurrentStore?.Id;
 
     private BoltzSettings? SetupSettings
     {
@@ -110,7 +110,7 @@ public class BoltzController(
     public async Task<IActionResult> Status(string storeId)
     {
         ClearSetup();
-        if (!Configured || Boltz is null)
+        if (Boltz is null)
         {
             return RedirectSetup();
         }
