@@ -25,3 +25,11 @@ run:
 
 dev: btcpay-appsettings build run
 
+test:
+	$(eval BTC_COOKIE := $(shell docker exec boltz-bitcoind cat /app/bitcoin/regtest/.cookie 2>/dev/null))
+	TESTS_BTCRPCCONNECTION="server=http://127.0.0.1:18443;$(BTC_COOKIE)" \
+	TESTS_BTCNBXPLORERURL="http://127.0.0.1:32838/" \
+	TESTS_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=btcpayserver" \
+	TESTS_EXPLORER_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=nbxplorer" \
+	dotnet test ./BTCPayServer.Plugins.Boltz.Tests --logger "console;verbosity=normal"
+

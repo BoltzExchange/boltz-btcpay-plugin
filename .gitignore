@@ -455,7 +455,6 @@ $RECYCLE.BIN/
 
 publish
 release
-regtest
 
 # Docs
 docs/node_modules

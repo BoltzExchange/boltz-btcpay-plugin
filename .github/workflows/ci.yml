@@ -45,3 +45,11 @@ jobs:
       - name: Build docs
         working-directory: ./docs
         run: npm run docs:build
+
+      - name: Setup Boltz regtest
+        env:
+          COMPOSE_PROFILES: btcpay,ci
+        run: cd regtest && ./start.sh
+
+      - name: Run tests
+        run: make test
