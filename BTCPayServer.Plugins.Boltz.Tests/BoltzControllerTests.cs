@@ -9,7 +9,7 @@ using Xunit.Abstractions;
 
 namespace BTCPayServer.Plugins.Boltz.Tests
 {
-    [Trait("Fast", "Fast")]
+    [Trait("Integration", "Integration")]
     public class BoltzControllerTests : BoltzTestBase
     {
         public BoltzControllerTests(ITestOutputHelper helper) : base(helper)
