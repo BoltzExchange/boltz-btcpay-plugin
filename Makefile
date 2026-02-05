@@ -33,3 +33,29 @@ test:
 	TESTS_EXPLORER_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=nbxplorer" \
 	dotnet test ./BTCPayServer.Plugins.Boltz.Tests --logger "console;verbosity=normal"
 
+# Run only fast/unit tests (no regtest required)
+test-fast:
+	dotnet test ./BTCPayServer.Plugins.Boltz.Tests --filter "Fast=Fast" --logger "console;verbosity=normal"
+
+# Run integration tests (requires regtest)
+test-integration:
+	$(eval BTC_COOKIE := $(shell docker exec boltz-bitcoind cat /app/bitcoin/regtest/.cookie 2>/dev/null))
+	TESTS_BTCRPCCONNECTION="server=http://127.0.0.1:18443;$(BTC_COOKIE)" \
+	TESTS_BTCNBXPLORERURL="http://127.0.0.1:32838/" \
+	TESTS_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=btcpayserver" \
+	TESTS_EXPLORER_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=nbxplorer" \
+	dotnet test ./BTCPayServer.Plugins.Boltz.Tests --filter "Integration=Integration" --logger "console;verbosity=normal"
+
+# Run Playwright browser tests (requires regtest and Playwright browsers)
+test-playwright:
+	$(eval BTC_COOKIE := $(shell docker exec boltz-bitcoind cat /app/bitcoin/regtest/.cookie 2>/dev/null))
+	TESTS_BTCRPCCONNECTION="server=http://127.0.0.1:18443;$(BTC_COOKIE)" \
+	TESTS_BTCNBXPLORERURL="http://127.0.0.1:32838/" \
+	TESTS_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=btcpayserver" \
+	TESTS_EXPLORER_POSTGRES="User ID=boltz;Password=boltz;Include Error Detail=true;Host=127.0.0.1;Port=5432;Database=nbxplorer" \
+	dotnet test ./BTCPayServer.Plugins.Boltz.Tests --filter "Playwright=Playwright" --logger "console;verbosity=normal"
+
+# Install Playwright browsers
+playwright-install:
+	pwsh ./BTCPayServer.Plugins.Boltz.Tests/bin/Debug/net8.0/playwright.ps1 install chromium
+

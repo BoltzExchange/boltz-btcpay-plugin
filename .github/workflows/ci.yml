@@ -46,10 +46,34 @@ jobs:
         working-directory: ./docs
         run: npm run docs:build
 
+      - name: Restore test dependencies
+        run: dotnet restore BTCPayServer.Plugins.Boltz.Tests
+
+      - name: Build tests
+        run: dotnet build BTCPayServer.Plugins.Boltz.Tests --configuration Release --no-restore
+
+      - name: Run fast tests
+        run: make test-fast
+
       - name: Setup Boltz regtest
         env:
           COMPOSE_PROFILES: btcpay,ci
         run: cd regtest && ./start.sh
 
-      - name: Run tests
-        run: make test
+      - name: Run integration tests
+        run: make test-integration
+
+      - name: Install Playwright browsers
+        run: pwsh ./BTCPayServer.Plugins.Boltz.Tests/bin/Release/net8.0/playwright.ps1 install chromium
+
+      - name: Run Playwright tests
+        run: make test-playwright
+
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: |
+            **/playwright-traces/
+            **/screenshots/
