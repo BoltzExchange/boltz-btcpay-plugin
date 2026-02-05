@@ -19,7 +19,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
         [Fact]
         public async Task CanAccessStatusPage()
         {
-            using var serverTester = CreateServerTesterWithBoltz("CanAccessStatusPage");
+            using var serverTester = CreateServerTesterWithBoltz();
             var account = await serverTester.CreateTestStore();
             await serverTester.SetupBoltzForStore(account.StoreId);
             var boltzService = await serverTester.GetBoltzService();
