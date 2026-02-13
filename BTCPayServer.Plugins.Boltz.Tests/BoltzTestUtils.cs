@@ -33,6 +33,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
         public static async Task<TestAccount> CreateTestStore(this ServerTester serverTester, string storeName = "Test Store")
         {
             await serverTester.StartAsync();
+            await Task.Delay(3000);
             var account = serverTester.NewAccount();
             account.GrantAccess();
             await account.CreateStoreAsync();
