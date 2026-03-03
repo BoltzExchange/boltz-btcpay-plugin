@@ -55,8 +55,8 @@ Done! "Lightning" shows active and running! 🎉
 <figure><img src="./assets/plugin_setup_05.png" alt=""><figcaption></figcaption></figure>
 
 It's a good idea to do a small test purchase to verify things are working. If
-you are running into issues, feel free to reach out in our
-[Boltz BTCPay Plugin Telegram community](https://t.me/+YdK0sV1OaVJmZjM1).
+you are running into issues, feel free to
+[reach out](https://support.boltz.exchange/hc/center).
 
 ::: info BTCPay Server v2 is the only supported major version, BTCPay Server v1
 support was discontinued :::
