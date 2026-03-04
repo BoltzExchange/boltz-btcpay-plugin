@@ -76,7 +76,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         }
 
-        public ServerTester CreateServerTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = false)
+        public ServerTester CreateServerTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
             var provider = CreateNetworkProviderWithBoltz();
             Assert.NotNull(provider);
@@ -84,12 +84,12 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             return new ServerTester(scope, newDb, TestLogs, TestLogProvider, provider);
         }
 
-        public SeleniumTester CreateSeleniumTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = false)
+        public SeleniumTester CreateSeleniumTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
             return new SeleniumTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };
         }
 
-        public PlaywrightTester CreatePlaywrightTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = false)
+        public PlaywrightTester CreatePlaywrightTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
             return new PlaywrightTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };
         }

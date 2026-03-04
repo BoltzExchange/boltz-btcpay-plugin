@@ -43,8 +43,34 @@ namespace BTCPayServer.Plugins.Boltz.Tests
         public static async Task SetupBoltzForStore(this ServerTester serverTester, string storeId, BoltzMode mode = BoltzMode.Standalone)
         {
             var boltzService = await serverTester.GetBoltzService();
-            var settings = await boltzService.InitializeStore(storeId, mode);
-            var client = boltzService.Daemon.GetClient(settings);
+            BoltzSettings settings = null;
+            BoltzClient client = null;
+            const int maxAttempts = 6;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    settings = await boltzService.InitializeStore(storeId, mode);
+                    client = boltzService.Daemon.GetClient(settings);
+                    if (client is not null)
+                    {
+                        break;
+                    }
+                }
+                catch (NullReferenceException) when (attempt < maxAttempts)
+                {
+                    // Boltz daemon/admin client can still be initializing right after test server startup.
+                }
+
+                if (attempt < maxAttempts)
+                {
+                    await Task.Delay(1000);
+                }
+            }
+
+            Assert.NotNull(settings);
+            Assert.NotNull(client);
             var wallet = await client.CreateWallet(new Boltzrpc.WalletParams { Name = "test", Currency = Boltzrpc.Currency.Lbtc });
             settings.SetStandaloneWallet(wallet.Wallet);
             await boltzService.Set(storeId, settings);
