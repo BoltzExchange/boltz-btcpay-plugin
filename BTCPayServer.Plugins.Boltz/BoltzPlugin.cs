@@ -28,6 +28,7 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
         services.AddSingleton<BoltzLightningConnectionStringHandler>();
         services.AddSingleton<BoltzService>();
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<BoltzService>());
+        services.AddSingleton<ISwaggerProvider, BoltzSwaggerProvider>();
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTab",
             "ln-payment-method-setup-tab"));
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/LNPaymentMethodSetupTabhead",

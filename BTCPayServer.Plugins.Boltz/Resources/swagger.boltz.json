@@ -1,0 +1,443 @@
+{
+  "paths": {
+    "/api/v1/stores/{storeId}/boltz/setup": {
+      "get": {
+        "tags": ["Boltz"],
+        "summary": "Get Boltz setup status",
+        "description": "View the current Boltz configuration status for a store",
+        "operationId": "Boltz_GetSetup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current Boltz setup status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoltzSetupData"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to view the specified store"
+          },
+          "404": {
+            "description": "The store was not found"
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canviewstoresettings"],
+            "Basic": []
+          }
+        ]
+      },
+      "post": {
+        "tags": ["Boltz"],
+        "summary": "Enable Boltz for store",
+        "description": "Enable Boltz in standalone mode for a store, using the specified wallet for receiving lightning payments",
+        "operationId": "Boltz_EnableSetup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoltzSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Boltz enabled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoltzSetupData"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A list of errors that occurred when enabling Boltz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to modify the specified store"
+          },
+          "422": {
+            "description": "Unable to validate the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canmodifystoresettings"],
+            "Basic": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["Boltz"],
+        "summary": "Disable Boltz for store",
+        "description": "Disable Boltz for a store",
+        "operationId": "Boltz_DisableSetup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boltz disabled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoltzSetupData"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A list of errors that occurred when disabling Boltz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to modify the specified store"
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canmodifystoresettings"],
+            "Basic": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stores/{storeId}/boltz/wallets": {
+      "get": {
+        "tags": ["Boltz"],
+        "summary": "List Boltz wallets",
+        "description": "List all wallets available in the Boltz daemon for this store",
+        "operationId": "Boltz_ListWallets",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of wallets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoltzWalletData"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Boltz daemon is not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to view the specified store"
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canviewstoresettings"],
+            "Basic": []
+          }
+        ]
+      },
+      "post": {
+        "tags": ["Boltz"],
+        "summary": "Create or import a Boltz wallet",
+        "description": "Create a new wallet or import an existing one using a mnemonic or Bitcoin Core descriptor",
+        "operationId": "Boltz_CreateWallet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoltzWalletRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wallet created or imported successfully. When creating a new wallet, the mnemonic is included in the response for backup purposes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBoltzWalletResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A list of errors that occurred when creating the wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to modify the specified store, or hot wallet creation/import is disabled on this server"
+          },
+          "422": {
+            "description": "Unable to validate the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canmodifystoresettings"],
+            "Basic": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stores/{storeId}/boltz/wallets/{walletId}": {
+      "delete": {
+        "tags": ["Boltz"],
+        "summary": "Remove a Boltz wallet",
+        "description": "Remove a wallet from the Boltz daemon. Cannot remove the wallet currently configured for lightning payments.",
+        "operationId": "Boltz_RemoveWallet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "description": "The wallet ID to remove",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet removed successfully"
+          },
+          "400": {
+            "description": "Cannot delete the wallet (e.g., it's currently in use or Boltz daemon error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "If you are authenticated but forbidden to modify the specified store"
+          }
+        },
+        "security": [
+          {
+            "API_Key": ["btcpay.store.canmodifystoresettings"],
+            "Basic": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BoltzSetupRequest": {
+        "type": "object",
+        "description": "Request to enable Boltz for a store",
+        "required": ["walletName"],
+        "properties": {
+          "walletName": {
+            "type": "string",
+            "description": "The wallet name to use for receiving lightning payments"
+          }
+        }
+      },
+      "BoltzSetupData": {
+        "type": "object",
+        "description": "Response containing current Boltz setup status",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether Boltz is enabled for this store"
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true,
+            "description": "The configured mode",
+            "enum": ["Rebalance", "Standalone"]
+          },
+          "wallet": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoltzWalletData"
+              }
+            ],
+            "description": "The configured wallet, if any"
+          }
+        }
+      },
+      "CreateBoltzWalletRequest": {
+        "type": "object",
+        "description": "Request to create or import a wallet",
+        "required": ["name", "currency"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name for the wallet"
+          },
+          "currency": {
+            "type": "string",
+            "description": "The currency: 'BTC' or 'LBTC'",
+            "default": "LBTC",
+            "enum": ["BTC", "LBTC"]
+          },
+          "mnemonic": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional: 12 or 24 word mnemonic seed phrase for import"
+          },
+          "coreDescriptor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional: Bitcoin Core descriptor for watch-only import"
+          }
+        }
+      },
+      "BoltzWalletBalance": {
+        "type": "object",
+        "description": "Wallet balance information",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total balance in satoshis"
+          },
+          "confirmed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Confirmed balance in satoshis"
+          },
+          "unconfirmed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unconfirmed balance in satoshis"
+          }
+        }
+      },
+      "BoltzWalletData": {
+        "type": "object",
+        "description": "Wallet data returned by the API",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unique wallet identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Wallet name"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Wallet currency: 'BTC' or 'LBTC'"
+          },
+          "balance": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoltzWalletBalance"
+              }
+            ],
+            "description": "Wallet balance"
+          },
+          "readonly": {
+            "type": "boolean",
+            "description": "Whether this is a watch-only (read-only) wallet"
+          }
+        }
+      },
+      "CreateBoltzWalletResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BoltzWalletData"
+          }
+        ],
+        "type": "object",
+        "description": "Response when creating a new wallet (includes mnemonic for backup)",
+        "properties": {
+          "mnemonic": {
+            "type": "string",
+            "nullable": true,
+            "description": "The mnemonic seed phrase. Only returned when creating a new wallet."
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Boltz",
+      "description": "Boltz plugin API for non-custodial Lightning payments. Allows enabling Boltz for a store, managing wallets for receiving Lightning payments via atomic swaps."
+    }
+  ]
+}

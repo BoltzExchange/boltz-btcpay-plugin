@@ -69,3 +69,6 @@ mainly a UI for [Boltz Client](https://docs.boltz.exchange/v/boltz-client), our
 long-running swap daemon. The plugin downloads latest release binaries of Boltz
 Client by default, checks the PGP signature and, if all checks out, starts the
 daemon.
+
+The plugin also extends BTCPay's Greenfield API. You can access the merged
+server Swagger spec at `https://<your-btcpay-server>/swagger/v1/swagger.json`.

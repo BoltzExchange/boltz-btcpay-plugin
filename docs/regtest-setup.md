@@ -32,3 +32,8 @@ cd boltz-client
 make
 cp ./boltzd ./boltzcli ~/.btcpayserver/RegTest/LocalStorage/Boltz/bin/linux_amd64/
 ```
+
+The Boltz Greenfield Swagger spec is generated manually
+`BTCPayServer.Plugins.Boltz/Resources/swagger.boltz.json`. If you make changes
+to the Greenfield API endpoints, make sure to update this file as part of the
+same change.

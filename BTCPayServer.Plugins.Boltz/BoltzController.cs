@@ -266,11 +266,10 @@ public class BoltzController(
 
         try
         {
-            var standaloneWallet = Settings?.StandaloneWallet;
-            if (standaloneWallet?.Id == walletId)
+            if (boltzService.IsWalletInUse(CurrentStoreId!, walletId))
             {
                 TempData[WellKnownTempData.ErrorMessage] = "You cannot delete the wallet used for lightning payments";
-                return RedirectToAction(nameof(Wallets), new { storeId = CurrentStoreId, walletName = standaloneWallet?.Name });
+                return RedirectToAction(nameof(Wallets), new { storeId = CurrentStoreId, walletName = Settings?.StandaloneWallet?.Name });
             }
             await Boltz.RemoveWallet(walletId);
             TempData[WellKnownTempData.SuccessMessage] = "Wallet deleted";
