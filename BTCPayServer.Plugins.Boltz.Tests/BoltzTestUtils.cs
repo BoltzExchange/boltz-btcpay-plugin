@@ -11,6 +11,21 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 {
     public static class BoltzTestUtils
     {
+        private static async Task<bool> WaitForAdminClient(BoltzService boltzService, int timeoutSeconds)
+        {
+            for (var second = 0; second < timeoutSeconds; second++)
+            {
+                if (boltzService.AdminClient is not null && boltzService.Daemon.Running)
+                {
+                    return true;
+                }
+
+                await Task.Delay(1000);
+            }
+
+            return boltzService.AdminClient is not null && boltzService.Daemon.Running;
+        }
+
         public static async Task<BoltzService> GetBoltzService(this ServerTester serverTester)
         {
             return serverTester.PayTester.GetService<BoltzService>();
@@ -43,12 +58,27 @@ namespace BTCPayServer.Plugins.Boltz.Tests
         public static async Task SetupBoltzForStore(this ServerTester serverTester, string storeId, BoltzMode mode = BoltzMode.Standalone)
         {
             var boltzService = await serverTester.GetBoltzService();
+            await boltzService.SetServerSettings(CreateTestBoltzServerSettings());
+            if (!await WaitForAdminClient(boltzService, timeoutSeconds: 45))
+            {
+                await boltzService.SetServerSettings(CreateTestBoltzServerSettings());
+            }
+
             BoltzSettings settings = null;
             BoltzClient client = null;
-            const int maxAttempts = 6;
+            const int maxAttempts = 30;
 
             for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
+                if (boltzService.AdminClient is null)
+                {
+                    if (attempt < maxAttempts)
+                    {
+                        await Task.Delay(2000);
+                        continue;
+                    }
+                }
+
                 try
                 {
                     settings = await boltzService.InitializeStore(storeId, mode);
@@ -62,10 +92,14 @@ namespace BTCPayServer.Plugins.Boltz.Tests
                 {
                     // Boltz daemon/admin client can still be initializing right after test server startup.
                 }
+                catch (InvalidOperationException) when (attempt < maxAttempts)
+                {
+                    // Boltz daemon/admin client can still be initializing right after test server startup.
+                }
 
                 if (attempt < maxAttempts)
                 {
-                    await Task.Delay(1000);
+                    await Task.Delay(2000);
                 }
             }
 
