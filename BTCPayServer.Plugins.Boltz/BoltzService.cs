@@ -267,18 +267,24 @@ public class BoltzService(
         }
         else
         {
+            var adminClient = AdminClient;
+            if (adminClient is null)
+            {
+                throw new InvalidOperationException("Boltz admin client is not initialized");
+            }
+
             var tenantName = "btcpay-" + storeId;
             Tenant tenant;
             try
             {
-                tenant = await AdminClient!.GetTenant(tenantName);
+                tenant = await adminClient.GetTenant(tenantName);
             }
             catch (RpcException)
             {
-                tenant = await AdminClient!.CreateTenant(tenantName);
+                tenant = await adminClient.CreateTenant(tenantName);
             }
 
-            var response = await AdminClient.BakeMacaroon(tenant.Id);
+            var response = await adminClient.BakeMacaroon(tenant.Id);
             settings.TenantId = tenant.Id;
             settings.Macaroon = response.Macaroon;
         }
