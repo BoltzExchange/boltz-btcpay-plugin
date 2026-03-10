@@ -27,7 +27,7 @@ public class BoltzSetupData
     public bool Enabled { get; set; }
 
     /// <summary>
-    /// The configured mode: "standalone", "rebalance", or null if not configured
+    /// The configured mode: "standalone", or null if not configured
     /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public BoltzMode? Mode { get; set; }
