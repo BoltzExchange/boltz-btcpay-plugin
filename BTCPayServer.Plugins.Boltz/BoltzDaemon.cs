@@ -44,15 +44,8 @@ public class ClnConfig
 public class DaemonConfig
 {
     public string? LogLevel { get; set; }
-    public NodeConfig? Node { get; set; }
 }
 
-public class NodeConfig
-{
-    public string? LogLevel { get; set; }
-    public LndConfig? Lnd { get; set; }
-    public ClnConfig? Cln { get; set; }
-}
 
 public class BoltzDaemon(
     IOptions<DataDirectories> dataDirectories,
@@ -92,7 +85,6 @@ public class BoltzDaemon(
     public bool Running => AdminClient is not null;
     public readonly TaskCompletionSource<bool> InitialStart = new();
     public event EventHandler<GetSwapInfoResponse>? SwapUpdate;
-    public NodeConfig? Node;
     public string? NodeError { get; private set; }
     public string? Error { get; private set; }
     public bool HasError => !string.IsNullOrEmpty(Error);
@@ -191,21 +183,6 @@ public class BoltzDaemon(
     {
         try
         {
-            if (config.Node is not null)
-            {
-                _output.Clear();
-                await Configure(config);
-                if (Running)
-                {
-                    Node = config.Node;
-                    NodeError = null;
-                    return;
-                }
-
-                NodeError = String.IsNullOrEmpty(RecentOutput) ? Error : RecentOutput;
-                config.Node = null;
-            }
-
             await Configure(config);
         }
         finally
@@ -224,135 +201,31 @@ public class BoltzDaemon(
         }
     }
 
-    public NodeConfig? GetNodeConfig(ILightningClient? node)
-    {
-        switch (node)
-        {
-            case CLightningClient cln:
-                if (cln.Address.Scheme == "unix")
-                {
-                    var path = cln.Address.AbsoluteUri.Remove(0, "unix:".Length);
-                    if (!path.StartsWith("/"))
-                        path = "/" + path;
-
-                    var split = path.Split("/");
-                    path = "/" + Path.Combine(split.Take(split.Length - 2).ToArray());
-
-                    return new NodeConfig
-                    {
-                        Cln = new ClnConfig
-                        {
-                            DataDir = path,
-                            Port = 9736,
-                            Host = "127.0.0.1"
-                        }
-                    };
-                }
-
-                throw new Exception("Unsupported lightning connection string");
-
-            case LndClient lnd:
-                var url = new Uri(lnd.SwaggerClient.BaseUrl);
-                var kv = LightningConnectionStringHelper.ExtractValues(lnd.ToString(), out _);
-                if (!kv.TryGetValue("macaroonfilepath", out var macaroon))
-                {
-                    if (!kv.TryGetValue("macaroon", out macaroon))
-                    {
-                        throw new Exception("No macaroon found in lnd connection string");
-                    }
-
-                    throw new Exception("No macaroon found in lnd connection string");
-                }
-
-                if (!kv.TryGetValue("certfilepath", out var cert))
-                {
-                    var dir = Path.GetDirectoryName(macaroon);
-                    var dataDir = dir?.Split("/data/chain/bitcoin").FirstOrDefault();
-                    if (dataDir != null)
-                    {
-                        cert = Path.Combine(dataDir, "tls.cert");
-                    }
-                    else
-                    {
-                        throw new Exception("No cert found in lnd connection string");
-                    }
-                }
-
-                return new NodeConfig
-                {
-                    Lnd = new LndConfig
-                    {
-                        Host = url.Host,
-                        Macaroon = macaroon,
-                        Certificate = cert,
-                        Port = 10009,
-                    }
-                };
-            case null:
-                return null;
-            default:
-                throw new Exception("Unsupported lightning client");
-        }
-    }
-
-    public string GetConfig(DaemonConfig? nodeConfig)
+    public string GetConfig(DaemonConfig config)
     {
         var networkName = BtcNetwork.NBitcoinNetwork.ChainName.ToString().ToLower();
 
-        string shared = $"""
-                         network = "{networkName}"
-                         referralId = "btcpay"
-                         logmaxsize = 1
-                         loglevel = "{nodeConfig?.LogLevel ?? "info"}"
-
-                         [RPC]
-                         host = "{DefaultUri.Host}"
-                         port = {DefaultUri.Port}
-                         rest.disable = true
-                         """;
-
-        if (nodeConfig?.Node?.Lnd != null)
-        {
-            var lnd = nodeConfig.Node.Lnd;
-            return $"""
-                    node = "lnd"
-                    {shared}
-
-                    [LND]
-                    host = "{lnd.Host}"
-                    port = {lnd.Port}
-                    macaroon = "{lnd.Macaroon}"
-                    certificate = "{lnd.Certificate}"
-                    """;
-        }
-
-        if (nodeConfig?.Node?.Cln != null)
-        {
-            var cln = nodeConfig.Node.Cln;
-            return $"""
-                    node = "cln"
-                    {shared}
-
-                    [CLN]
-                    host = "{cln.Host}"
-                    port = {cln.Port}
-                    dataDir = "{cln.DataDir}"
-                    """;
-        }
-
         return $"""
-                standalone = true
-                {shared}
-                """;
+        standalone = true
+        network = "{networkName}"
+        referralId = "btcpay"
+        logmaxsize = 1
+        loglevel = "{config.LogLevel ?? "info"}"
+
+        [RPC]
+        host = "{DefaultUri.Host}"
+        port = {DefaultUri.Port}
+        rest.disable = true
+        """;
     }
 
-    private async Task Configure(DaemonConfig? node)
+    private async Task Configure(DaemonConfig config)
     {
         try
         {
             await _configSemaphore.WaitAsync();
 
-            var newConfig = GetConfig(node);
+            var newConfig = GetConfig(config);
             if (Path.Exists(ConfigFile))
             {
                 var current = await File.ReadAllTextAsync(ConfigFile);

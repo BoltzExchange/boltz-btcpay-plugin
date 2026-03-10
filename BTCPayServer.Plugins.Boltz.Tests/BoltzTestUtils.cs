@@ -40,7 +40,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
         {
             return new BoltzServerSettings
             {
-                ConnectNode = false,
                 AllowTenants = true
             };
         }
@@ -55,7 +54,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             return account;
         }
 
-        public static async Task SetupBoltzForStore(this ServerTester serverTester, string storeId, BoltzMode mode = BoltzMode.Standalone)
+        public static async Task SetupBoltzForStore(this ServerTester serverTester, string storeId)
         {
             var boltzService = await serverTester.GetBoltzService();
             await boltzService.SetServerSettings(CreateTestBoltzServerSettings());
@@ -81,7 +80,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
                 try
                 {
-                    settings = await boltzService.InitializeStore(storeId, mode);
+                    settings = await boltzService.InitializeStore(storeId);
                     client = boltzService.Daemon.GetClient(settings);
                     if (client is not null)
                     {
@@ -114,7 +113,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         public static void AssertBoltzSettingsEqual(BoltzSettings expected, BoltzSettings actual)
         {
-            Assert.Equal(expected.Mode, actual.Mode);
             Assert.Equal(expected.GrpcUrl, actual.GrpcUrl);
             Assert.Equal(expected.CertFilePath, actual.CertFilePath);
             Assert.Equal(expected.Macaroon, actual.Macaroon);
@@ -123,7 +121,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         public static void AssertBoltzServerSettingsEqual(BoltzServerSettings expected, BoltzServerSettings actual)
         {
-            Assert.Equal(expected.ConnectNode, actual.ConnectNode);
             Assert.Equal(expected.AllowTenants, actual.AllowTenants);
         }
     }

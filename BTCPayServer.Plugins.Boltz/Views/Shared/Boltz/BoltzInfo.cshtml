@@ -35,12 +35,11 @@
     var settings = BoltzService.GetSettings(storeId);
     if (client is null || settings is null) return;
 
-    var (ln, chain) = await client.GetAutoSwapConfig();
-    var lnConfigured = ln != null;
+    var (_, chain) = await client.GetAutoSwapConfig();
     var chainConfigured = chain != null;
-    var isStandalone = settings.Mode == BoltzMode.Standalone;
+    var hasLightningSettings = settings is not null;
 
-    @if ((isStandalone && chainConfigured) || (lnConfigured && chainConfigured))
+    @if (hasLightningSettings && chainConfigured)
     {
         <style>
             @@media(min - width: 1400px) {
@@ -57,7 +56,7 @@
         </style>
     }
 
-    @if (isStandalone)
+    @if (hasLightningSettings)
     {
         var stats = await client.GetStats();
         <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
@@ -75,17 +74,9 @@
     }
 
 
-    @if (lnConfigured || chainConfigured)
+    @if (chainConfigured)
     {
         var status = await client.GetAutoSwapStatus();
-
-        @if (lnConfigured)
-        {
-            var lnStatus = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = status.Lightning, Compact = true };
-            <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
-                <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
-            </div>
-        }
 
         @if (chainConfigured)
         {

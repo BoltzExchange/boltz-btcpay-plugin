@@ -30,7 +30,7 @@
         </a>
     }
 
-    @if (BoltzService.GetSettings(storeId)?.Mode != null)
+    @if (BoltzService.GetSettings(storeId) is not null)
     {
         <a asp-controller="Boltz" asp-action="Status" asp-route-storeId="@storeId" class="cancel">
             <vc:icon symbol="cross"/>

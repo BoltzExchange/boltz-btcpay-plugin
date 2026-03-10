@@ -52,7 +52,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             var okResult = Assert.IsType<OkObjectResult>(result);
             var setup = Assert.IsType<BoltzSetupData>(okResult.Value);
             Assert.False(setup.Enabled);
-            Assert.Null(setup.Mode);
         }
 
         [Fact]
@@ -91,7 +90,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             var enableResult = await controller.EnableSetup(account.StoreId, new BoltzSetupRequest { WalletName = "test-wallet" });
             var enabled = Assert.IsType<BoltzSetupData>(Assert.IsType<OkObjectResult>(enableResult).Value);
             Assert.True(enabled.Enabled);
-            Assert.Equal(BoltzMode.Standalone, enabled.Mode);
 
             var disableResult = await controller.DisableSetup(account.StoreId);
             var disabled = Assert.IsType<BoltzSetupData>(Assert.IsType<OkObjectResult>(disableResult).Value);

@@ -37,6 +37,7 @@ using NBitcoin;
 using NBitcoin.Altcoins;
 using NBitcoin.Altcoins.Elements;
 using NBitcoin.DataEncoders;
+using NBitcoin.Payment;
 using Newtonsoft.Json.Linq;
 using MarkPayoutRequest = BTCPayServer.HostedServices.MarkPayoutRequest;
 using PullPaymentHostedService = BTCPayServer.HostedServices.PullPaymentHostedService;
@@ -51,7 +52,6 @@ public class BoltzService(
     EventAggregator eventAggregator,
     ILogger<BoltzService> logger,
     BTCPayNetworkProvider btcPayNetworkProvider,
-    IOptions<LightningNetworkOptions> lightningNetworkOptions,
     IOptions<ExternalServicesOptions> externalServiceOptions,
     BoltzDaemon daemon,
     TransactionLinkProviders transactionLinkProviders,
@@ -76,15 +76,13 @@ public class BoltzService(
     public BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     public BTCPayWallet BtcWallet => btcPayWalletProvider.GetWallet(BtcNetwork);
 
-    public ILightningClient? InternalLightning =>
-        lightningNetworkOptions.Value.InternalLightningByCryptoCode.GetValueOrDefault("BTC", null);
-
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         externalServiceOptions.Value.OtherExternalServices.Add(SettingsName, new Uri("https://boltz.exchange"));
         _settings = new ConcurrentDictionary<string, BoltzSettings>(
             (await storeRepository.GetSettingsAsync<BoltzSettings>(SettingsName))
-            .Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value!));
+            .Where(pair => pair.Value is not null)
+            .ToDictionary(pair => pair.Key, pair => pair.Value!));
 
 
         daemon.SwapUpdate += async (_, response) =>
@@ -101,11 +99,7 @@ public class BoltzService(
         await daemon.Init();
 
         var serverSettings = await settingsRepository.GetSettingAsync<BoltzServerSettings>(SettingsName) ??
-                             new BoltzServerSettings
-                             {
-                                 ConnectNode = _settings.Count == 0 ||
-                                               _settings.Any(pair => pair.Value.Mode == BoltzMode.Rebalance)
-                             };
+                             new BoltzServerSettings();
         await SetServerSettings(serverSettings);
 
         if (daemon.Running)
@@ -178,7 +172,7 @@ public class BoltzService(
 
         var tenantId = info.ReverseSwap?.TenantId ?? info.ChainSwap?.TenantId ?? info.Swap!.TenantId;
         var found = _settings?.ToList()
-            .Find(pair => pair.Value.ActualTenantId == tenantId);
+            .Find(pair => pair.Value.TenantId == tenantId);
         if (found?.Value is null) return;
 
         var store = await storeRepository.FindStore(found.Value.Key);
@@ -261,41 +255,33 @@ public class BoltzService(
 
     public async Task SetMacaroon(string storeId, BoltzSettings settings)
     {
-        if (settings.Mode == BoltzMode.Rebalance)
+        var adminClient = AdminClient;
+        if (adminClient is null)
         {
-            settings.Macaroon = daemon.AdminMacaroon!;
+            throw new InvalidOperationException("Boltz admin client is not initialized");
         }
-        else
+
+        var tenantName = "btcpay-" + storeId;
+        Tenant tenant;
+        try
         {
-            var adminClient = AdminClient;
-            if (adminClient is null)
-            {
-                throw new InvalidOperationException("Boltz admin client is not initialized");
-            }
-
-            var tenantName = "btcpay-" + storeId;
-            Tenant tenant;
-            try
-            {
-                tenant = await adminClient.GetTenant(tenantName);
-            }
-            catch (RpcException)
-            {
-                tenant = await adminClient.CreateTenant(tenantName);
-            }
-
-            var response = await adminClient.BakeMacaroon(tenant.Id);
-            settings.TenantId = tenant.Id;
-            settings.Macaroon = response.Macaroon;
+            tenant = await adminClient.GetTenant(tenantName);
         }
+        catch (RpcException)
+        {
+            tenant = await adminClient.CreateTenant(tenantName);
+        }
+
+        var response = await adminClient.BakeMacaroon(tenant.Id);
+        settings.TenantId = tenant.Id;
+        settings.Macaroon = response.Macaroon;
     }
 
-    public async Task<BoltzSettings> InitializeStore(string storeId, BoltzMode? mode = null)
+    public async Task<BoltzSettings> InitializeStore(string storeId)
     {
         var settings = new BoltzSettings
         {
             GrpcUrl = daemon.DefaultUri,
-            Mode = mode,
             CertFilePath = daemon.CertFile,
         };
         await SetMacaroon(storeId, settings);
@@ -348,7 +334,7 @@ public class BoltzService(
 
     public bool StoreConfigured(string? storeId)
     {
-        return GetSettings(storeId)?.Mode is not null;
+        return GetSettings(storeId) is not null;
     }
 
     public BoltzSettings? GetSettings(string? storeId)
@@ -381,18 +367,7 @@ public class BoltzService(
     public async Task SetServerSettings(BoltzServerSettings settings)
     {
         await settingsRepository.UpdateSetting(settings, SettingsName);
-
-        if (settings is { ConnectNode: true, NodeConfig: null })
-        {
-            settings.NodeConfig = daemon.GetNodeConfig(InternalLightning);
-        }
-
-        if (!settings.ConnectNode)
-        {
-            settings.NodeConfig = null;
-        }
-
-        await daemon.TryConfigure(new DaemonConfig { Node = settings.NodeConfig, LogLevel = settings.LogLevel });
+        await daemon.TryConfigure(new DaemonConfig { LogLevel = settings.LogLevel });
 
         ServerSettings = settings;
     }
@@ -406,10 +381,6 @@ public class BoltzService(
         if (settings is null)
         {
             _settings!.Remove(storeId, out var oldSettings);
-            if (oldSettings is not null && oldSettings.Mode == BoltzMode.Rebalance)
-            {
-                await AdminClient!.ResetLnConfig();
-            }
 
             var boltzUrl = GetLightningClient(oldSettings)?.ToString();
             var paymentMethod =
@@ -423,11 +394,10 @@ public class BoltzService(
         else
         {
             await CheckSettings(settings);
-
-            if (settings.Mode == BoltzMode.Standalone)
+            var lightningClient = GetLightningClient(settings);
+            if (lightningClient is not null)
             {
                 var paymentMethod = new LightningPaymentMethodConfig();
-                var lightningClient = GetLightningClient(settings)!;
                 paymentMethod.SetLightningUrl(lightningClient);
 
                 data!.SetPaymentMethodConfig(PaymentTypes.LN.GetPaymentMethodId("BTC"),
@@ -439,13 +409,6 @@ public class BoltzService(
         }
 
         await storeRepository.UpdateSetting(storeId, SettingsName, settings!);
-    }
-
-    public async Task<StoreData?> GetRebalanceStore()
-    {
-        var store = _settings?.ToList()
-            .Find(pair => pair.Value.Mode == BoltzMode.Rebalance);
-        return store is null ? null : await storeRepository.FindStore(store.Value.Key);
     }
 
 
@@ -506,7 +469,7 @@ public class BoltzService(
     private async Task ModifyLnurlpAction(StoreLNURLPayRequest data)
     {
         var settings = GetSettings(data.Store?.Id);
-        if (settings?.Mode == BoltzMode.Standalone)
+        if (settings is not null)
         {
             var pairInfo = await GetPairInfo(new Pair { From = Currency.Btc, To = Currency.Lbtc }, SwapType.Reverse);
             if (pairInfo != null)

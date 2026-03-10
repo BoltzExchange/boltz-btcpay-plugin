@@ -319,12 +319,6 @@
             "type": "boolean",
             "description": "Whether Boltz is enabled for this store"
           },
-          "mode": {
-            "type": "string",
-            "nullable": true,
-            "description": "The configured mode",
-            "enum": ["Rebalance", "Standalone"]
-          },
           "wallet": {
             "nullable": true,
             "allOf": [

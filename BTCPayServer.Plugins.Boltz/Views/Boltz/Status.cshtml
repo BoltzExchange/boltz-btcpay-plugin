@@ -25,7 +25,7 @@
 else
 {
     <div class="d-flex flex-column gap-3">
-        @if (settings?.Mode == BoltzMode.Standalone && Model.Stats is not null && Model.StandaloneWallet is not null)
+        @if (settings is not null && Model.Stats is not null && Model.StandaloneWallet is not null)
         {
             var stats = BoltzClient.ParseStats(Model.Stats);
             <div class="widget d-flex flex-column gap-4">
@@ -46,59 +46,6 @@ else
 
         @if (Model.Status is not null)
         {
-            @if (Model.Ln is not null)
-            {
-                var ln = new AutoSwapStatus
-                {
-                    SwapperType = SwapperType.Lightning,
-                    Status = Model.Status.Lightning,
-                    Wallet = Model.RebalanceWallet?.Name ?? ""
-                };
-                var pendingLnSwaps = Model.PendingAutoSwaps?.Where(info => info.Type != SwapType.Chain).ToList();
-
-                <div class="widget d-flex gap-4 flex-column">
-                    <partial name="Boltz/_AutoSwapStatus" model="ln"/>
-
-                    @if (Model.Recommendations is not null)
-                    {
-                        var recommendation = Model.Recommendations.Lightning.FirstOrDefault();
-                        <partial name="Boltz/_LightningRecommendations" model="Model.Recommendations.Lightning"></partial>
-                        if (recommendation?.Swap != null)
-                        {
-                            <form method="post">
-                                <input type="hidden" name="lnRecommendation" value="@recommendation"/>
-                                <button type="submit" class="btn btn-primary">Execute</button>
-                            </form>
-                        }
-                    }
-                    @if (pendingLnSwaps?.Count > 0)
-                    {
-                        <div>
-                            <h5>Pending Swaps</h5>
-                            <partial name="Boltz/_SwapsTable" model="pendingLnSwaps"/>
-                        </div>
-                    }
-
-                    @if (Model.Ln.SwapType != "normal")
-                    {
-                        var fees = new FeesModel { Pair = new Pair { From = Currency.Btc, To = Model.Ln.Currency }, SwapType = SwapType.Reverse };
-                        <div>
-                            <h5>Reverse Swap Info</h5>
-                            <partial name="Boltz/_Fees" model="fees"/>
-                        </div>
-                    }
-
-                    @if (Model.Ln.SwapType != "reverse")
-                    {
-                        var fees = new FeesModel { Pair = new Pair { From = Model.Ln.Currency, To = Currency.Btc }, SwapType = SwapType.Submarine };
-                        <div>
-                            <h5>Submarine Swap Info</h5>
-                            <partial name="Boltz/_Fees" model="fees"/>
-                        </div>
-                    }
-                </div>
-            }
-
             @if (chainRecommendation is not null && Model.Chain is not null)
             {
                 var chain = new AutoSwapStatus

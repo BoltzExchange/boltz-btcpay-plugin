@@ -43,8 +43,7 @@ public class GreenfieldBoltzController(
         var settings = boltzService.GetSettings(storeId);
         var response = new BoltzSetupData
         {
-            Enabled = settings?.Mode != null,
-            Mode = settings?.Mode
+            Enabled = settings is not null
         };
 
         var client = boltzService.GetClient(storeId);
@@ -73,23 +72,21 @@ public class GreenfieldBoltzController(
 
         try
         {
-            var client = boltzService.GetClient(storeId)!;
+            var client = await boltzService.GetOrCreateClient(storeId);
             if (client is null)
             {
                 return BoltzUnavailableError();
 
             }
 
-            var settings = boltzService.GetSettings(storeId)!;
+            var settings = boltzService.GetSettings(storeId) ?? await boltzService.InitializeStore(storeId);
             var wallet = await client.GetWallet(request.WalletName);
-            settings.Mode = BoltzMode.Standalone;
             settings.SetStandaloneWallet(wallet);
             await boltzService.Set(storeId, settings);
 
             return Ok(new BoltzSetupData
             {
                 Enabled = true,
-                Mode = BoltzMode.Standalone,
                 Wallet = ToWalletData(wallet)
             });
         }
