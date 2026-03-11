@@ -3,7 +3,7 @@
 @model Boltzrpc.Wallet
 @{
     var walletId = Model.Id;
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 }
 <div class="btn-group gap-0 mt-2">
     <a asp-action="WalletReceive" asp-route-walletId="@walletId" asp-route-storeId="@storeId" class="btn btn-secondary">Receive / Swap In</a>

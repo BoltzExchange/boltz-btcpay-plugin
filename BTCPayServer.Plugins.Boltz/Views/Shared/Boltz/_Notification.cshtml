@@ -12,7 +12,7 @@
 }
 
 @{
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
     if (BoltzService.IsStoreReadonly(storeId) && !ViewData.IsPageActive([BoltzNavPages.Payouts, BoltzNavPages.Swaps]))
     {
         var payouts = await BoltzService.GetPayouts(storeId);
@@ -21,7 +21,7 @@
             <div class="alert alert-info">
                 <span>
                     There are payouts awaiting payment.
-                    <a href="@Url.Action("Payouts", "Boltz", new { storeId = Context.GetImplicitStoreId() })"
+                    <a href="@Url.Action("Payouts", "Boltz", new { storeId = Context.GetCurrentStoreId() })"
                         class="alert-link">View payouts</a>
                 </span>
             </div>

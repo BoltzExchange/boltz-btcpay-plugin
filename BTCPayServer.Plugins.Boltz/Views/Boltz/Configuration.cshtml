@@ -9,7 +9,7 @@
 @{
     ViewData.SetActivePage(BoltzNavPages.Configuration, "Configuration");
 
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
     var mode = Model.Settings?.Mode;
 }
 

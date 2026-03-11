@@ -28,7 +28,7 @@
     string invoice = null;
     string transaction = null;
     var transactionCurrency = Currency.Btc;
-    string storeId = Context.GetImplicitStoreId();
+    string storeId = Context.GetCurrentStoreId();
     if (common is null) return;
 }
 
@@ -250,7 +250,7 @@
         var isRefundable = await BoltzService.IsSwapRefundable(storeId, common.Id);
         if (isRefundable)
         {
-            <form class="mb-3" method="post" asp-controller="Boltz" asp-action="RefundSwap" asp-route-id="@common.Id" asp-route-storeId="@Context.GetImplicitStoreId()">
+            <form class="mb-3" method="post" asp-controller="Boltz" asp-action="RefundSwap" asp-route-id="@common.Id" asp-route-storeId="@Context.GetCurrentStoreId()">
                 <div class="form-group">
                     <label for="address" class="form-label">Refund Address</label>
                     <input required id="address" name="address" placeholder="Enter your address..." class="form-control"/>

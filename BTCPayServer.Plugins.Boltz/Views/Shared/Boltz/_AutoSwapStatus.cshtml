@@ -16,7 +16,7 @@
         {
             <span class="btcpay-status btcpay-status--@(statusClass)"></span>
             <h6 class="text-truncate flex-grow-1">@name @statusString</h6>
-            <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@Context.GetImplicitStoreId()">
+            <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@Context.GetCurrentStoreId()">
                 Manage
             </a>
         }

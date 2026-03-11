@@ -84,11 +84,6 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             return new ServerTester(scope, newDb, TestLogs, TestLogProvider, provider);
         }
 
-        public SeleniumTester CreateSeleniumTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
-        {
-            return new SeleniumTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };
-        }
-
         public PlaywrightTester CreatePlaywrightTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
             return new PlaywrightTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };

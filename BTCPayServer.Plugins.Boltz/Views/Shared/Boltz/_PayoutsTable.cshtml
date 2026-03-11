@@ -4,7 +4,7 @@
 @using Boltzrpc
 @model List<PayoutModel>
 @{
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 }
 <div class="table-responsive my-0">
     <table class="table table-hover my-0">

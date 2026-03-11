@@ -5,7 +5,7 @@
 @inject BoltzService BoltzService
 @{
     Layout = "_LayoutSetup";
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 }
 
 <h1 class="text-center">Get Started with Boltz</h1>

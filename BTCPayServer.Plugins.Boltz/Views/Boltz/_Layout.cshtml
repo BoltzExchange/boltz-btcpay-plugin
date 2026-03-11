@@ -3,7 +3,7 @@
 @inject BoltzDaemon Daemon
 @{
     Layout = "../Shared/_Layout.cshtml";
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 }
 
 @if (!ViewData.TryGetValue("NoHeader", out var noHeader))

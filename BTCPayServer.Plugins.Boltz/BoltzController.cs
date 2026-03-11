@@ -32,7 +32,7 @@ using AngleSharp.Text;
 namespace BTCPayServer.Plugins.Boltz;
 
 [Route("plugins/{storeId}/Boltz")]
-[Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Policies.CanViewProfile)]
+[Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Policies.CanViewStoreSettings)]
 public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
@@ -53,7 +53,7 @@ public class BoltzController(
     private const string BtcPayName = "BTCPay";
     private const string BackUrl = "BackUrl";
 
-    private StoreData? CurrentStore => HttpContext.GetStoreData();
+    private StoreData? CurrentStore => HttpContext.GetStoreDataOrNull();
     private string? CurrentStoreId => CurrentStore?.Id;
 
     private BoltzSettings? SetupSettings
@@ -903,6 +903,7 @@ public class BoltzController(
                     CurrentStore!.GetPaymentMethodConfig<LightningPaymentMethodConfig>(
                         PaymentTypes.LN.GetPaymentMethodId("BTC"), handlers);
                 vm.HasInternal = boltzService.InternalLightning is not null;
+
                 vm.ConnectedInternal = boltzService.Daemon.Node is not null;
                 vm.ConnectNodeSetting = boltzService.ServerSettings.ConnectNode;
                 if (vm.IsAdmin)

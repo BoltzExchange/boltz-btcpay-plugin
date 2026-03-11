@@ -5,7 +5,7 @@
 @using BTCPayServer.Plugins.Boltz.Views
 @model Boltzrpc.GetSwapInfoResponse
 @{
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 
     var common = Model.Swap != null ? new
     {

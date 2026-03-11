@@ -3,7 +3,7 @@
 @using BTCPayServer.Plugins.Boltz.Models
 @{
     Layout = "_LayoutSetup";
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 }
 
 <header class="text-center">
