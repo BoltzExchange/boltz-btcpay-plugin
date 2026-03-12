@@ -12,7 +12,7 @@
     {
         @if (User.IsInRole(Roles.ServerAdmin))
         {
-            <a asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetImplicitStoreId()"
+            <a asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetCurrentStoreId()"
                 class="alert alert-danger d-block">
                 Boltz Client not running
             </a>
@@ -30,7 +30,7 @@
 
 @try
 {
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
     var client = BoltzService.GetClient(storeId);
     var settings = BoltzService.GetSettings(storeId);
     if (client is null || settings is null) return;
@@ -101,7 +101,7 @@ catch (Exception)
     <div style="grid-column-start: 1; grid-column-end: 13">
         @if (User.IsInRole(Roles.ServerAdmin))
         {
-            <a asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetImplicitStoreId()"
+            <a asp-controller="Boltz" asp-action="Admin" asp-route-storeId="@Context.GetCurrentStoreId()"
                 class="alert alert-danger d-block">
                 Boltz connection not working
             </a>

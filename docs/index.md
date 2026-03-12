@@ -60,8 +60,8 @@ you are running into issues, feel free to
 
 ::: info
 
-BTCPay Server v2 is the only supported major version, BTCPay Server v1
-support was discontinued 
+BTCPay Server v2 is the only supported major version, BTCPay Server v1 support
+was discontinued
 
 :::
 

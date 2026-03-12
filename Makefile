@@ -1,5 +1,8 @@
+DOTNET_VERSION := 10.0
 VERSION := 2.2.20
 RELEASE_PATH := ./release/BTCPayServer.Plugins.Boltz/$(VERSION)
+BOLTZ_REGTEST ?= $(CURDIR)/regtest
+BOLTZ_REGTEST_PATH := $(abspath $(BOLTZ_REGTEST))
 
 gh-release:
 	./release.sh
@@ -14,18 +17,20 @@ gh-release:
 
 btcpay-appsettings:
 	echo "{ \
-	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net8.0/BTCPayServer.Plugins.Boltz.dll\" \
+	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net$(DOTNET_VERSION)/BTCPayServer.Plugins.Boltz.dll\" \
 	}" > ./btcpayserver/BTCPayServer/appsettings.dev.json
 
 build:
 	dotnet build BTCPayServer.Plugins.Boltz
 
 run:
-	cd ./btcpayserver/BTCPayServer && dotnet run --launch-profile "Bitcoin-Boltz"
+	cd ./btcpayserver/BTCPayServer && \
+	BTCPAY_BTCLIGHTNING="type=lnd-rest;server=https://127.0.0.1:8081/;macaroonfilepath=$(BOLTZ_REGTEST_PATH)/data/lnd1/data/chain/bitcoin/regtest/admin.macaroon;certfilepath=$(BOLTZ_REGTEST_PATH)/data/lnd1/tls.cert;allowinsecure=true" \
+	dotnet run --launch-profile "Bitcoin-Boltz"
 
 dev: btcpay-appsettings build run
 
-test:
+test: btcpay-appsettings
 	$(eval BTC_COOKIE := $(shell docker exec boltz-bitcoind cat /app/bitcoin/regtest/.cookie 2>/dev/null))
 	TESTS_BTCRPCCONNECTION="server=http://127.0.0.1:18443;$(BTC_COOKIE)" \
 	TESTS_BTCNBXPLORERURL="http://127.0.0.1:32838/" \

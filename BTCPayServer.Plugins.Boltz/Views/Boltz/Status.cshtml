@@ -8,7 +8,7 @@
 @{
     ViewData.SetActivePage(BoltzNavPages.Status, "Status");
 
-    var storeId = Context.GetImplicitStoreId();
+    var storeId = Context.GetCurrentStoreId();
 
     var settings = BoltzService.GetSettings(storeId);
 
