@@ -323,7 +323,7 @@
             "type": "string",
             "nullable": true,
             "description": "The configured mode",
-            "enum": ["Rebalance", "Standalone"]
+            "enum": ["Standalone"]
           },
           "wallet": {
             "nullable": true,

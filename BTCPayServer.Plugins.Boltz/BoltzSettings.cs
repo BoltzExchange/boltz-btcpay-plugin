@@ -6,8 +6,7 @@ namespace BTCPayServer.Plugins.Boltz;
 
 public enum BoltzMode
 {
-    Rebalance,
-    Standalone
+    Standalone = 1
 }
 
 public class BoltzServerSettings
@@ -15,13 +14,8 @@ public class BoltzServerSettings
     [Display(Name = "Allow Plugin for non-admin users")]
     public bool AllowTenants { get; set; }
 
-    [Display(Name = "Connect to Internal Lightning Node")]
-    public bool ConnectNode { get; set; }
-
     [Display(Name = "Log Level")]
     public string LogLevel { get; set; } = "info";
-
-    public NodeConfig? NodeConfig { get; set; }
 }
 
 public class BoltzSettings
@@ -36,7 +30,6 @@ public class BoltzSettings
     public BoltzMode? Mode { get; set; }
 
     public ulong TenantId { get; set; }
-    public ulong ActualTenantId => Mode == BoltzMode.Rebalance ? 1 : TenantId;
 
     public class Wallet
     {
