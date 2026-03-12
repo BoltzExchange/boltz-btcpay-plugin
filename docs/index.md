@@ -58,8 +58,12 @@ It's a good idea to do a small test purchase to verify things are working. If
 you are running into issues, feel free to
 [reach out](https://support.boltz.exchange/hc/center).
 
-::: info BTCPay Server v2 is the only supported major version, BTCPay Server v1
-support was discontinued :::
+::: info
+
+BTCPay Server v2 is the only supported major version, BTCPay Server v1
+support was discontinued 
+
+:::
 
 ## How does the plugin work under the hood?
 
