@@ -1,5 +1,5 @@
 DOTNET_VERSION := 10.0
-VERSION := 2.2.20
+VERSION := 2.2.21
 RELEASE_PATH := ./release/BTCPayServer.Plugins.Boltz/$(VERSION)
 BOLTZ_REGTEST ?= $(CURDIR)/regtest
 BOLTZ_REGTEST_PATH := $(abspath $(BOLTZ_REGTEST))
