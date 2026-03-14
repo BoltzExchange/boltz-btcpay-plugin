@@ -1,5 +1,4 @@
-DOTNET_VERSION := 10.0
-VERSION := 2.2.21
+VERSION := 2.2.22
 RELEASE_PATH := ./release/BTCPayServer.Plugins.Boltz/$(VERSION)
 BOLTZ_REGTEST ?= $(CURDIR)/regtest
 BOLTZ_REGTEST_PATH := $(abspath $(BOLTZ_REGTEST))
@@ -17,7 +16,7 @@ gh-release:
 
 btcpay-appsettings:
 	echo "{ \
-	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net$(DOTNET_VERSION)/BTCPayServer.Plugins.Boltz.dll\" \
+	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net8.0/BTCPayServer.Plugins.Boltz.dll\" \
 	}" > ./btcpayserver/BTCPayServer/appsettings.dev.json
 
 build:

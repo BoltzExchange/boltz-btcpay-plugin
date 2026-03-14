@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <Import Project="../btcpayserver/Build/Common.csproj" />
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <NoWarn>$(NoWarn),xUnit1031</NoWarn>
     <IsPackable>false</IsPackable>
     <UserSecretsId>AB0AC1DD-9D26-485B-9416-56A33F268118</UserSecretsId>
@@ -27,10 +26,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="Microsoft.Playwright" Version="1.57.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.11" />
     <PackageReference Include="Selenium.Support" Version="4.1.1" />
     <PackageReference Include="Selenium.WebDriver" Version="4.22.0" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="133.0.6943.5300" />
@@ -53,6 +52,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="obj\Debug\net10.0\" />
+    <Folder Include="obj\Debug\net8.0\" />
   </ItemGroup>
 </Project>
