@@ -53,8 +53,8 @@ public class BoltzController(
     private const string BtcPayName = "BTCPay";
     private const string BackUrl = "BackUrl";
 
-    private StoreData? CurrentStore => HttpContext.GetStoreDataOrNull();
-    private string? CurrentStoreId => CurrentStore?.Id;
+    private StoreData CurrentStore => HttpContext.GetStoreData();
+    private string CurrentStoreId => CurrentStore.Id;
 
     private BoltzSettings? SetupSettings
     {
