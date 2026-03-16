@@ -86,7 +86,16 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         public PlaywrightTester CreatePlaywrightTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
-            return new PlaywrightTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };
+            var tester = new PlaywrightTester
+            {
+                Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz())
+            };
+
+            typeof(BTCPayServerTester)
+                .GetProperty(nameof(BTCPayServerTester.InContainer))!
+                .SetValue(tester.Server.PayTester, true);
+
+            return tester;
         }
     }
 }
