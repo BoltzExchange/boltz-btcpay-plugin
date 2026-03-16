@@ -17,6 +17,7 @@ using BTCPayServer.Lightning;
 using BTCPayServer.Lightning.CLightning;
 using BTCPayServer.Lightning.LND;
 using Grpc.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FileMode = System.IO.FileMode;
@@ -51,10 +52,14 @@ public class BoltzDaemon(
     IOptions<DataDirectories> dataDirectories,
     ILogger<BoltzDaemon> logger,
     ILogger<BoltzClient> clientLogger,
-    BTCPayNetworkProvider btcPayNetworkProvider
+    BTCPayNetworkProvider btcPayNetworkProvider,
+    IConfiguration configuration
 )
 {
     private static readonly Version ClientVersion = new("2.11.1");
+    private static readonly SemaphoreSlim BinarySemaphore = new(1, 1);
+    private const string ClientCacheDirSetting = "BOLTZ_CLIENT_CACHE_DIR";
+    private const string TestRunnerEnabledSetting = "TEST_RUNNER_ENABLED";
     private static readonly Lazy<string> ExpectedManifest = new(() =>
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("boltz-client-manifest.txt");
@@ -70,8 +75,9 @@ public class BoltzDaemon(
     private readonly HttpClient _httpClient = new();
     private const int MaxLogLines = 150;
     private string DataDir => Path.Combine(dataDirectories.Value.DataDir, "Plugins", "Boltz");
-    private string DaemonBinary => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzd");
-    private string DaemonCli => Path.Combine(DataDir, "bin", $"linux_{Architecture}", "boltzcli");
+    private string ClientFilesDir => ResolveClientFilesDir();
+    private string DaemonBinary => Path.Combine(ClientFilesDir, "bin", $"linux_{Architecture}", "boltzd");
+    private string DaemonCli => Path.Combine(ClientFilesDir, "bin", $"linux_{Architecture}", "boltzcli");
     private BTCPayNetwork BtcNetwork => btcPayNetworkProvider.GetNetwork<BTCPayNetwork>("BTC");
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
     private string ConfigFile => Path.Combine(DataDir, "boltz.toml");
@@ -105,14 +111,15 @@ public class BoltzDaemon(
         }
 
         var version = ClientVersion;
-        logger.LogInformation($"Downloading boltz client {version}");
+        logger.LogInformation("Downloading boltz client {Version} into {ClientFilesDir}", version, ClientFilesDir);
 
         string archiveName = $"boltz-client-linux-{Architecture}-v{version}.tar.gz";
         await using var s = await _httpClient.GetStreamAsync(ReleaseUrl(version) + archiveName);
 
         _downloadStream = s;
+        Directory.CreateDirectory(ClientFilesDir);
         await using var gzip = new GZipStream(s, CompressionMode.Decompress);
-        await TarFile.ExtractToDirectoryAsync(gzip, DataDir, true);
+        await TarFile.ExtractToDirectoryAsync(gzip, ClientFilesDir, true);
         _downloadStream = null;
 
         CheckBinaries();
@@ -254,26 +261,62 @@ public class BoltzDaemon(
         logger.LogDebug("Initializing");
         try
         {
-            if (!Directory.Exists(DataDir))
-            {
-                Directory.CreateDirectory(DataDir);
-            }
-
-            try
-            {
-                CheckBinaries();
-            }
-            catch (Exception e)
-            {
-                // CheckBinaries re-runs after Download, in which case its gonna succeed if they were just outdated
-                // Or still fail if they are corrupted
-                await Download();
-            }
+            Directory.CreateDirectory(DataDir);
+            await EnsureBinaries();
         }
         catch (Exception e)
         {
             Error = e.Message;
             logger.LogError(e, "Failed to initialize");
+        }
+    }
+
+    private string ResolveClientFilesDir()
+    {
+        var configuredCacheDir = configuration[ClientCacheDirSetting];
+        if (!string.IsNullOrWhiteSpace(configuredCacheDir))
+        {
+            return Path.Combine(Path.GetFullPath(configuredCacheDir), $"v{ClientVersion}");
+        }
+
+        if (bool.TryParse(configuration[TestRunnerEnabledSetting], out var testRunnerEnabled) && testRunnerEnabled)
+        {
+            return Path.Combine(Path.GetTempPath(), "btcpayserver-boltz-client-cache", $"v{ClientVersion}");
+        }
+
+        return DataDir;
+    }
+
+    private async Task EnsureBinaries()
+    {
+        try
+        {
+            CheckBinaries();
+            return;
+        }
+        catch
+        {
+            // Fall through and retry under the shared download lock.
+        }
+
+        await BinarySemaphore.WaitAsync();
+        try
+        {
+            try
+            {
+                CheckBinaries();
+                return;
+            }
+            catch
+            {
+                // CheckBinaries re-runs after Download, in which case it succeeds if they were outdated
+                // and still fails if the downloaded files are corrupted.
+                await Download();
+            }
+        }
+        finally
+        {
+            BinarySemaphore.Release();
         }
     }
 
