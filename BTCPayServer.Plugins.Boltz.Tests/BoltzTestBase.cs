@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Models;
@@ -23,6 +24,10 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 {
     public class BoltzTestBase : UnitTestBase
     {
+        private static readonly string SharedBoltzClientCacheDir = Path.Combine(
+            Path.GetTempPath(),
+            "btcpayserver-boltz-client-cache");
+
         public BoltzTestBase(ITestOutputHelper helper) : base(helper)
         {
         }
@@ -78,6 +83,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         public ServerTester CreateServerTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
+            ConfigureSharedBoltzClientCacheDir();
             var provider = CreateNetworkProviderWithBoltz();
             Assert.NotNull(provider);
             Assert.NotNull(provider.GetNetwork<BTCPayNetwork>("BTC"));
@@ -86,7 +92,22 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
         public PlaywrightTester CreatePlaywrightTesterWithBoltz([CallerMemberNameAttribute] string scope = null, bool newDb = true)
         {
-            return new PlaywrightTester() { Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz()) };
+            ConfigureSharedBoltzClientCacheDir();
+            var tester = new PlaywrightTester
+            {
+                Server = new ServerTester(scope, newDb, TestLogs, TestLogProvider, CreateNetworkProviderWithBoltz())
+            };
+
+            typeof(BTCPayServerTester)
+                .GetProperty(nameof(BTCPayServerTester.InContainer))!
+                .SetValue(tester.Server.PayTester, true);
+
+            return tester;
+        }
+
+        private static void ConfigureSharedBoltzClientCacheDir()
+        {
+            Environment.SetEnvironmentVariable("BOLTZ_CLIENT_CACHE_DIR", SharedBoltzClientCacheDir);
         }
     }
 }
