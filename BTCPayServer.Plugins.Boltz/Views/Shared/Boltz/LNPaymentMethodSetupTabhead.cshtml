@@ -15,7 +15,7 @@
 
 @if (lnClient is null)
 {
-    <a asp-action="SetupMode" asp-controller="Boltz" permission="@Policies.CanModifyStoreSettings" asp-route-storeId="@Model.StoreId" asp-route-mode="@BoltzMode.Standalone" type="radio" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
+    <a asp-action="SetupMode" asp-controller="Boltz" permission="@Policies.CanModifyStoreSettings" asp-route-storeId="@Model.StoreId" type="radio" role="tab" aria-controls="BoltzSetup" aria-selected="false" name="LightningNodeType">
         <label for="LightningNodeType-Boltz">Configure Boltz</label>
     </a>
 }

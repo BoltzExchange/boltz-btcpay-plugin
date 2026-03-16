@@ -12,7 +12,6 @@ using BTCPayServer.Client;
 using Autoswaprpc;
 using BTCPayServer.Models.StoreViewModels;
 using BTCPayServer.Payments;
-using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Plugins.Boltz.Models;
 using BTCPayServer.Services;
 using BTCPayServer.Services.Invoices;
@@ -24,7 +23,6 @@ using NBitcoin;
 using Newtonsoft.Json;
 using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.AuthenticationSchemes;
 using ChainConfig = Autoswaprpc.ChainConfig;
-using LightningConfig = Autoswaprpc.LightningConfig;
 using RpcException = Grpc.Core.RpcException;
 using BTCPayServer.Abstractions.Models;
 using AngleSharp.Text;
@@ -37,7 +35,6 @@ public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
     PoliciesSettings policiesSettings,
-    BTCPayNetworkProvider btcPayNetworkProvider,
     PaymentMethodHandlerDictionary handlers
 )
     : Controller
@@ -80,18 +77,6 @@ public class BoltzController(
         set => TempData["chainSetup"] = value is null ? null : JsonFormatter.Default.Format(value);
     }
 
-    private LightningConfig? LightningSetup
-    {
-        get
-        {
-            var lightningConfig = (string?)TempData.Peek("lightningSetup");
-            return String.IsNullOrEmpty(lightningConfig)
-                ? null
-                : JsonParser.Default.Parse<LightningConfig>(lightningConfig);
-        }
-        set => TempData["lightningSetup"] = value is null ? null : JsonFormatter.Default.Format(value);
-    }
-
     [HttpGet("")]
     public IActionResult Index(string storeId)
     {
@@ -102,7 +87,6 @@ public class BoltzController(
     {
         SetupSettings = null;
         ChainSetup = null;
-        LightningSetup = null;
     }
 
     // GET
@@ -121,7 +105,7 @@ public class BoltzController(
         {
             data.Info = await Boltz.GetInfo();
             data.Stats = await Boltz.GetStats();
-            if (Settings?.Mode == BoltzMode.Standalone)
+            if (Settings?.StandaloneWallet is not null)
             {
                 data.StandaloneWallet = await Boltz.GetWallet(Settings?.StandaloneWallet?.Name!);
             }
@@ -134,18 +118,6 @@ public class BoltzController(
                 data.PendingAutoSwaps = response.AllSwaps.ToList();
                 data.Status = await Boltz.GetAutoSwapStatus();
                 data.Recommendations = await Boltz.GetAutoSwapRecommendations();
-                if (data.Ln != null)
-                {
-                    foreach (var recommendation in data.Recommendations.Lightning)
-                    {
-                        if (recommendation.Swap?.DismissedReasons.Contains("pending swap") ?? false)
-                        {
-                            recommendation.Swap = null;
-                        }
-                    }
-
-                    data.RebalanceWallet = await Boltz.GetWallet(data.Ln.Wallet);
-                }
             }
         }
         catch (Exception e)
@@ -158,7 +130,7 @@ public class BoltzController(
 
 
     [HttpPost("status")]
-    public async Task<IActionResult> Status(string storeId, string? lnRecommendation, string? chainRecommendation)
+    public async Task<IActionResult> Status(string storeId, string? chainRecommendation)
     {
 
         if (Boltz is null)
@@ -171,8 +143,6 @@ public class BoltzController(
             var request = new ExecuteRecommendationsRequest { Force = true };
             if (!string.IsNullOrEmpty(chainRecommendation))
                 request.Chain.Add(JsonParser.Default.Parse<ChainRecommendation>(chainRecommendation));
-            if (!string.IsNullOrEmpty(lnRecommendation))
-                request.Lightning.Add(JsonParser.Default.Parse<LightningRecommendation>(lnRecommendation));
             await Boltz.ExecuteAutoSwapRecommendations(request);
             TempData[WellKnownTempData.SuccessMessage] = "Recommendations executed";
         }
@@ -355,7 +325,7 @@ public class BoltzController(
 
         try
         {
-            data.ExistingWallets = await GetExistingWallets(true);
+            data.ExistingWallets = await GetExistingWallets();
 
             (data.Ln, data.Chain) = await Boltz!.GetAutoSwapConfig();
             if (data.Ln is not null)
@@ -712,26 +682,6 @@ public class BoltzController(
     {
         switch (command)
         {
-            case "BoltzSetLnConfig":
-                {
-                    if (vm.Ln is not null)
-                    {
-                        if (vm.Ln.Wallet != "")
-                        {
-                            var wallet = await Boltz!.GetWallet(vm.Ln.Wallet);
-                            vm.Ln.Currency = wallet.Currency;
-                        }
-                        else
-                        {
-                            vm.Ln.Currency = Currency.Btc;
-                        }
-
-                        await SetLightningConfig(vm.Ln);
-                    }
-
-                    TempData[WellKnownTempData.SuccessMessage] = "AutoSwap settings updated";
-                    break;
-                }
             case "BoltzSetChainConfig":
                 {
                     var name = vm.Settings?.StandaloneWallet?.Name;
@@ -831,16 +781,6 @@ public class BoltzController(
                     {
                         var settings = vm.ServerSettings!;
                         await boltzService.SetServerSettings(settings);
-
-                        if (settings is { ConnectNode: true, NodeConfig: null })
-                        {
-                            settings.NodeConfig = boltzDaemon.GetNodeConfig(boltzService.InternalLightning);
-                        }
-
-                        if (!settings.ConnectNode)
-                        {
-                            settings.NodeConfig = null;
-                        }
                     }
                     catch (Exception err)
                     {
@@ -883,70 +823,34 @@ public class BoltzController(
         TempData[WellKnownTempData.ErrorMessage] = message;
     }
 
-    [HttpGet("setup/{mode?}")]
-    public async Task<IActionResult> SetupMode(ModeSetup vm, BoltzMode? mode, string storeId)
+    [HttpGet("setup")]
+    public async Task<IActionResult> SetupMode(string storeId)
     {
-        vm.IsAdmin = IsAdmin;
-        vm.Enabled = IsAdmin || boltzService.ServerSettings.AllowTenants;
+        var vm = new ModeSetup { Enabled = IsAdmin || boltzService.ServerSettings.AllowTenants };
 
         if (vm.Enabled)
         {
-            if (!string.IsNullOrEmpty(boltzDaemon.Error) && vm.IsAdmin)
+            if (!string.IsNullOrEmpty(boltzDaemon.Error) && IsAdmin)
             {
                 return RedirectToAction(nameof(Admin), new { storeId });
             }
 
-            if (mode is null)
-            {
-                vm.ExistingSettings = SavedSettings;
-                vm.ConnectedNode =
-                    CurrentStore!.GetPaymentMethodConfig<LightningPaymentMethodConfig>(
-                        PaymentTypes.LN.GetPaymentMethodId("BTC"), handlers);
-                vm.HasInternal = boltzService.InternalLightning is not null;
-
-                vm.ConnectedInternal = boltzService.Daemon.Node is not null;
-                vm.ConnectNodeSetting = boltzService.ServerSettings.ConnectNode;
-                if (vm.IsAdmin)
-                {
-                    var store = await boltzService.GetRebalanceStore();
-                    if (store?.Id != CurrentStoreId)
-                    {
-                        vm.RebalanceStore = store;
-                    }
-                }
-
-                return View(vm);
-            }
-
-            if (mode == BoltzMode.Rebalance)
-            {
-                if (!vm.IsAdmin)
-                {
-                    return new UnauthorizedResult();
-                }
-
-                LightningSetup = new LightningConfig();
-            }
-
-
             try
             {
-                SetupSettings = await boltzService.InitializeStore(storeId, mode.Value);
+                SetupSettings = await boltzService.InitializeStore(storeId);
             }
             catch (Exception e)
             {
                 TempData[WellKnownTempData.ErrorMessage] = "Could not initialize store settings: " + e.Message;
             }
-
-            return View(mode == BoltzMode.Rebalance ? "SetupRebalance" : "SetupStandalone", vm);
         }
 
-        return View(vm);
+        return View("SetupStandalone", vm);
     }
 
-    private async Task<List<ExistingWallet>> GetExistingWallets(bool allowReadonly, Currency? currency = null)
+    private async Task<List<ExistingWallet>> GetExistingWallets(Currency? currency = null)
     {
-        var response = await Boltz!.GetWallets(allowReadonly);
+        var response = await Boltz!.GetWallets(true);
         var result = response.Wallets_.ToList()
             .FindAll(wallet => currency is null || wallet.Currency == currency)
             .Select(
@@ -962,7 +866,7 @@ public class BoltzController(
         if (currency != Currency.Lbtc)
         {
             var derivation = CurrentStore!.GetDerivationSchemeSettings(handlers, "BTC");
-            if (derivation is not null && allowReadonly)
+            if (derivation is not null)
             {
                 var balance = await boltzService.BtcWallet.GetBalance(derivation.AccountDerivation);
                 result.Add(new ExistingWallet
@@ -992,18 +896,19 @@ public class BoltzController(
             {
                 WalletSetupFlow.Standalone => Currency.Lbtc,
                 WalletSetupFlow.Chain => Currency.Btc,
-                _ => vm.Currency
+                WalletSetupFlow.Manual => vm.Currency,
+                _ => null
             };
             if (vm.Currency is null)
             {
-                return View("SetupCurrency", vm);
+                return RedirectSetup();
             }
 
             try
             {
                 vm.ExistingWallets = vm.Flow == WalletSetupFlow.Manual
                     ? new()
-                    : await GetExistingWallets(vm.AllowReadonly, vm.Currency);
+                    : await GetExistingWallets(vm.Currency);
             }
             catch (Exception e)
             {
@@ -1035,7 +940,7 @@ public class BoltzController(
                 switch (vm.Flow)
                 {
                     case WalletSetupFlow.Standalone:
-                        if (SetupSettings?.Mode != BoltzMode.Standalone)
+                        if (SetupSettings is null)
                         {
                             return RedirectSetup();
                         }
@@ -1049,19 +954,6 @@ public class BoltzController(
                         }
 
                         return RedirectToAction(nameof(SetupChain), new { storeId });
-                    case WalletSetupFlow.Lightning:
-                        if (LightningSetup is null)
-                        {
-                            return RedirectSetup();
-                        }
-
-                        LightningSetup = new LightningConfig(LightningSetup)
-                        {
-                            Currency = vm.Currency!.Value,
-                            SwapType = vm.SwapType ?? String.Empty,
-                            Wallet = walletName,
-                        };
-                        return RedirectToAction(nameof(SetupThresholds), new { storeId });
                     case WalletSetupFlow.Chain:
                         if (ChainSetup is null)
                         {
@@ -1212,51 +1104,12 @@ public class BoltzController(
         {
             vm.AllowImportHot = AllowImportHot;
 
-            if (!vm.AllowReadonly)
-            {
-                vm.ImportMethod = WalletImportMethod.Mnemonic;
-            }
-
             if (vm.ImportMethod == null)
             {
                 return View("ImportWalletOptions", vm);
             }
 
             return View("CreateWallet", vm);
-        }
-
-        return RedirectSetup();
-    }
-
-    [HttpGet("setup/thresholds")]
-    public IActionResult SetupThresholds()
-    {
-        if (LightningSetup is not null)
-        {
-            var vm = new BalanceSetup { Ln = LightningSetup };
-            vm.Ln.InboundBalancePercent = 25;
-            vm.Ln.OutboundBalancePercent = 25;
-            ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
-                new { flow = WalletSetupFlow.Lightning, currency = vm.Ln.Currency, storeId = CurrentStoreId });
-            return View(vm);
-        }
-
-        return RedirectSetup();
-    }
-
-    [HttpPost("setup/thresholds")]
-    public IActionResult SetupThresholds(BalanceSetup vm, string storeId)
-    {
-        if (LightningSetup is not null)
-        {
-            var setup = LightningSetup;
-            setup.MergeFrom(vm.Ln);
-            LightningSetup = setup;
-            return RedirectToAction(nameof(SetupBudget), new
-            {
-                storeId,
-                swapperType = SwapperType.Lightning
-            });
         }
 
         return RedirectSetup();
@@ -1270,11 +1123,8 @@ public class BoltzController(
             vm.Budget = 100_000;
             vm.BudgetIntervalDays = 7;
             vm.MaxFeePercent = 1;
-            if (vm.SwapperType == SwapperType.Chain)
-            {
-                ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
-                    new { storeId = CurrentStoreId, Flow = WalletSetupFlow.Chain });
-            }
+            ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                new { storeId = CurrentStoreId, Flow = WalletSetupFlow.Chain });
 
             return View(vm);
         }
@@ -1287,52 +1137,22 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            if (vm.SwapperType == SwapperType.Lightning)
+            if (ChainSetup is null)
             {
-                if (LightningSetup is null)
-                {
-                    return RedirectSetup();
-                }
-
-                LightningSetup = new LightningConfig(LightningSetup)
-                {
-                    Budget = vm.Budget,
-                    BudgetInterval = vm.BudgetIntervalDays,
-                    MaxFeePercent = vm.MaxFeePercent,
-                };
+                return RedirectSetup();
             }
-            else
+
+            ChainSetup = new ChainConfig(ChainSetup)
             {
-                if (ChainSetup is null)
-                {
-                    return RedirectSetup();
-                }
-
-                ChainSetup = new ChainConfig(ChainSetup)
-                {
-                    Budget = vm.Budget,
-                    BudgetInterval = vm.BudgetIntervalDays,
-                    MaxFeePercent = vm.MaxFeePercent
-                };
-            }
+                Budget = vm.Budget,
+                BudgetInterval = vm.BudgetIntervalDays,
+                MaxFeePercent = vm.MaxFeePercent
+            };
 
             return RedirectToAction(nameof(Enable), new { storeId });
         }
 
         return RedirectSetup();
-    }
-
-    async Task SetLightningConfig(LightningConfig config, IEnumerable<string>? paths = null)
-    {
-        if (config is { Wallet: "", StaticAddress: "" })
-        {
-            config.StaticAddress = await boltzService.GenerateNewAddress(CurrentStore!);
-            paths = paths?.Append("static_address");
-        }
-
-        config.BudgetInterval = DaysToSeconds(config.BudgetInterval);
-
-        await Boltz!.UpdateAutoSwapLightningConfig(config, paths);
     }
 
     private static ulong DaysToSeconds(ulong days)
@@ -1375,34 +1195,10 @@ public class BoltzController(
 
                 var info = await boltzService.GetPairInfo(new Pair { From = Currency.Lbtc, To = Currency.Btc }, SwapType.Chain);
                 var vm = new ChainSetup { PairInfo = info };
-
-                if (Settings?.Mode == BoltzMode.Standalone)
-                {
-                    vm.MaxBalance = 10_000_000;
-                    vm.ReserveBalance = 500_000;
-                    ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
-                        new { flow = WalletSetupFlow.Standalone, storeId });
-                }
-                else
-                {
-                    var recommendations = await Boltz.GetAutoSwapRecommendations();
-                    foreach (var recommendation in recommendations.Lightning)
-                    {
-                        vm.MaxBalance += recommendation.Channel.Capacity;
-                    }
-
-                    var swapType = LightningSetup?.SwapType;
-                    if (swapType is null)
-                    {
-                        var (ln, _) = await Boltz.GetAutoSwapConfig();
-                        swapType = ln?.SwapType;
-                    }
-
-                    if (swapType != "reverse")
-                    {
-                        vm.ReserveBalance = Math.Max(vm.ReserveBalance, vm.MaxBalance / 2);
-                    }
-                }
+                vm.MaxBalance = 10_000_000;
+                vm.ReserveBalance = 500_000;
+                ViewData[BackUrl] = Url.Action(nameof(SetupWallet),
+                    new { flow = WalletSetupFlow.Standalone, storeId });
 
                 ChainSetup = new ChainConfig { FromWallet = fromWallet };
                 return View(vm);
@@ -1447,11 +1243,6 @@ public class BoltzController(
         {
             try
             {
-                if (LightningSetup is not null)
-                {
-                    await SetLightningConfig(LightningSetup);
-                }
-
                 if (ChainSetup is not null)
                 {
                     await SetChainConfig(ChainSetup);
@@ -1495,13 +1286,6 @@ public class BoltzController(
                     TempData[WellKnownTempData.SuccessMessage] = "Auto swap enabled";
                 }
 
-                if (LightningSetup != null && await GetChainSwapsFromWallet() != null)
-                {
-                    LightningSetup = null;
-                    return RedirectToAction(nameof(SetupChain),
-                        new { storeId });
-                }
-
                 return RedirectToAction(nameof(Status),
                     new { storeId });
             }
@@ -1521,12 +1305,6 @@ public class BoltzController(
         if (Boltz != null)
         {
             var name = Settings?.StandaloneWallet?.Name;
-
-            if (name is null)
-            {
-                var ln = await Boltz.GetLightningConfig();
-                name = ln?.Wallet;
-            }
 
             if (name != null)
             {

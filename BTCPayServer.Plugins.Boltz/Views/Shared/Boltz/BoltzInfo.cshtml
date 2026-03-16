@@ -35,12 +35,10 @@
     var settings = BoltzService.GetSettings(storeId);
     if (client is null || settings is null) return;
 
-    var (ln, chain) = await client.GetAutoSwapConfig();
-    var lnConfigured = ln != null;
+    var (_, chain) = await client.GetAutoSwapConfig();
     var chainConfigured = chain != null;
-    var isStandalone = settings.Mode == BoltzMode.Standalone;
 
-    @if ((isStandalone && chainConfigured) || (lnConfigured && chainConfigured))
+    @if (chainConfigured)
     {
         <style>
             @@media(min - width: 1400px) {
@@ -57,43 +55,28 @@
         </style>
     }
 
-    @if (isStandalone)
-    {
-        var stats = await client.GetStats();
-        <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
-            <header>
-                <div class="d-flex align-items-center justify-content-start gap-2">
-                    <span class="btcpay-status btcpay-status--enabled"></span>
-                    <h6 class="text-truncate">Lightning Payments</h6>
-                </div>
-                <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
-                    Manage
-                </a>
-            </header>
-            <partial name="Boltz/_Stats" model="@BoltzClient.ParseStats(stats)" />
-        </div>
-    }
+    var stats = await client.GetStats();
+    <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
+        <header>
+            <div class="d-flex align-items-center justify-content-start gap-2">
+                <span class="btcpay-status btcpay-status--enabled"></span>
+                <h6 class="text-truncate">Lightning Payments</h6>
+            </div>
+            <a asp-action="Index" asp-controller="Boltz" asp-route-storeId="@storeId">
+                Manage
+            </a>
+        </header>
+        <partial name="Boltz/_Stats" model="@BoltzClient.ParseStats(stats)" />
+    </div>
 
 
-    @if (lnConfigured || chainConfigured)
+    @if (chainConfigured)
     {
         var status = await client.GetAutoSwapStatus();
-
-        @if (lnConfigured)
-        {
-            var lnStatus = new AutoSwapStatus { SwapperType = SwapperType.Lightning, Status = status.Lightning, Compact = true };
-            <div id="StoreBoltzLightning-@Model.StoreId" class="widget boltz-lightning">
-                <partial name="Boltz/_AutoSwapStatus" model="lnStatus"></partial>
-            </div>
-        }
-
-        @if (chainConfigured)
-        {
-            var chainStatus = new AutoSwapStatus { SwapperType = SwapperType.Chain, Status = status.Chain, Compact = true };
-            <div id="StoreBoltzChain-@Model.StoreId" class="widget boltz-chain">
-                <partial name="Boltz/_AutoSwapStatus" model="chainStatus" />
-            </div>
-        }
+        var chainStatus = new AutoSwapStatus { SwapperType = SwapperType.Chain, Status = status.Chain, Compact = true };
+        <div id="StoreBoltzChain-@Model.StoreId" class="widget boltz-chain">
+            <partial name="Boltz/_AutoSwapStatus" model="chainStatus" />
+        </div>
     }
 }
 catch (Exception)

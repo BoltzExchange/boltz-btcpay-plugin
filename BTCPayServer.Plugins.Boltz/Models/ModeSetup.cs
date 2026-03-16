@@ -3,35 +3,11 @@ using System;
 using System.Collections.Generic;
 using Autoswaprpc;
 using Boltzrpc;
-using BTCPayServer.Data;
-using BTCPayServer.Payments.Lightning;
-
 namespace BTCPayServer.Plugins.Boltz.Models;
 
 public class ModeSetup
 {
     public bool Enabled { get; set; }
-    public StoreData? RebalanceStore { get; set; }
-    public LightningPaymentMethodConfig? ConnectedNode { get; set; }
-    public BoltzSettings? ExistingSettings { get; set; }
-    public bool IsAdmin { get; set; }
-    public bool HasInternal { get; set; }
-    public bool ConnectedInternal { get; set; }
-    public bool ConnectNodeSetting { get; set; }
-
-    public bool AllowRebalance => RebalanceTooltip is null;
-
-    public string? RebalanceTooltip => IsAdmin
-        ? ConnectNodeSetting
-            ? RebalanceStore is null
-                ? HasInternal
-                    ? ConnectedNode is not null && ConnectedNode.IsInternalNode
-                        ? ConnectedInternal ? null : "Could not connect to internal node"
-                        : "Store is not connected to internal lightning node"
-                    : "No internal node available"
-                : $"Internal Node is already being rebalanced in store {RebalanceStore.StoreName}"
-            : "Node connection setting is disabled"
-        : "Only available for admins";
 }
 
 public enum WalletImportMethod
@@ -44,7 +20,6 @@ public enum WalletImportMethod
 public enum WalletSetupFlow
 {
     Standalone,
-    Lightning,
     Chain,
     Manual,
 }
@@ -70,11 +45,8 @@ public class WalletSetup
     public string? WalletName { get; set; }
     public WalletCredentials WalletCredentials { get; set; } = new();
     public WalletImportMethod? ImportMethod { get; set; }
-    public string? SwapType { get; set; }
-
     public List<ExistingWallet> ExistingWallets { get; set; } = new();
 
-    public bool AllowReadonly => Flow != WalletSetupFlow.Lightning || SwapType != "reverse";
     public bool AllowImportHot { get; set; }
     public bool AllowCreateHot { get; set; }
 
@@ -87,7 +59,6 @@ public class WalletSetup
     public Dictionary<string, string?> RouteData => new()
     {
         { "storeId", StoreId },
-        { "swapType", SwapType },
         { "flow", Flow.ToString() },
         { "currency", Currency.ToString() },
         { "importMethod", ImportMethod.ToString() },
@@ -116,7 +87,6 @@ public class BalanceSetup
 
 public enum SwapperType
 {
-    Lightning,
     Chain
 }
 

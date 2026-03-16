@@ -36,18 +36,10 @@
     @if (!Model.Compact)
     {
         <div class="fw-semibold">
-            @if (Model.SwapperType == SwapperType.Lightning)
-            {
-                <span>Using wallet</span>
-                <partial name="Boltz/_WalletLink" model="Model.Wallet"/>
-            }
-            else
-            {
-                <span>From wallet</span>
-                <partial name="Boltz/_WalletLink" model="Model.Wallet"/>
-                <span>to wallet</span>
-                <partial name="Boltz/_WalletLink" model="Model.ToWallet"/>
-            }
+            <span>From wallet</span>
+            <partial name="Boltz/_WalletLink" model="Model.Wallet"/>
+            <span>to wallet</span>
+            <partial name="Boltz/_WalletLink" model="Model.ToWallet"/>
         </div>
     }
     @if (status.Budget != null)

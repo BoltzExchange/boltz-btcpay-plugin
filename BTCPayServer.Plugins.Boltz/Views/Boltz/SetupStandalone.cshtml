@@ -3,6 +3,8 @@
 @using Boltzrpc
 @using BTCPayServer.Plugins.Boltz.Models
 @using Microsoft.AspNetCore.Mvc.TagHelpers
+@model BTCPayServer.Plugins.Boltz.Models.ModeSetup
+@inject BoltzService BoltzService
 @{
     Layout = "_LayoutSetup";
     ViewData["Title"] = "How does it work?";
@@ -14,6 +16,19 @@
     When BTCPay Server needs to create a Lightning invoice, instead of pulling an invoice from a connected Lightning node, it creates a Boltz Lightning -> Liquid swap for the same amount. When a customer pays the invoice, Boltz swaps the amount minus fees to your Liquid wallet. Liquid is the only option for this mode as it features reliably low network fees that make accepting even small Lightning payments economically viable.
 </p>
 
+@if (!Model.Enabled)
+{
+    <div class="alert alert-warning">
+        <p>Plugin is not enabled for non-admin users. Ask a server admin to enable</p>
+    </div>
+}
+else if (!BoltzService.Daemon.Running)
+{
+    <div class="alert alert-danger">
+        <p>Daemon is not yet running</p>
+    </div>
+}
+
 <div>
     <h4>Fees and Amounts</h4>
     <partial name="Boltz/_Fees" model="FeesModel.Standalone"/>
@@ -23,6 +38,9 @@
     Note: Boltz swaps are non-custodial, but the Liquid Network is run a by a federation and requires trusting the entities in the federation to guard L-BTC, the Liquid representation of Bitcoin. Learn more about the Liquid network <a href="https://liquid.net/" target="_blank">here</a>.
 </p>
 
-<a asp-controller="Boltz" asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Standalone" class="btn btn-success">
-    Continue
-</a>
+@if (Model.Enabled && BoltzService.Daemon.Running)
+{
+    <a asp-controller="Boltz" asp-action="SetupWallet" asp-route-storeId="@storeId" asp-route-flow="@WalletSetupFlow.Standalone" class="btn btn-success">
+        Continue
+    </a>
+}

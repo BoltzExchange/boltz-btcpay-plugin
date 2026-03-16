@@ -1,6 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
 namespace BTCPayServer.Plugins.Boltz.Models.Api;
 
@@ -25,12 +23,6 @@ public class BoltzSetupData
     /// Whether Boltz is enabled for this store
     /// </summary>
     public bool Enabled { get; set; }
-
-    /// <summary>
-    /// The configured mode: "standalone", "rebalance", or null if not configured
-    /// </summary>
-    [JsonConverter(typeof(StringEnumConverter))]
-    public BoltzMode? Mode { get; set; }
 
     /// <summary>
     /// The configured wallet, if any
