@@ -325,7 +325,7 @@ public class BoltzController(
 
         try
         {
-            data.ExistingWallets = await GetExistingWallets(true);
+            data.ExistingWallets = await GetExistingWallets();
 
             (data.Ln, data.Chain) = await Boltz!.GetAutoSwapConfig();
             if (data.Ln is not null)
@@ -843,16 +843,14 @@ public class BoltzController(
             {
                 TempData[WellKnownTempData.ErrorMessage] = "Could not initialize store settings: " + e.Message;
             }
-
-            return View("SetupStandalone", vm);
         }
 
         return View("SetupStandalone", vm);
     }
 
-    private async Task<List<ExistingWallet>> GetExistingWallets(bool allowReadonly, Currency? currency = null)
+    private async Task<List<ExistingWallet>> GetExistingWallets(Currency? currency = null)
     {
-        var response = await Boltz!.GetWallets(allowReadonly);
+        var response = await Boltz!.GetWallets(true);
         var result = response.Wallets_.ToList()
             .FindAll(wallet => currency is null || wallet.Currency == currency)
             .Select(
@@ -868,7 +866,7 @@ public class BoltzController(
         if (currency != Currency.Lbtc)
         {
             var derivation = CurrentStore!.GetDerivationSchemeSettings(handlers, "BTC");
-            if (derivation is not null && allowReadonly)
+            if (derivation is not null)
             {
                 var balance = await boltzService.BtcWallet.GetBalance(derivation.AccountDerivation);
                 result.Add(new ExistingWallet
@@ -910,7 +908,7 @@ public class BoltzController(
             {
                 vm.ExistingWallets = vm.Flow == WalletSetupFlow.Manual
                     ? new()
-                    : await GetExistingWallets(vm.AllowReadonly, vm.Currency);
+                    : await GetExistingWallets(vm.Currency);
             }
             catch (Exception e)
             {
@@ -1105,11 +1103,6 @@ public class BoltzController(
         if (Boltz != null)
         {
             vm.AllowImportHot = AllowImportHot;
-
-            if (!vm.AllowReadonly)
-            {
-                vm.ImportMethod = WalletImportMethod.Mnemonic;
-            }
 
             if (vm.ImportMethod == null)
             {

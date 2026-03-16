@@ -47,7 +47,6 @@ public class WalletSetup
     public WalletImportMethod? ImportMethod { get; set; }
     public List<ExistingWallet> ExistingWallets { get; set; } = new();
 
-    public bool AllowReadonly => true;
     public bool AllowImportHot { get; set; }
     public bool AllowCreateHot { get; set; }
 

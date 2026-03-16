@@ -79,7 +79,7 @@ public class GreenfieldBoltzController(
 
             }
 
-            var settings = boltzService.GetSettings(storeId) ?? await boltzService.InitializeStore(storeId);
+            var settings = boltzService.GetSettings(storeId)!;
             var wallet = await client.GetWallet(request.WalletName);
             settings.SetStandaloneWallet(wallet);
             await boltzService.Set(storeId, settings);

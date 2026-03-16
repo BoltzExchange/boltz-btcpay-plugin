@@ -267,7 +267,7 @@ public class BoltzService(
         {
             tenant = await adminClient.GetTenant(tenantName);
         }
-        catch (RpcException)
+        catch (RpcException ex) when (ex.Status.StatusCode == StatusCode.NotFound)
         {
             tenant = await adminClient.CreateTenant(tenantName);
         }
