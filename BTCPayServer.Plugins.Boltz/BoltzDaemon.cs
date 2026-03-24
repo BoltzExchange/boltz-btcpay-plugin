@@ -54,7 +54,7 @@ public class BoltzDaemon(
     BTCPayNetworkProvider btcPayNetworkProvider
 )
 {
-    private static readonly Version ClientVersion = new("2.11.1");
+    private static readonly Version ClientVersion = new("2.11.2");
     private static readonly Lazy<string> ExpectedManifest = new(() =>
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("boltz-client-manifest.txt");
