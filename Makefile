@@ -16,7 +16,7 @@ gh-release:
 
 btcpay-appsettings:
 	echo "{ \
-	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net8.0/BTCPayServer.Plugins.Boltz.dll\" \
+	\"DEBUG_PLUGINS\": \"$(PWD)/BTCPayServer.Plugins.Boltz/bin/Debug/net10.0/BTCPayServer.Plugins.Boltz.dll\" \
 	}" > ./btcpayserver/BTCPayServer/appsettings.dev.json
 
 build:
