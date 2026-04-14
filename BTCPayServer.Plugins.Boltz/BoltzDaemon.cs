@@ -291,8 +291,9 @@ public class BoltzDaemon(
                 CheckBinaries();
                 return;
             }
-            catch
+            catch (Exception e)
             {
+                logger.LogError(e, "Outdated or corrupted binaries, downloading latest");
                 // CheckBinaries re-runs after Download, in which case it succeeds if they were outdated
                 // and still fails if the downloaded files are corrupted.
                 await Download();
