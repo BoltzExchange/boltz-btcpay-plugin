@@ -95,6 +95,16 @@ public class BoltzClient : IDisposable
         }
     }
 
+    public static bool IsCancellation(Exception exception)
+    {
+        if (exception is OperationCanceledException)
+        {
+            return true;
+        }
+
+        return exception is RpcException { StatusCode: StatusCode.Cancelled };
+    }
+
     public async Task<GetInfoResponse> GetInfo(CancellationToken cancellationToken = default)
     {
         return await _client.GetInfoAsync(new GetInfoRequest(), CreateCallOptionsWithTimeout(cancellationToken));
