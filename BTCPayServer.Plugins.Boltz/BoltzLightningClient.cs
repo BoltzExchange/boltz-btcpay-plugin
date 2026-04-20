@@ -377,7 +377,7 @@ public class BoltzLightningClient(
             if (_stream is null)
             {
                 _client = await boltzLightningClient.GetClient();
-                _stream = _client.GetSwapInfoStream("", cancellationToken);
+                _stream = _client.GetSwapInfoStream("", cancellation);
             }
 
             try
@@ -387,11 +387,16 @@ public class BoltzLightningClient(
                     var id = _stream.ResponseStream.Current.ReverseSwap?.Id;
                     if (id != null)
                     {
-                        return await boltzLightningClient.GetInvoice(id, cancellationToken);
+                        return await boltzLightningClient.GetInvoice(id, cancellation);
                     }
                 }
 
                 throw new Exception("stream ended");
+            }
+            catch (Exception ex) when (BoltzClient.IsCancellation(ex))
+            {
+                _stream = null;
+                throw new OperationCanceledException("The invoice stream was canceled.", ex, cancellation);
             }
             catch (Exception)
             {
