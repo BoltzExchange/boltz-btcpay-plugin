@@ -19,6 +19,7 @@ using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Newtonsoft.Json;
 using AuthenticationSchemes = BTCPayServer.Abstractions.Constants.AuthenticationSchemes;
@@ -35,7 +36,8 @@ public class BoltzController(
     BoltzService boltzService,
     BoltzDaemon boltzDaemon,
     PoliciesSettings policiesSettings,
-    PaymentMethodHandlerDictionary handlers
+    PaymentMethodHandlerDictionary handlers,
+    ILogger<BoltzController> logger
 )
     : Controller
 {
@@ -624,13 +626,13 @@ public class BoltzController(
             return;
         }
 
-        var stream = Boltz.GetSwapInfoStream(id);
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.Headers.Append("Cache-Control", "no-cache");
         Response.Headers.Append("Connection", "keep-alive");
         var ct = HttpContext.RequestAborted;
         try
         {
+            using var stream = Boltz.GetSwapInfoStream(id, ct);
             while (await stream.ResponseStream.MoveNext(ct))
             {
                 var info = stream.ResponseStream.Current;
@@ -639,9 +641,12 @@ public class BoltzController(
                 await Response.Body.FlushAsync(ct);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            // client disconnected; end silently
+            if (!BoltzClient.IsCancellation(e))
+            {
+                logger.LogError(e, "gRPC error while streaming swap info for swap {SwapId} in store {StoreId}", id, storeId);
+            }
         }
     }
 
