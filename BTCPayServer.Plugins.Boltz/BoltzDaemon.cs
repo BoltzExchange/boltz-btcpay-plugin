@@ -56,7 +56,7 @@ public class BoltzDaemon(
     IConfiguration configuration
 )
 {
-    private static readonly Version ClientVersion = new("2.11.2");
+    private static readonly Version ClientVersion = new("2.11.3");
     private static readonly SemaphoreSlim BinarySemaphore = new(1, 1);
     private const string ClientCacheDirSetting = "BOLTZ_CLIENT_CACHE_DIR";
     private static readonly Lazy<string> ExpectedManifest = new(() =>
