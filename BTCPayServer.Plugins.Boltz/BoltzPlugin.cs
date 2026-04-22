@@ -1,13 +1,17 @@
 using System;
+using System.Linq;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Abstractions.Services;
 using BTCPayServer.Hosting;
 using BTCPayServer.Lightning;
+using BTCPayServer.Payments;
 using BTCPayServer.Services;
+using BTCPayServer.Services.Reporting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NBitcoin;
+using NBXplorer;
 
 namespace BTCPayServer.Plugins.Boltz;
 
@@ -37,14 +41,31 @@ public class BoltzPlugin : BaseBTCPayServerPlugin
         services.AddSingleton<IUIExtension>(new UIExtension("Boltz/BoltzNav", "store-integrations-nav"));
 
         var pluginServices = (PluginServiceCollection)services;
-        var networkProvider = pluginServices.BuildServiceProvider().GetRequiredService<BTCPayNetworkProvider>();
-        var network = networkProvider.GetNetwork<BTCPayNetwork>("BTC");
+        ReplacePaymentsReportProvider(services);
 
-        var blockExplorerLink = network.NBitcoinNetwork.ChainName == ChainName.Mainnet
+        var nbxplorerNetworkProvider = pluginServices.BootstrapServices.GetRequiredService<NBXplorerNetworkProvider>();
+        var btcNetwork = nbxplorerNetworkProvider.GetFromCryptoCode("BTC");
+
+        var blockExplorerLink = btcNetwork.NBitcoinNetwork.ChainName == ChainName.Mainnet
             ? "https://liquid.network/tx/{0}"
             : "https://liquid.network/testnet/tx/{0}";
-        services.AddTransactionLinkProvider("LBTC", new DefaultTransactionLinkProvider(blockExplorerLink));
+        services.AddTransactionLinkProvider(
+            PaymentTypes.CHAIN.GetPaymentMethodId("LBTC"),
+            new DefaultTransactionLinkProvider(blockExplorerLink));
 
         base.Execute(services);
+    }
+
+    private static void ReplacePaymentsReportProvider(IServiceCollection services)
+    {
+        var defaultPaymentsReportProvider = services.LastOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(ReportProvider) &&
+            descriptor.ImplementationType == typeof(PaymentsReportProvider));
+        if (defaultPaymentsReportProvider is not null)
+        {
+            services.Remove(defaultPaymentsReportProvider);
+        }
+
+        services.AddReportProvider<BoltzPaymentsReportProvider>();
     }
 }
