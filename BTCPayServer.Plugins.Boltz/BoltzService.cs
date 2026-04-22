@@ -364,6 +364,81 @@ public class BoltzService(
         return null;
     }
 
+    public async Task<BoltzSettlementData?> GetBoltzSettlementData(
+        string? storeId,
+        PaymentEntity payment,
+        InvoiceEntity invoice)
+    {
+        if (payment.PaymentMethodId != PaymentTypes.LN.GetPaymentMethodId("BTC"))
+        {
+            return null;
+        }
+
+        var swapId = TryGetBoltzSwapId(invoice, payment);
+        if (string.IsNullOrEmpty(swapId))
+        {
+            return null;
+        }
+
+        var settlementData = new BoltzSettlementData { SwapId = swapId };
+
+        var lightningClient = GetLightningClient(GetSettings(storeId));
+        if (lightningClient is null)
+        {
+            return settlementData;
+        }
+
+        try
+        {
+            var reverseSwap = await lightningClient.GetReverseSwapInfo(swapId);
+            if (reverseSwap is null)
+            {
+                return settlementData;
+            }
+
+            var settlementTo = reverseSwap.Pair?.To ?? Currency.Lbtc;
+            settlementData.SettlementCurrency = settlementTo == Currency.Btc
+                ? Currency.Lbtc.ToString().ToUpperInvariant()
+                : settlementTo.ToString().ToUpperInvariant();
+            settlementData.SettlementAddress = reverseSwap.ClaimAddress;
+            settlementData.SettlementTransactionId = reverseSwap.ClaimTransactionId;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Could not load Boltz settlement data for payment {PaymentId} via swap id {SwapId}",
+                payment.Id, swapId);
+        }
+
+        return settlementData;
+    }
+
+    private string? TryGetBoltzSwapId(InvoiceEntity invoice, PaymentEntity payment)
+    {
+        if (!paymentHandlers.TryGetValue(payment.PaymentMethodId, out var handler))
+        {
+            return null;
+        }
+
+        var prompt = invoice.GetPaymentPrompt(payment.PaymentMethodId);
+        if (prompt?.Details is null ||
+            handler.ParsePaymentPromptDetails(prompt.Details) is not LigthningPaymentPromptDetails promptDetails ||
+            string.IsNullOrEmpty(promptDetails.InvoiceId))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(payment.Destination) &&
+            string.Equals(prompt.Destination, payment.Destination, StringComparison.Ordinal))
+        {
+            return promptDetails.InvoiceId;
+        }
+
+        return promptDetails.PaymentHash is not null &&
+               string.Equals(promptDetails.PaymentHash.ToString(), payment.Id, StringComparison.OrdinalIgnoreCase)
+            ? promptDetails.InvoiceId
+            : null;
+    }
+
     public async Task SetServerSettings(BoltzServerSettings settings)
     {
         await settingsRepository.UpdateSetting(settings, SettingsName);
