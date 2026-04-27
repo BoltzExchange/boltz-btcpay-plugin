@@ -1,3 +1,9 @@
+---
+description:
+  How to manually build and package the Boltz BTCPay Plugin from source for
+  development or manual upload to a BTCPay Server instance.
+---
+
 # 🏗️ Building the Plugin
 
 This page describes how to manually build the plugin for development and testing

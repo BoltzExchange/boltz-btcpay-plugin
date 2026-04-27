@@ -1,4 +1,7 @@
 ---
+description:
+  Install and configure the Boltz BTCPay Plugin to accept Lightning payments
+  non-custodially, with or without running your own Lightning node.
 next:
   text: "🚧 Limitations"
   link: "/limitations"
