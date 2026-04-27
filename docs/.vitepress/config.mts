@@ -1,3 +1,4 @@
+import llmstxt from "vitepress-plugin-llms";
 import { defineConfig } from "vitepress";
 
 const docsRoot = "https://docs.boltz.exchange";
@@ -6,18 +7,16 @@ const docsRoot = "https://docs.boltz.exchange";
 export default defineConfig({
   title: "Boltz BTCPay Plugin",
   description: "Boltz BTCPay Plugin Docs",
-  head: [
-    ['link', { rel: 'icon', href: '/assets/logo.svg' }],
-  ],
+  head: [["link", { rel: "icon", href: "/assets/logo.svg" }]],
   themeConfig: {
     logo: "/assets/logo.svg",
     search: {
       provider: "local",
-        options: {
-          detailedView: true
-      }
+      options: {
+        detailedView: true,
+      },
     },
-    nav: [{ text: "🏠 Docs Home", link: docsRoot, target: '_self' }],
+    nav: [{ text: "🏠 Docs Home", link: docsRoot, target: "_self" }],
     sidebar: [
       {
         items: [
@@ -25,7 +24,7 @@ export default defineConfig({
           { text: "🚧 Limitations", link: "/limitations" },
           { text: "🏗️ Building the Plugin", link: "/building-the-plugin" },
           { text: "🧪 Regtest Setup", link: "/regtest-setup" },
-          { text: "🏠 Docs Home", link: docsRoot, target: '_self' },
+          { text: "🏠 Docs Home", link: docsRoot, target: "_self" },
         ],
       },
     ],
@@ -38,4 +37,7 @@ export default defineConfig({
   },
   // Ignore dead links to localhost
   ignoreDeadLinks: [/https?:\/\/localhost/],
+  vite: {
+    plugins: [llmstxt({ excludeIndexPage: false })],
+  },
 });

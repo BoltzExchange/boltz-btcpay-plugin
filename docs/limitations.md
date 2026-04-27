@@ -1,3 +1,9 @@
+---
+description:
+  Known limitations of the Boltz BTCPay Plugin, including the lack of support
+  for 0-amount invoices in pull payments and admin enablement requirements.
+---
+
 # 🚧 Limitations
 
 This page lists know limitations of the Boltz BTCPay Plugin

@@ -1,4 +1,7 @@
 ---
+description:
+  How to set up a local regtest environment for Boltz BTCPay Plugin development
+  using Boltz Regtest and the BTCPay profile.
 next: false
 ---
 
