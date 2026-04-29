@@ -33,7 +33,7 @@ namespace BTCPayServer.Plugins.Boltz.Tests
             InvoicePaymentMethodDataModel lightningMethod = null;
             await TestUtils.EventuallyAsync(async () =>
             {
-                var methods = await client.GetInvoicePaymentMethods(account.StoreId, invoice.Id);
+                var methods = await client.GetInvoicePaymentMethods(invoice.Id);
                 lightningMethod = Assert.Single(methods, m => m.PaymentMethodId == lightningPaymentMethodId);
                 Assert.True(lightningMethod.Activated);
                 Assert.False(string.IsNullOrWhiteSpace(lightningMethod.Destination));
@@ -43,11 +43,11 @@ namespace BTCPayServer.Plugins.Boltz.Tests
 
             await TestUtils.EventuallyAsync(async () =>
             {
-                var paidInvoice = await client.GetInvoice(account.StoreId, invoice.Id);
+                var paidInvoice = await client.GetInvoice(invoice.Id);
                 Assert.Equal(InvoiceStatus.Settled, paidInvoice.Status);
                 Assert.Equal(InvoiceExceptionStatus.None, paidInvoice.AdditionalStatus);
 
-                var methods = await client.GetInvoicePaymentMethods(account.StoreId, invoice.Id);
+                var methods = await client.GetInvoicePaymentMethods(invoice.Id);
                 var paidLightningMethod = Assert.Single(methods, m => m.PaymentMethodId == lightningPaymentMethodId);
                 Assert.Contains(
                     paidLightningMethod.Payments,

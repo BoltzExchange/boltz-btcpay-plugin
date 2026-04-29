@@ -9,7 +9,7 @@
 }
 
 <div class="list-group mt-4">
-    <a asp-controller="Boltz" asp-action="ImportWallet" asp-all-route-data="@Model.GetRouteData("importMethod", WalletImportMethod.Mnemonic)" class="list-group-item list-group-item-action @(!Model.AllowImportHot ? "disabled" : "")">
+    <a asp-controller="Boltz" asp-action="ImportWallet" asp-all-route-data="@Model.GetRouteData("importMethod", WalletImportMethod.Mnemonic)" class="list-group-item list-group-item-action @(!Model.AllowCreateHot ? "disabled" : "")">
         <div class="image">
             <vc:icon symbol="wallet-seed"/>
         </div>
@@ -17,7 +17,7 @@
             <h4>Enter wallet seed</h4>
             <div class="d-flex flex-column gap-2">
                 <p class="mb-0 text-secondary">Provide the 12 or 24 word mnemonic. BTCPay Server controls funds of this wallet.</p>
-                @if (!Model.AllowImportHot)
+                @if (!Model.AllowCreateHot)
                 {
                     <small class="d-block text-danger mt-2 mt-lg-0">Disabled by admin</small>
                 }

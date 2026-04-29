@@ -37,7 +37,7 @@ jobs:
         run: dotnet build BTCPayServer.Plugins.Boltz --configuration Release --no-restore
 
       - name: Build test project for Playwright
-        run: dotnet build BTCPayServer.Plugins.Boltz.Tests --configuration Debug
+        run: dotnet build BTCPayServer.Plugins.Boltz.Tests --configuration Debug -m:1
 
       - name: Install Playwright Chromium
         run: node ./BTCPayServer.Plugins.Boltz.Tests/bin/Debug/net10.0/.playwright/package/cli.js install chromium

@@ -24,7 +24,6 @@ public class GreenfieldBoltzController(
 ) : ControllerBase
 {
     private bool IsAdmin => User.IsInRole(Roles.ServerAdmin);
-    private bool AllowImportHot => IsAdmin || policiesSettings.AllowHotWalletRPCImportForAll;
     private bool AllowCreateHot => IsAdmin || policiesSettings.AllowHotWalletForAll;
 
 
@@ -200,7 +199,7 @@ public class GreenfieldBoltzController(
                 var credentials = new WalletCredentials();
                 if (!string.IsNullOrEmpty(request.Mnemonic))
                 {
-                    if (!AllowImportHot)
+                    if (!AllowCreateHot)
                     {
                         return this.CreateAPIError(403, "mnemonic-import-disabled", "Mnemonic import is not allowed on this server");
                     }
