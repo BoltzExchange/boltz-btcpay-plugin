@@ -127,7 +127,7 @@ public class BoltzLightningClient(
         return swaps.ReverseSwaps.ToList().Select(InvoiceFromSwapInfo).ToArray();
     }
 
-    public async Task<ReverseSwapInfo?> GetReverseSwapInfo(string swapId)
+    public async Task<ReverseSwapInfo?> GetReverseSwapInfo(string swapId, CancellationToken cancellation = default)
     {
         if (string.IsNullOrEmpty(swapId))
         {
@@ -137,7 +137,7 @@ public class BoltzLightningClient(
         var client = await GetClient();
         try
         {
-            var info = await client.GetSwapInfo(swapId);
+            var info = await client.GetSwapInfo(swapId, cancellation);
             return info.ReverseSwap;
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)

@@ -367,9 +367,16 @@ public class BoltzService(
     public async Task<BoltzSettlementData?> GetBoltzSettlementData(
         string? storeId,
         PaymentEntity payment,
-        InvoiceEntity invoice)
+        InvoiceEntity invoice,
+        CancellationToken cancellation = default)
     {
         if (payment.PaymentMethodId != PaymentTypes.LN.GetPaymentMethodId("BTC"))
+        {
+            return null;
+        }
+
+        var lightningClient = GetLightningClient(GetSettings(storeId));
+        if (lightningClient is null)
         {
             return null;
         }
@@ -382,15 +389,9 @@ public class BoltzService(
 
         var settlementData = new BoltzSettlementData { SwapId = swapId };
 
-        var lightningClient = GetLightningClient(GetSettings(storeId));
-        if (lightningClient is null)
-        {
-            return settlementData;
-        }
-
         try
         {
-            var reverseSwap = await lightningClient.GetReverseSwapInfo(swapId);
+            var reverseSwap = await lightningClient.GetReverseSwapInfo(swapId, cancellation);
             if (reverseSwap is null)
             {
                 return settlementData;
@@ -400,7 +401,7 @@ public class BoltzService(
             settlementData.SettlementAddress = reverseSwap.ClaimAddress;
             settlementData.SettlementTransactionId = reverseSwap.ClaimTransactionId;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!BoltzClient.IsCancellation(ex))
         {
             logger.LogDebug(ex, "Could not load Boltz settlement data for payment {PaymentId} via swap id {SwapId}",
                 payment.Id, swapId);
@@ -417,9 +418,23 @@ public class BoltzService(
         }
 
         var prompt = invoice.GetPaymentPrompt(payment.PaymentMethodId);
-        if (prompt?.Details is null ||
-            handler.ParsePaymentPromptDetails(prompt.Details) is not LigthningPaymentPromptDetails promptDetails ||
-            string.IsNullOrEmpty(promptDetails.InvoiceId))
+        if (prompt?.Details is null)
+        {
+            return null;
+        }
+
+        LigthningPaymentPromptDetails? promptDetails;
+        try
+        {
+            promptDetails = handler.ParsePaymentPromptDetails(prompt.Details) as LigthningPaymentPromptDetails;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Could not parse payment prompt details for payment {PaymentId}", payment.Id);
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(promptDetails?.InvoiceId))
         {
             return null;
         }
