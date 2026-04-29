@@ -46,7 +46,6 @@ public class BoltzController(
     private bool Configured => boltzService.StoreConfigured(CurrentStoreId);
     private BoltzSettings? SavedSettings => boltzService.GetSettings(CurrentStoreId);
     private bool IsAdmin => User.IsInRole(Roles.ServerAdmin);
-    private bool AllowImportHot => IsAdmin || policiesSettings.AllowHotWalletRPCImportForAll;
     private bool AllowCreateHot => IsAdmin || policiesSettings.AllowHotWalletForAll;
 
     private const string BtcPayName = "BTCPay";
@@ -1072,7 +1071,7 @@ public class BoltzController(
                     });
                 }
 
-                if (vm.ImportMethod == WalletImportMethod.Mnemonic && !AllowImportHot)
+                if (vm.ImportMethod == WalletImportMethod.Mnemonic && !AllowCreateHot)
                 {
                     TempData[WellKnownTempData.ErrorMessage] = "Mnemonic import is not allowed";
                     return RedirectToAction(nameof(CreateWallet), new { storeId = CurrentStoreId });
@@ -1107,7 +1106,7 @@ public class BoltzController(
     {
         if (Boltz != null)
         {
-            vm.AllowImportHot = AllowImportHot;
+            vm.AllowCreateHot = AllowCreateHot;
 
             if (vm.ImportMethod == null)
             {
