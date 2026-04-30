@@ -397,7 +397,7 @@ public class BoltzService(
                 return settlementData;
             }
 
-            settlementData.SettlementCurrency = reverseSwap.Pair.To.ToString();
+            settlementData.SettlementCurrency = reverseSwap.Pair.To.ToString().ToUpperInvariant();
             settlementData.SettlementAddress = reverseSwap.ClaimAddress;
             settlementData.SettlementTransactionId = reverseSwap.ClaimTransactionId;
         }
