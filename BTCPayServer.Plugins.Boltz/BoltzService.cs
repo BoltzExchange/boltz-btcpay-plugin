@@ -394,7 +394,7 @@ public class BoltzService(
             var reverseSwap = await lightningClient.GetReverseSwapInfo(swapId, cancellation);
             if (reverseSwap is null)
             {
-                return settlementData;
+                return null;
             }
 
             settlementData.SettlementCurrency = reverseSwap.Pair.To.ToString().ToUpperInvariant();
