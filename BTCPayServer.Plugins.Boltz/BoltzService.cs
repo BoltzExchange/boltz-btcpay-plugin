@@ -364,6 +364,93 @@ public class BoltzService(
         return null;
     }
 
+    public async Task<BoltzSettlementData?> GetBoltzSettlementData(
+        string? storeId,
+        PaymentEntity payment,
+        InvoiceEntity invoice,
+        CancellationToken cancellation = default)
+    {
+        if (payment.PaymentMethodId != PaymentTypes.LN.GetPaymentMethodId("BTC"))
+        {
+            return null;
+        }
+
+        var lightningClient = GetLightningClient(GetSettings(storeId));
+        if (lightningClient is null)
+        {
+            return null;
+        }
+
+        var swapId = TryGetBoltzSwapId(invoice, payment);
+        if (string.IsNullOrEmpty(swapId))
+        {
+            return null;
+        }
+
+        var settlementData = new BoltzSettlementData { SwapId = swapId };
+
+        try
+        {
+            var reverseSwap = await lightningClient.GetReverseSwapInfo(swapId, cancellation);
+            if (reverseSwap is null)
+            {
+                return null;
+            }
+
+            settlementData.SettlementCurrency = reverseSwap.Pair.To.ToString().ToUpperInvariant();
+            settlementData.SettlementAddress = reverseSwap.ClaimAddress;
+            settlementData.SettlementTransactionId = reverseSwap.ClaimTransactionId;
+        }
+        catch (Exception ex) when (!BoltzClient.IsCancellation(ex))
+        {
+            logger.LogDebug(ex, "Could not load Boltz settlement data for payment {PaymentId} via swap id {SwapId}",
+                payment.Id, swapId);
+        }
+
+        return settlementData;
+    }
+
+    private string? TryGetBoltzSwapId(InvoiceEntity invoice, PaymentEntity payment)
+    {
+        if (!paymentHandlers.TryGetValue(payment.PaymentMethodId, out var handler))
+        {
+            return null;
+        }
+
+        var prompt = invoice.GetPaymentPrompt(payment.PaymentMethodId);
+        if (prompt?.Details is null)
+        {
+            return null;
+        }
+
+        LigthningPaymentPromptDetails? promptDetails;
+        try
+        {
+            promptDetails = handler.ParsePaymentPromptDetails(prompt.Details) as LigthningPaymentPromptDetails;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Could not parse payment prompt details for payment {PaymentId}", payment.Id);
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(promptDetails?.InvoiceId))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(payment.Destination) &&
+            string.Equals(prompt.Destination, payment.Destination, StringComparison.Ordinal))
+        {
+            return promptDetails.InvoiceId;
+        }
+
+        return promptDetails.PaymentHash is not null &&
+               string.Equals(promptDetails.PaymentHash.ToString(), payment.Id, StringComparison.OrdinalIgnoreCase)
+            ? promptDetails.InvoiceId
+            : null;
+    }
+
     public async Task SetServerSettings(BoltzServerSettings settings)
     {
         await settingsRepository.UpdateSetting(settings, SettingsName);

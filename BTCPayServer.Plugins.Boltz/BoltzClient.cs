@@ -121,9 +121,10 @@ public class BoltzClient : IDisposable
     }
 
 
-    public async Task<GetSwapInfoResponse> GetSwapInfo(string id)
+    public async Task<GetSwapInfoResponse> GetSwapInfo(string id, CancellationToken cancellationToken = default)
     {
-        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id }, _defaultCallOptions);
+        return await _client.GetSwapInfoAsync(new GetSwapInfoRequest { SwapId = id },
+            CreateCallOptionsWithTimeout(cancellationToken));
     }
 
     public async Task<GetSwapInfoResponse> GetSwapInfo(byte[] paymentHash)
