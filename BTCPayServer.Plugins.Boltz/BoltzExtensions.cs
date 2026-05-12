@@ -2,7 +2,6 @@ using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Services;
 using BTCPayServer.Data;
 using BTCPayServer.Plugins.Boltz;
-using BTCPayServer.Plugins.Shopify.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NBitcoin;

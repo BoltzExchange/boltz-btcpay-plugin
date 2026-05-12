@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Boltzrpc;
 using BTCPayServer.Models;
-using BTCPayServer.Models.WalletViewModels;
 
 namespace BTCPayServer.Plugins.Boltz.Models;
 
