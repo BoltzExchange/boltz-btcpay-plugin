@@ -138,7 +138,7 @@ public class BoltzClient : IDisposable
         return _client.GetSwapInfoStream(new GetSwapInfoRequest { SwapId = id }, CreateCallOptions(cancellationToken == default ? CancellationToken.None : cancellationToken));
     }
 
-    public async Task<Wallets> GetWallets(bool includeReadonly)
+    public async Task<Boltzrpc.Wallets> GetWallets(bool includeReadonly)
     {
         return await _client.GetWalletsAsync(new GetWalletsRequest { IncludeReadonly = includeReadonly }, _defaultCallOptions);
     }
